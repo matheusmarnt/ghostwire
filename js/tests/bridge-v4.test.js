@@ -9,6 +9,22 @@ function fakeMessage({ actions = [], isSkipped = false } = {}) {
   };
 }
 
+function fireMessage(message) {
+  const captured = [];
+  global.Livewire = {
+    interceptMessage(cb) {
+      cb({
+        message,
+        onSuccess: () => {}, onError: () => {}, onFailure: () => {},
+        onCancel: () => {}, onSkipped: () => {}, onFinish: () => {},
+      });
+      return () => {};
+    },
+  };
+  createV4Bridge().subscribe({ onStart: (ctx) => captured.push(ctx), onPostPaint: () => {}, onFinish: () => {} });
+  return captured;
+}
+
 describe('bridge v4', () => {
   it('exposes name "v4"', () => {
     expect(createV4Bridge().name).toBe('v4');
@@ -60,6 +76,45 @@ describe('bridge v4', () => {
     bridge.subscribe({ onStart: (ctx) => captured.push(ctx), onPostPaint: () => {}, onFinish: () => {} });
 
     expect(captured[0].actionNames).toEqual(['save']);
+    expect(captured[0].isSync).toBe(false);
+  });
+
+  it('isSync is true when every action is the magic $set property-sync action (SPEC-API-20)', () => {
+    const captured = fireMessage(fakeMessage({ actions: [{ name: '$set' }] }));
+
+    expect(captured[0].actionNames).toEqual(['$set']);
+    expect(captured[0].isSync).toBe(true);
+  });
+
+  it('isSync is false when a real action is mixed in alongside $set', () => {
+    const captured = fireMessage(fakeMessage({ actions: [{ name: '$set' }, { name: 'save' }] }));
+
+    expect(captured[0].isSync).toBe(false);
+  });
+
+  it('skips onStart entirely for a poll-originated message (SPEC-API-21, native v4 metadata)', () => {
+    const onStart = vi.fn();
+    global.Livewire = {
+      interceptMessage(cb) {
+        cb({
+          message: fakeMessage({ actions: [{ name: 'refresh', metadata: { type: 'poll' } }] }),
+          onSuccess: () => {}, onError: () => {}, onFailure: () => {},
+          onCancel: () => {}, onSkipped: () => {}, onFinish: () => {},
+        });
+        return () => {};
+      },
+    };
+    createV4Bridge().subscribe({ onStart, onPostPaint: () => {}, onFinish: () => {} });
+
+    expect(onStart).not.toHaveBeenCalled();
+  });
+
+  it('does not silence a message with a real action just because a poll-metadata action is also present', () => {
+    const captured = fireMessage(fakeMessage({
+      actions: [{ name: 'refresh', metadata: { type: 'poll' } }, { name: 'save', metadata: {} }],
+    }));
+
+    expect(captured).toHaveLength(1);
     expect(captured[0].isSync).toBe(false);
   });
 
