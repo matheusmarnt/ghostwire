@@ -1,7 +1,8 @@
 function isPolledMethod(component, methodName) {
   const root = component.el;
-  if (!root) return false;
-  return Array.from(root.querySelectorAll('*')).some((el) => {
+  if (!root) return true; // SPEC-INT-21: on uncertainty, default to silence (treat as polled)
+  const elements = [root, ...Array.from(root.querySelectorAll('*'))];
+  return elements.some((el) => {
     for (const attr of el.attributes) {
       if (attr.name === 'wire:poll' || attr.name.startsWith('wire:poll.')) {
         return attr.value.trim() === methodName || attr.value.trim() === '';

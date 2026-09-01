@@ -16,24 +16,28 @@ describe('bridge v3', () => {
   });
 
   it('calls onStart with component, action names, and isSync from an empty calls array', () => {
+    document.body.innerHTML = '<div id="root"></div>';
+    const componentEl = document.getElementById('root');
     const captured = [];
     global.Livewire = {
       hook(name, cb) {
         if (name !== 'commit') return;
-        cb({ component: { id: 'c1' }, commit: makeCommit([]), succeed: () => {}, fail: () => {} });
+        cb({ component: { id: 'c1', el: componentEl }, commit: makeCommit([]), succeed: () => {}, fail: () => {} });
       },
     };
     createV3Bridge().subscribe({ onStart: (ctx) => captured.push(ctx), onPostPaint: () => {}, onFinish: () => {} });
 
-    expect(captured[0]).toEqual({ component: { id: 'c1' }, actionNames: [], isSync: true });
+    expect(captured[0]).toEqual({ component: { id: 'c1', el: componentEl }, actionNames: [], isSync: true });
   });
 
   it('reads action names from commit.calls[].method (SPEC-API-20 silence-by-default relies on this list being accurate)', () => {
+    document.body.innerHTML = '<div id="root"><button wire:click="save"></button></div>';
+    const componentEl = document.getElementById('root');
     const captured = [];
     global.Livewire = {
       hook(name, cb) {
         if (name !== 'commit') return;
-        cb({ component: { id: 'c1' }, commit: makeCommit([{ path: '', method: 'save', params: [] }]), succeed: () => {}, fail: () => {} });
+        cb({ component: { id: 'c1', el: componentEl }, commit: makeCommit([{ path: '', method: 'save', params: [] }]), succeed: () => {}, fail: () => {} });
       },
     };
     createV3Bridge().subscribe({ onStart: (ctx) => captured.push(ctx), onPostPaint: () => {}, onFinish: () => {} });
@@ -95,6 +99,25 @@ describe('bridge v3', () => {
 
   it('A12: silences a commit whose sole call name matches an element with wire:poll in the component root (conservative default)', () => {
     document.body.innerHTML = '<div id="root"><button wire:poll.5s="refresh"></button></div>';
+    const componentEl = document.getElementById('root');
+    const onStart = vi.fn();
+    global.Livewire = {
+      hook(name, cb) {
+        if (name !== 'commit') return;
+        cb({
+          component: { id: 'c1', el: componentEl },
+          commit: makeCommit([{ path: '', method: 'refresh', params: [] }]),
+          succeed: () => {}, fail: () => {},
+        });
+      },
+    };
+    createV3Bridge().subscribe({ onStart, onPostPaint: () => {}, onFinish: () => {} });
+
+    expect(onStart).not.toHaveBeenCalled();
+  });
+
+  it('A12: silences a commit when wire:poll is declared directly on the component root element itself', () => {
+    document.body.innerHTML = '<div id="root" wire:poll.5s="refresh"></div>';
     const componentEl = document.getElementById('root');
     const onStart = vi.fn();
     global.Livewire = {
