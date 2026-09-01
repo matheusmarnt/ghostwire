@@ -265,12 +265,14 @@
         }
       },
       onPostPaint(ctx) {
+        if (ctx.isSync) return;
         for (const host of registry.hostsFor(ctx.component.id)) {
           renderer.repositionLayer(host);
           scheduler.messagePostPaint(host);
         }
       },
       onFinish(ctx) {
+        if (ctx.isSync) return;
         for (const host of registry.hostsFor(ctx.component.id)) {
           scheduler.messageFinish(host);
         }

@@ -70,12 +70,14 @@ export function boot() {
       }
     },
     onPostPaint(ctx) {
+      if (ctx.isSync) return; // SPEC-API-20 default silence — mirror onStart's guard
       for (const host of registry.hostsFor(ctx.component.id)) {
         renderer.repositionLayer(host);
         scheduler.messagePostPaint(host);
       }
     },
     onFinish(ctx) {
+      if (ctx.isSync) return; // SPEC-API-20 default silence — mirror onStart's guard
       for (const host of registry.hostsFor(ctx.component.id)) {
         scheduler.messageFinish(host);
       }
