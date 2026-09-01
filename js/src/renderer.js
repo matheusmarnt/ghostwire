@@ -3,7 +3,7 @@ export function createRenderer() {
     const layer = document.createElement('div');
     layer.className = 'gw-layer';
     layer.setAttribute('aria-hidden', 'true');
-    host.el.parentNode.insertBefore(layer, host.el.nextSibling);
+    document.body.appendChild(layer); // SPEC-MORPH-01: mounted outside the reconciled tree entirely, not as a DOM sibling of the host
     host.layer = layer;
     repositionLayer(host);
     return layer;

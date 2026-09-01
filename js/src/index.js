@@ -61,6 +61,26 @@ export function boot() {
     if (el.classList?.contains('gw-layer')) skip();
   });
 
+  // A leaked/extra Ghost Layer node that mismatches its positional
+  // counterpart's tag name is routed by Livewire's morph diff through
+  // swapElements() -> morph.removing, never morph.updating (skip() there
+  // never gets a chance to run). Mirror the same guard on this hook so
+  // either path protects the node.
+  window.Livewire.hook('morph.removing', ({ el, skip }) => {
+    if (el.classList?.contains('gw-layer')) skip();
+  });
+
+  // A morph re-renders the host's own attributes from server HTML, which has
+  // no gw-frozen class — Livewire's attribute diffing strips it immediately
+  // regardless of the scheduler's hold timer. Reapply it (idempotent) right
+  // after any morph, for any host still supposed to be visibly frozen; the
+  // scheduler still owns *when* freeze actually ends.
+  window.Livewire.hook('morphed', ({ component }) => {
+    for (const host of registry.hostsFor(component.id)) {
+      if (host.state === 'visible' && host.config.mode === 'freeze') renderer.freeze(host);
+    }
+  });
+
   bridge.subscribe({
     onStart(ctx) {
       if (ctx.isSync) return; // SPEC-API-20 default silence

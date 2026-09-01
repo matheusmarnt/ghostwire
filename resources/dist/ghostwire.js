@@ -174,7 +174,7 @@
       const layer = document.createElement("div");
       layer.className = "gw-layer";
       layer.setAttribute("aria-hidden", "true");
-      host.el.parentNode.insertBefore(layer, host.el.nextSibling);
+      document.body.appendChild(layer);
       host.layer = layer;
       repositionLayer(host);
       return layer;
@@ -255,6 +255,14 @@
     });
     window.Livewire.hook("morph.updating", ({ el, skip }) => {
       if (el.classList?.contains("gw-layer")) skip();
+    });
+    window.Livewire.hook("morph.removing", ({ el, skip }) => {
+      if (el.classList?.contains("gw-layer")) skip();
+    });
+    window.Livewire.hook("morphed", ({ component }) => {
+      for (const host of registry.hostsFor(component.id)) {
+        if (host.state === "visible" && host.config.mode === "freeze") renderer.freeze(host);
+      }
     });
     bridge.subscribe({
       onStart(ctx) {

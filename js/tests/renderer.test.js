@@ -12,14 +12,14 @@ function makeHost() {
 describe('renderer', () => {
   beforeEach(() => { document.body.innerHTML = ''; });
 
-  it('mountLayer inserts a sibling element right after the host, never inside it', () => {
+  it('mountLayer appends the layer to document.body, never inside the host', () => {
     const renderer = createRenderer();
     const host = makeHost();
 
     const layer = renderer.mountLayer(host);
 
     expect(host.layer).toBe(layer);
-    expect(layer.previousSibling).toBe(host.el);
+    expect(layer.parentNode).toBe(document.body);
     expect(host.el.contains(layer)).toBe(false);
     expect(layer.classList.contains('gw-layer')).toBe(true);
     expect(layer.getAttribute('aria-hidden')).toBe('true');
@@ -33,7 +33,7 @@ describe('renderer', () => {
     renderer.removeLayer(host);
 
     expect(host.layer).toBeNull();
-    expect(host.el.parentNode.querySelector('.gw-layer')).toBeNull();
+    expect(document.body.querySelector('.gw-layer')).toBeNull();
   });
 
   it('freeze adds the frozen class to the host and does not create a layer', () => {
