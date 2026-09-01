@@ -1,0 +1,14 @@
+{
+  "name": "ghostwire-runtime",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node js/build.mjs",
+    "test": "vitest run --config js/vitest.config.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "jsdom": "^30.0.1",
+    "vitest": "^4.1.11"
+  }
+}
