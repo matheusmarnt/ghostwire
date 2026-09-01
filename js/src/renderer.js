@@ -1,0 +1,36 @@
+export function createRenderer() {
+  function mountLayer(host) {
+    const layer = document.createElement('div');
+    layer.className = 'gw-layer';
+    layer.setAttribute('aria-hidden', 'true');
+    host.el.parentNode.insertBefore(layer, host.el.nextSibling);
+    host.layer = layer;
+    repositionLayer(host);
+    return layer;
+  }
+
+  function repositionLayer(host) {
+    if (!host.layer) return;
+    const rect = host.el.getBoundingClientRect();
+    host.layer.style.top = `${rect.top}px`;
+    host.layer.style.left = `${rect.left}px`;
+    host.layer.style.width = `${rect.width}px`;
+    host.layer.style.height = `${rect.height}px`;
+  }
+
+  function removeLayer(host) {
+    if (!host.layer) return;
+    host.layer.remove();
+    host.layer = null;
+  }
+
+  function freeze(host) {
+    host.el.classList.add('gw-frozen');
+  }
+
+  function unfreeze(host) {
+    host.el.classList.remove('gw-frozen');
+  }
+
+  return { mountLayer, repositionLayer, removeLayer, freeze, unfreeze };
+}
