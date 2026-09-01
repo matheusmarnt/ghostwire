@@ -10,6 +10,7 @@ await build({
   target: ['es2020'],
   outfile: 'resources/dist/ghostwire.js',
   legalComments: 'none',
+  define: { 'process.env.NODE_ENV': '"production"' },
 });
 
 if (existsSync('js/src/style.css')) {
