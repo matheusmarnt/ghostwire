@@ -51,7 +51,7 @@ it('never inserts the Ghost Layer inside the reconciled host subtree (SPEC-MORPH
     $page = visit('/ghostwire-test-page');
 
     $page->script('
-        window.__gw = { layerAppeared: false, layerEverInsideList: false };
+        window.__gw = { layerAppeared: false, layerEverInsideReconciledTree: false };
         const list = document.getElementById("list");
 
         // Fix 1: the layer now mounts to document.body (outside the
@@ -63,14 +63,20 @@ it('never inserts the Ghost Layer inside the reconciled host subtree (SPEC-MORPH
             }
         }).observe(document.body, { childList: true });
 
-        // subtree: true — catches the layer even if it only ever existed
-        // inside #list for a single microtask. This is still the core
-        // SPEC-MORPH-01 property regardless of where the layer mounts.
+        // Watch the whole COMPONENT ROOT (closest [wire:id] ancestor), not
+        // just the #list subtree. The original bug inserted the layer as a
+        // sibling of #list — i.e. a child of the component root, but
+        // outside the #list subtree — which an #list-only observer never
+        // would have caught (the original version of this test kept
+        // passing against the pre-fix buggy code). subtree: true also
+        // catches the layer even if it only ever existed there for a
+        // single microtask.
+        const componentRoot = list.closest("[wire\\\\:id]");
         new MutationObserver((muts) => {
             for (const m of muts) for (const n of m.addedNodes) {
-                if (n.nodeType === 1 && n.classList && n.classList.contains("gw-layer")) window.__gw.layerEverInsideList = true;
+                if (n.nodeType === 1 && n.classList && n.classList.contains("gw-layer")) window.__gw.layerEverInsideReconciledTree = true;
             }
-        }).observe(list, { childList: true, subtree: true });
+        }).observe(componentRoot, { childList: true, subtree: true });
 
         true;
     ');
@@ -79,14 +85,14 @@ it('never inserts the Ghost Layer inside the reconciled host subtree (SPEC-MORPH
     $page->wait(1.0); // generous window covering the entire show/morph/hide cycle
 
     $layerAppeared = $page->script('window.__gw.layerAppeared');
-    $layerEverInsideList = $page->script('window.__gw.layerEverInsideList');
+    $layerEverInsideReconciledTree = $page->script('window.__gw.layerEverInsideReconciledTree');
 
     // Sanity: prove the layer actually mounted at some point during the
-    // interaction, so the "never inside the host" check below isn't
-    // vacuously true because nothing was ever rendered.
+    // interaction, so the "never inside the reconciled tree" check below
+    // isn't vacuously true because nothing was ever rendered.
     expect($layerAppeared)->toBeTrue();
 
-    expect($layerEverInsideList)->toBeFalse();
+    expect($layerEverInsideReconciledTree)->toBeFalse();
 });
 
 it('registers morph.updating and morph.removing handlers that call skip() for Ghost Layer nodes (SPEC-MORPH-02)', function () {
@@ -248,13 +254,26 @@ it('reapplies gw-frozen immediately after a morph strips it, while the host is s
     // later-registered `morphed` listener observes it. This is event-driven
     // rather than a fixed-offset guess, so it isn't sensitive to exactly
     // when the morph happens to land.
+    // Also guards against over-applying: the morphed handler in
+    // js/src/index.js only reapplies gw-frozen when config.mode === 'freeze'
+    // — if that condition were ever dropped, #list (plain wire:ghost, no
+    // .freeze) would get gw-frozen slapped on it after every morph too, and
+    // nothing else in this file would catch that. Watched continuously via
+    // MutationObserver (not just at the "morphed" checkpoint) so it's caught
+    // regardless of exactly when it might happen.
     $page->script('
-        window.__gw = { frozenRightAfterMorph: null };
+        window.__gw = { frozenRightAfterMorph: null, listEverFrozen: false };
         Livewire.hook("morphed", ({ component }) => {
             if (window.__gw.frozenRightAfterMorph === null) {
                 window.__gw.frozenRightAfterMorph = document.getElementById("summary").classList.contains("gw-frozen");
             }
         });
+        const list = document.getElementById("list");
+        new MutationObserver((muts) => {
+            for (const m of muts) if (m.attributeName === "class" && list.classList.contains("gw-frozen")) {
+                window.__gw.listEverFrozen = true;
+            }
+        }).observe(list, { attributes: true });
         true;
     ');
 
@@ -270,4 +289,8 @@ it('reapplies gw-frozen immediately after a morph strips it, while the host is s
     $frozenRightAfterMorph = $page->script('window.__gw.frozenRightAfterMorph');
 
     expect($frozenRightAfterMorph)->toBeTrue();
+
+    $listEverFrozen = $page->script('window.__gw.listEverFrozen');
+
+    expect($listEverFrozen)->toBeFalse();
 });
