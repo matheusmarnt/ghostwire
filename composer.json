@@ -1,0 +1,63 @@
+{
+    "name": "matheusmarnt/ghostwire",
+    "description": "Automatic runtime skeleton loaders for Livewire — synthesized from your live DOM, zero markup.",
+    "keywords": [
+        "laravel",
+        "livewire",
+        "livewire-3",
+        "livewire-4",
+        "skeleton",
+        "skeleton-loader",
+        "ux",
+        "loading-state"
+    ],
+    "homepage": "https://ghostwire.dev",
+    "support": {
+        "issues": "https://github.com/matheusmarnt/ghostwire/issues",
+        "source": "https://github.com/matheusmarnt/ghostwire"
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Matheus Mariano",
+            "homepage": "https://github.com/matheusmarnt",
+            "role": "Author"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^11.0|^12.0|^13.0",
+        "livewire/livewire": "^3.6|^4.0"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.14"
+    },
+    "autoload": {
+        "psr-4": {
+            "Ghostwire\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Ghostwire\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "format": "vendor/bin/pint"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "php-http/discovery": true
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Ghostwire\\GhostwireServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

@@ -1,0 +1,26 @@
+name: security
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * 1'
+
+jobs:
+  composer-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Audit dependencies for known vulnerabilities
+        run: composer audit
+
+      # Artifact-reproducibility check (SPEC-SEC-07) activates once
+      # resources/dist/ghostwire.js exists — see SDD §13.5 (M1+).

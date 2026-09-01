@@ -1,0 +1,11 @@
+name: perf
+
+on:
+  workflow_dispatch:
+  # Activates on push/PR once tests/Performance exists (SPEC-PERF-01..12).
+
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "No performance suite yet — see SDD-ghostwire.md §16 (M2) and §11 (SPEC-PERF-01..12)."

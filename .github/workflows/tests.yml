@@ -1,0 +1,33 @@
+name: tests
+
+on:
+  push:
+    paths:
+      - 'composer.json'
+      - 'composer.lock'
+      - '.github/workflows/tests.yml'
+  pull_request:
+    paths:
+      - 'composer.json'
+      - 'composer.lock'
+      - '.github/workflows/tests.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: Validate composer.json
+        run: composer validate --strict
+
+      # Full PHP 8.2/8.3/8.4 x Laravel 11/12/13 x Livewire 3.x/4.x matrix
+      # (SPEC-PERF-09) activates once src/ and tests/ exist — see SDD §16 (M1+).
