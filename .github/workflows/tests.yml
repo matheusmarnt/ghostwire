@@ -59,4 +59,11 @@ jobs:
           composer update --prefer-dist --no-interaction --no-progress
       - name: Install Playwright browser for Pest
         run: npx playwright install --with-deps chromium
-      - run: vendor/bin/pest
+      - name: Run tests
+        # Explicit --cache-directory: Pest's own auto-detection
+        # (Plugins/Cache.php) resolves vendor/pestphp/pest/.temp via
+        # realpath(), which returns false (and silently corrupts the
+        # injected CLI argument) whenever that directory doesn't survive
+        # a --prefer-dist install — pass a guaranteed-writable path
+        # ourselves so that fragile auto-injection never triggers.
+        run: vendor/bin/pest --cache-directory=/tmp/pest-cache
