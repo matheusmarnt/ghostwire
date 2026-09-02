@@ -14,13 +14,19 @@
           isSync
         };
         handlers.onStart(ctx);
+        let finished = false;
+        const finish = () => {
+          if (finished) return;
+          finished = true;
+          handlers.onFinish(ctx);
+        };
         onSuccess(({ onRender }) => {
           onRender(() => handlers.onPostPaint(ctx));
         });
-        onError(() => handlers.onFinish(ctx));
-        onFailure(() => handlers.onFinish(ctx));
-        onCancel(() => handlers.onFinish(ctx));
-        onFinish(() => handlers.onFinish(ctx));
+        onError(() => finish());
+        onFailure(() => finish());
+        onCancel(() => finish());
+        onFinish(() => finish());
       });
     }
     return { name: "v4", subscribe };
@@ -34,7 +40,7 @@
     return elements.some((el) => {
       for (const attr of el.attributes) {
         if (attr.name === "wire:poll" || attr.name.startsWith("wire:poll.")) {
-          return attr.value.trim() === methodName || attr.value.trim() === "";
+          return attr.value.trim() === methodName;
         }
       }
       return false;
