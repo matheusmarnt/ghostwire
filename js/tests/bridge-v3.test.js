@@ -154,6 +154,32 @@ describe('bridge v3', () => {
     expect(onStart).toHaveBeenCalledOnce();
   });
 
+  // Regression test for M1 final review Fix 3: isPolledMethod used to treat
+  // a bare `wire:poll` (no explicit method target) as matching ANY method
+  // name, which silenced every commit from a component -- including real
+  // user-triggered actions like save() -- as long as a bare wire:poll
+  // existed anywhere in it. A bare wire:poll's own commit triggers
+  // Livewire's $refresh (empty calls array), which is already silenced by
+  // the separate isSync check, so this heuristic should never match it.
+  it('A12: a bare wire:poll (no explicit target) does not silence a save() action call', () => {
+    document.body.innerHTML = '<div id="root"><span wire:poll>loading</span><button wire:click="save"></button></div>';
+    const componentEl = document.getElementById('root');
+    const onStart = vi.fn();
+    global.Livewire = {
+      hook(name, cb) {
+        if (name !== 'commit') return;
+        cb({
+          component: { id: 'c1', el: componentEl },
+          commit: makeCommit([{ path: '', method: 'save', params: [] }]),
+          succeed: () => {}, fail: () => {},
+        });
+      },
+    };
+    createV3Bridge().subscribe({ onStart, onPostPaint: () => {}, onFinish: () => {} });
+
+    expect(onStart).toHaveBeenCalledOnce();
+  });
+
   it('subscribe returns an unsubscribe function even though Livewire.hook itself returns nothing (SPEC-INT-24: no documented v3 unsubscribe)', () => {
     global.Livewire = { hook() { /* no return value, matches real v3 */ } };
 

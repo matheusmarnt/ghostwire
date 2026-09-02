@@ -5,7 +5,14 @@ function isPolledMethod(component, methodName) {
   return elements.some((el) => {
     for (const attr of el.attributes) {
       if (attr.name === 'wire:poll' || attr.name.startsWith('wire:poll.')) {
-        return attr.value.trim() === methodName || attr.value.trim() === '';
+        // Only match an explicit method target. A bare `wire:poll` (no
+        // value) targets Livewire's own $refresh, which has an empty
+        // `calls` array and is already silenced by the isSync check above
+        // -- not by this heuristic. Treating an empty value as "matches
+        // anything" used to silence every commit from a component that has
+        // a bare wire:poll anywhere in it, including real user-triggered
+        // actions like a save() button click.
+        return attr.value.trim() === methodName;
       }
     }
     return false;
