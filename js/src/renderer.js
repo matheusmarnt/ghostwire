@@ -18,7 +18,7 @@ export function createRenderer() {
     host.layer.style.width = `${rect.width}px`;
     host.layer.style.height = `${rect.height}px`;
     host.layer.style.borderRadius = style.borderRadius; // SPEC-RND-02
-    host.layer.style.overflow = style.overflow === 'hidden' ? 'hidden' : 'visible'; // SPEC-RND-02
+    host.layer.style.overflow = style.overflow === 'visible' ? 'visible' : 'hidden'; // SPEC-RND-02
   }
 
   function renderBones(host, boneTree) {

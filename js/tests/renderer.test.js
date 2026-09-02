@@ -101,6 +101,7 @@ describe('renderer', () => {
     const renderer = createRenderer();
     const host = makeHost();
     host.el.getBoundingClientRect = () => ({ top: 0, left: 0, width: 100, height: 50 });
+    host.el.style.overflow = 'visible';
     renderer.mountLayer(host);
 
     renderer.repositionLayer(host);
