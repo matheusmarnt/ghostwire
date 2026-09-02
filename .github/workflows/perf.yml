@@ -8,4 +8,4 @@ jobs:
   placeholder:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "No performance suite yet — see SDD-ghostwire.md §16 (M2) and §11 (SPEC-PERF-01..12)."
+      - run: echo "No performance suite yet — see SDD-ghostwire.md §16 (M3) and §11 (SPEC-PERF-01..12)."

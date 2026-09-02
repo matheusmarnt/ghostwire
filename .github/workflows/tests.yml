@@ -1,16 +1,9 @@
 name: tests
 
 on:
-  push:
-    paths:
-      - 'composer.json'
-      - 'composer.lock'
-      - '.github/workflows/tests.yml'
   pull_request:
-    paths:
-      - 'composer.json'
-      - 'composer.lock'
-      - '.github/workflows/tests.yml'
+  push:
+    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -21,13 +14,49 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-
       - name: Validate composer.json
         run: composer validate --strict
 
-      # Full PHP 8.2/8.3/8.4 x Laravel 11/12/13 x Livewire 3.x/4.x matrix
-      # (SPEC-PERF-09) activates once src/ and tests/ exist — see SDD §16 (M1+).
+  js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+
+  php:
+    needs: js
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3', '8.4']
+        laravel: ['11.*', '12.*', '13.*']
+        livewire: ['^3.6', '^4.0']
+        exclude:
+          # Laravel 13 requires PHP 8.3+ — 8.2 x 13 is an invalid cell.
+          - php: '8.2'
+            laravel: '13.*'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - run: npm ci && npm run build
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+      - name: Require matrix versions
+        run: |
+          composer require "illuminate/support:${{ matrix.laravel }}" "livewire/livewire:${{ matrix.livewire }}" --no-interaction --no-update
+          composer update --prefer-dist --no-interaction --no-progress
+      - name: Install Playwright browser for Pest
+        run: vendor/bin/pest --browser --install || true
+      - run: vendor/bin/pest

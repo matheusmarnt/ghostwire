@@ -22,5 +22,19 @@ jobs:
       - name: Audit dependencies for known vulnerabilities
         run: composer audit
 
-      # Artifact-reproducibility check (SPEC-SEC-07) activates once
-      # resources/dist/ghostwire.js exists — see SDD §13.5 (M1+).
+  dist-reproducible:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - run: npm ci
+      - run: npm run build
+      - name: Verify resources/dist matches a fresh build (SPEC-SEC-07)
+        run: |
+          if ! git diff --quiet -- resources/dist; then
+            echo "::error::resources/dist/* is not reproducible from js/src — rebuild and commit before merging."
+            git diff -- resources/dist
+            exit 1
+          fi
