@@ -3,6 +3,7 @@
 namespace Ghostwire\Tests;
 
 use Ghostwire\GhostwireServiceProvider;
+use Ghostwire\Tests\Browser\Fixtures\DemoTable;
 use Livewire\Livewire;
 use Livewire\LivewireServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
@@ -18,7 +19,7 @@ class TestCase extends Orchestra
     {
         $app['config']->set('app.key', 'base64:'.base64_encode(random_bytes(32)));
         $app['view']->addNamespace('ghostwire-fixtures', __DIR__.'/Browser/Fixtures/views');
-        Livewire::component('demo-table', \Ghostwire\Tests\Browser\Fixtures\DemoTable::class);
+        Livewire::component('demo-table', DemoTable::class);
     }
 
     protected function defineRoutes($router): void

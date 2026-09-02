@@ -1,3 +1,5 @@
 <?php
 
-uses(Ghostwire\Tests\TestCase::class)->in('Feature', 'Unit', 'Browser', 'Contract');
+use Ghostwire\Tests\TestCase;
+
+uses(TestCase::class)->in('Feature', 'Unit', 'Browser', 'Contract');

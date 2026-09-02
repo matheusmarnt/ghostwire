@@ -1,7 +1,9 @@
 <?php
 
+use Composer\InstalledVersions;
+
 it('exposes the exact global symbols this package\'s bridge depends on, for whichever Livewire line is installed (SPEC-INT-02)', function () {
-    $installedVersion = \Composer\InstalledVersions::getVersion('livewire/livewire');
+    $installedVersion = InstalledVersions::getVersion('livewire/livewire');
     $isV4 = str_starts_with($installedVersion, '4.');
 
     $page = visit('/ghostwire-test-page');

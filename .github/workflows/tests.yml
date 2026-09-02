@@ -58,5 +58,5 @@ jobs:
           composer require "illuminate/support:${{ matrix.laravel }}" "livewire/livewire:${{ matrix.livewire }}" --no-interaction --no-update
           composer update --prefer-dist --no-interaction --no-progress
       - name: Install Playwright browser for Pest
-        run: vendor/bin/pest --browser --install
+        run: npx playwright install --with-deps chromium
       - run: vendor/bin/pest

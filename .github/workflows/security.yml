@@ -15,7 +15,11 @@ jobs:
 
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          # 8.3+ required: the full require-dev set (pest-plugin-browser)
+          # only resolves on PHP 8.3+, even though the package's own
+          # floor is 8.2 — see tests.yml's php matrix for the versions
+          # actually supported at runtime.
+          php-version: '8.3'
 
       - run: composer install --prefer-dist --no-interaction --no-progress
 
