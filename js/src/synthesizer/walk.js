@@ -21,18 +21,24 @@ function hasDirectText(el) {
 
 export function collectAndClassify(host, registry, maxDepth = 12) {
   const candidates = [];
-  visit(host.el, registry, candidates, 0, maxDepth);
+  visit(host.el, registry, candidates, 0, maxDepth, host.el);
   return candidates;
 }
 
 // SPEC-SYN-13: depth and candidate-count are both hard-capped. Exceeding
 // either must never silently drop content — it degrades to one aggregated
 // 'block' bone standing in for whatever wasn't individually walked, so the
-// host always ends up with *some* skeleton.
-function visit(node, registry, out, depth, maxDepth) {
+// host always ends up with *some* skeleton. The count cap specifically
+// degrades to exactly ONE block for the whole host (never one per ancestor
+// level it cascades through), sized to the host's own rect so no region is
+// ever left with zero coverage.
+function visit(node, registry, out, depth, maxDepth, rootEl) {
   for (const child of node.children) {
     if (out.length >= MAX_CANDIDATES) {
-      out.push({ type: 'block', el: node, depth }); // SPEC-SYN-13: aggregate the rest of this container as one block
+      if (!out.capped) {
+        out.push({ type: 'block', el: rootEl, depth: 0 });
+        out.capped = true;
+      }
       return;
     }
     if (registry.hostFor(child)) continue; // SPEC-API-03: nested wire:ghost host is a boundary
@@ -41,7 +47,7 @@ function visit(node, registry, out, depth, maxDepth) {
     const type = classify(child);
     if (type === 'container') {
       if (depth < maxDepth) {
-        visit(child, registry, out, depth + 1, maxDepth);
+        visit(child, registry, out, depth + 1, maxDepth, rootEl);
       } else {
         out.push({ type: 'block', el: child, depth: depth + 1 }); // SPEC-SYN-13: depth cap reached, aggregate this subtree
       }

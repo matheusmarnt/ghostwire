@@ -101,4 +101,29 @@ describe('synthesizer/walk', () => {
     expect(candidates[0].type).toBe('text');
     expect(candidates.at(-1).type).toBe('block');
   });
+
+  it('SPEC-SYN-13: exactly one block is produced when the count cap trips inside a nested container with siblings still pending', () => {
+    const el = document.createElement('div');
+    const a = document.createElement('div'); // container A: fills the cap exactly on its own
+    for (let i = 0; i < 300; i++) {
+      const p = document.createElement('p');
+      p.textContent = `a-row ${i}`;
+      a.appendChild(p);
+    }
+    el.appendChild(a);
+    const b = document.createElement('div'); // sibling of A, never gets individually walked
+    const bp = document.createElement('p');
+    bp.textContent = 'b-row';
+    b.appendChild(bp);
+    el.appendChild(b);
+    document.body.appendChild(el);
+    const host = { el, component: { id: 'c1' }, config: {}, state: 'idle', pending: 0, layer: null };
+    const registry = createRegistry();
+
+    const candidates = collectAndClassify(host, registry, 12);
+
+    const blocks = candidates.filter((c) => c.type === 'block');
+    expect(blocks).toHaveLength(1); // not one per ancestor level
+    expect(blocks[0].el).toBe(host.el); // covers the whole host, so B's un-walked content isn't left with zero coverage
+  });
 });
