@@ -79,4 +79,55 @@ describe('synthesizer/measure', () => {
     expect(spy).not.toHaveBeenCalled();
     expect(measured.results[0].lineRects).toEqual([]);
   });
+
+  it('computes a clipRect equal to the host rect when no ancestor clips (SPEC-SYN-14)', () => {
+    const host = makeHost();
+    const p = document.createElement('p');
+    p.getBoundingClientRect = () => ({ top: 10, left: 10, right: 90, bottom: 30, width: 80, height: 20 });
+    host.el.appendChild(p);
+
+    const measured = measure(host, [{ el: p, type: 'text', depth: 1 }]);
+
+    expect(measured.results[0].clipRect).toEqual(host.el.getBoundingClientRect());
+  });
+
+  it('intersects clipRect with a scrollable ancestor between the candidate and the host (SPEC-SYN-14)', () => {
+    const host = makeHost();
+    const scrollBox = document.createElement('div');
+    scrollBox.getBoundingClientRect = () => ({ top: 0, left: 0, right: 200, bottom: 50, width: 200, height: 50 });
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((el) => {
+      if (el === scrollBox) return { overflow: 'auto', overflowX: 'auto', overflowY: 'auto', transform: 'none', visibility: 'visible' };
+      return { overflow: 'visible', overflowX: 'visible', overflowY: 'visible', transform: 'none', visibility: 'visible' };
+    });
+    host.el.appendChild(scrollBox);
+    const p = document.createElement('p');
+    p.getBoundingClientRect = () => ({ top: 60, left: 10, right: 90, bottom: 80, width: 80, height: 20 }); // scrolled below scrollBox's own visible box
+    scrollBox.appendChild(p);
+
+    const measured = measure(host, [{ el: p, type: 'text', depth: 2 }]);
+
+    expect(measured.results[0].clipRect.bottom).toBe(50); // clamped to the scrollable ancestor's own bottom edge
+  });
+
+  it('SPEC-SYN-11: measures pitch and item rect for a repeat-extra candidate', () => {
+    const host = makeHost();
+    const items = [0, 1, 2].map((i) => {
+      const el = document.createElement('div');
+      el.getBoundingClientRect = () => ({ top: i * 20, left: 0, right: 100, bottom: i * 20 + 18, width: 100, height: 18 });
+      host.el.appendChild(el);
+      return el;
+    });
+
+    const measured = measure(host, [{
+      type: 'repeat-extra',
+      el: items[2],
+      depth: 1,
+      repeatGroup: { id: 0, index: 2 },
+      repeatExtra: { count: 4, sampleEls: items },
+    }]);
+
+    expect(measured.results[0].repeat.count).toBe(4);
+    expect(measured.results[0].repeat.pitch).toEqual({ x: 0, y: 20 });
+    expect(measured.results[0].repeatGroup).toEqual({ id: 0, index: 2 });
+  });
 });
