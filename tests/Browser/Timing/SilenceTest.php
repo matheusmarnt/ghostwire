@@ -90,3 +90,54 @@ it('does not activate any host for a sync-only message with no action calls (SPE
 
     expect($data['everFrozen'])->toBeFalse();
 });
+
+it('does not activate a host for a real wire:model.live keystroke sync, the actual named regression (SPEC-API-20)', function () {
+    // The `.set()` test above proves isSync recognizes the $set magic
+    // action, but the real-world scenario this spec exists for is typing
+    // into a wire:model.live-bound input — which syncs via $commit, not
+    // $set (confirmed: vendor/livewire/livewire/dist/livewire.js's model
+    // directive calls component.$wire.$commit() for live/debounced
+    // updates). This exercises that directly: a wire:model.live input is
+    // injected into the existing fixture component at runtime via Alpine's
+    // own initTree — not a shared-fixture change (tests/Browser/Fixtures/*
+    // is untouched) — then a real keystroke ('input' event) is dispatched
+    // against it.
+    $page = visit('/ghostwire-test-page');
+
+    $page->script('
+        window.__gw = { everFrozen: false };
+        const summary = document.getElementById("summary");
+        new MutationObserver((muts) => {
+            for (const m of muts) if (m.attributeName === "class" && summary.classList.contains("gw-frozen")) {
+                window.__gw.everFrozen = true;
+            }
+        }).observe(summary, { attributes: true });
+
+        const root = document.getElementById("summary").closest("[wire\\\\:id]");
+        const input = document.createElement("input");
+        input.id = "gw-diag-model-input";
+        input.setAttribute("wire:model.live", "rows");
+        root.appendChild(input);
+        window.Alpine.initTree(input);
+
+        // Same rationale as the test above: delay the network round trip so
+        // it genuinely exceeds the 120ms show delay, so this cannot pass
+        // vacuously just because the response was fast.
+        const origFetch = window.fetch.bind(window);
+        window.fetch = (...args) => new Promise((resolve) => {
+            setTimeout(() => resolve(origFetch(...args)), 250);
+        });
+        true;
+    ');
+
+    $page->script('
+        const input = document.getElementById("gw-diag-model-input");
+        input.value = "typed";
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+    ');
+    $page->wait(2.0); // generous: clears wire:model.live's own default 150ms debounce + the 250ms fetch delay + delay(120) + hold(300) margin
+
+    $data = json_decode($page->script('JSON.stringify(window.__gw)'), true);
+
+    expect($data['everFrozen'])->toBeFalse();
+});

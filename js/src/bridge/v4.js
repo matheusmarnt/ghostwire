@@ -22,7 +22,7 @@ export function createV4Bridge() {
       // matches a known-non-activating pattern" style already used in v3.js's
       // A12 poll heuristic: treat an actions list where every action is one
       // of these magic sync markers as sync too.
-      const isSync = actionNames.length === 0 || actionNames.every((name) => name === '$set');
+      const isSync = actionNames.length === 0 || actionNames.every((name) => name === '$set' || name === '$commit');
 
       const ctx = {
         component: message.component,

@@ -7,7 +7,7 @@
         const isPoll = message.getActions().length > 0 && message.getActions().every((action) => action.metadata?.type === "poll");
         if (isPoll) return;
         const actionNames = message.getActions().map((action) => action.name);
-        const isSync = actionNames.length === 0 || actionNames.every((name) => name === "$set");
+        const isSync = actionNames.length === 0 || actionNames.every((name) => name === "$set" || name === "$commit");
         const ctx = {
           component: message.component,
           actionNames,

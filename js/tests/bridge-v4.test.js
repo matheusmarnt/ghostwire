@@ -92,6 +92,19 @@ describe('bridge v4', () => {
     expect(captured[0].isSync).toBe(false);
   });
 
+  it('isSync is true when every action is the magic $commit action (wire:model.live sync, SPEC-API-20)', () => {
+    const captured = fireMessage(fakeMessage({ actions: [{ name: '$commit' }] }));
+
+    expect(captured[0].actionNames).toEqual(['$commit']);
+    expect(captured[0].isSync).toBe(true);
+  });
+
+  it('isSync is false when a real action is mixed in alongside $commit', () => {
+    const captured = fireMessage(fakeMessage({ actions: [{ name: '$commit' }, { name: 'save' }] }));
+
+    expect(captured[0].isSync).toBe(false);
+  });
+
   it('skips onStart entirely for a poll-originated message (SPEC-API-21, native v4 metadata)', () => {
     const onStart = vi.fn();
     global.Livewire = {
