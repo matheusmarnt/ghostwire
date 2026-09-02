@@ -188,4 +188,24 @@ describe('synthesizer/walk', () => {
     expect(candidates.every((c) => !c.repeatGroup)).toBe(true);
     expect(candidates).toHaveLength(3);
   });
+
+  it('SPEC-SYN-11: SVG siblings with different classes are not folded into the same repeat group (className is an SVGAnimatedString on SVG elements, not a plain string)', () => {
+    const el = document.createElement('div');
+    const svgNS = 'http://www.w3.org/2000/svg';
+    for (let i = 0; i < 3; i++) {
+      const icon = document.createElementNS(svgNS, 'svg');
+      icon.setAttribute('class', `icon icon-${i}`); // genuinely distinct classes
+      icon.getBoundingClientRect = () => ({ top: 0, left: i * 20, right: i * 20 + 16, bottom: 16, width: 16, height: 16 });
+      el.appendChild(icon);
+    }
+    document.body.appendChild(el);
+    const host = { el, component: { id: 'c1' }, config: {}, state: 'idle', pending: 0, layer: null };
+    const registry = createRegistry();
+
+    const candidates = collectAndClassify(host, registry, 12, 3);
+
+    expect(candidates).toHaveLength(3); // each icon walked individually, not sampled
+    expect(candidates.every((c) => !c.repeatGroup)).toBe(true);
+    expect(candidates.every((c) => c.type === 'icon')).toBe(true);
+  });
 });

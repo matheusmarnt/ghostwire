@@ -110,7 +110,7 @@ function matchingRunLength(children, start) {
 }
 
 function siblingSignature(el) {
-  return `${el.tagName}.${normalizeClassName(el.className)}`;
+  return `${el.tagName}.${normalizeClassName(el.getAttribute('class') ?? '')}`;
 }
 
 function normalizeClassName(className) {
