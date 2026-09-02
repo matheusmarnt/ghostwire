@@ -175,6 +175,8 @@ describe('synthesizer/emit — emit()', () => {
     // intersects, top=198<200). Clone k=2: y=216 (216 is not < 200: fully
     // past the clip, excluded). Clone k=3: y=234 (also excluded).
     expect(bones).toHaveLength(2);
+    expect(bones[0].y).toBe(180); // the template bone itself, untranslated
+    expect(bones[1].y).toBe(198); // exactly clone k=1, not k=2 or k=3 — proves the clip boundary, not just a coincidental count
   });
 
   it('SPEC-SYN-11: a repeat-extra with no template bones (e.g. an empty sampled item) clones nothing', () => {
