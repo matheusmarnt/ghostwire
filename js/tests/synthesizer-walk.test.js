@@ -72,12 +72,33 @@ describe('synthesizer/walk', () => {
     expect(candidates.map((c) => c.el.textContent)).toEqual(['visible']);
   });
 
-  it('collectAndClassify respects maxDepth', () => {
+  it('collectAndClassify degrades to a block bone when maxDepth is exceeded (SPEC-SYN-13)', () => {
     const host = makeHost('<div><div><div><p>deep</p></div></div></div>');
     const registry = createRegistry();
 
     const candidates = collectAndClassify(host, registry, 1);
 
-    expect(candidates).toEqual([]);
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].type).toBe('block');
+  });
+
+  it('collectAndClassify degrades to a block bone when MAX_CANDIDATES is exceeded (SPEC-SYN-13)', () => {
+    const el = document.createElement('div');
+    for (let i = 0; i < 305; i++) {
+      const p = document.createElement('p');
+      p.textContent = `row ${i}`;
+      el.appendChild(p);
+    }
+    document.body.appendChild(el);
+    const host = { el, component: { id: 'c1' }, config: {}, state: 'idle', pending: 0, layer: null };
+    const registry = createRegistry();
+
+    const candidates = collectAndClassify(host, registry, 12);
+
+    // 300 real leaf candidates are pushed before the cap trips on the 301st
+    // child; that trip aggregates the remaining 4 children into one block.
+    expect(candidates).toHaveLength(301);
+    expect(candidates[0].type).toBe('text');
+    expect(candidates.at(-1).type).toBe('block');
   });
 });
