@@ -102,4 +102,42 @@ describe('synthesizer/index', () => {
 
     expect(onResize).toHaveBeenCalledWith(host);
   });
+
+  it('SPEC-PERF-07: skips synthesis and returns null once a previous synthesize() call exceeded the long-task threshold', () => {
+    const registry = createRegistry();
+    let call = 0;
+    const now = () => { call += 1; return call === 2 ? 1000 : 0; }; // first synthesize(): starts at 0, ends at 1000 -> 1000ms duration
+    const synthesizer = createSynthesizer(registry, undefined, undefined, now);
+    const host = makeHost('<p>Hello world</p>');
+
+    const first = synthesizer.synthesize(host);
+    expect(first).not.toBeNull(); // the slow call itself still completes and returns bones
+
+    const second = synthesizer.synthesize(host);
+    expect(second).toBeNull(); // SPEC-PERF-07: the next call degrades to freeze instead of repeating the expensive work
+  });
+
+  it('forget() clears the recorded synthesis duration so a fresh host is not pre-emptively frozen', () => {
+    const registry = createRegistry();
+    let call = 0;
+    const now = () => { call += 1; return call === 2 ? 1000 : 0; };
+    const synthesizer = createSynthesizer(registry, undefined, undefined, now);
+    const host = makeHost('<p>Hello world</p>');
+
+    synthesizer.synthesize(host);
+    synthesizer.forget(host);
+    const after = synthesizer.synthesize(host);
+
+    expect(after).not.toBeNull();
+  });
+
+  it('exposes the last synthesis duration on window.__ghostwireLastSynthesisMs for the browser perf suite', () => {
+    const registry = createRegistry();
+    const synthesizer = createSynthesizer(registry);
+    const host = makeHost('<p>Hello world</p>');
+
+    synthesizer.synthesize(host);
+
+    expect(typeof window.__ghostwireLastSynthesisMs).toBe('number');
+  });
 });

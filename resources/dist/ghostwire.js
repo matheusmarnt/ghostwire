@@ -246,30 +246,104 @@
     }
     return false;
   }
-  function collectAndClassify(host, registry, maxDepth = 12) {
+  var REPEAT_MIN_RUN = 3;
+  var REPEAT_HEIGHT_TOLERANCE = 0.15;
+  function collectAndClassify(host, registry, maxDepth = 12, repeatSampleSize = 3) {
     const candidates = [];
-    visit(host.el, registry, candidates, 0, maxDepth);
+    const state = { groupSeq: 0 };
+    visit(host.el, registry, candidates, 0, maxDepth, repeatSampleSize, state, null, host.el);
     return candidates;
   }
-  function visit(node, registry, out, depth, maxDepth) {
+  function visit(node, registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, rootEl) {
+    const children = [];
     for (const child of node.children) {
-      if (out.length >= MAX_CANDIDATES) return;
       if (registry.hostFor(child)) continue;
       if (child.getAttribute("aria-hidden") === "true") continue;
-      const type = classify(child);
-      if (type === "container") {
-        if (depth < maxDepth) visit(child, registry, out, depth + 1, maxDepth);
+      children.push(child);
+    }
+    let i = 0;
+    while (i < children.length) {
+      if (out.length >= MAX_CANDIDATES) {
+        if (!out.capped) {
+          out.push({ type: "block", el: rootEl, depth: 0 });
+          out.capped = true;
+        }
+        return;
+      }
+      const runLength = matchingRunLength(children, i);
+      if (!repeatGroup && runLength >= REPEAT_MIN_RUN && isUniformHeightRun(children, i, runLength)) {
+        const groupId = state.groupSeq++;
+        const sampleSize = Math.min(repeatSampleSize, runLength);
+        for (let s = 0; s < sampleSize; s++) {
+          processChild(children[i + s], registry, out, depth, maxDepth, repeatSampleSize, state, { id: groupId, index: s }, rootEl);
+        }
+        const extraCount = runLength - sampleSize;
+        if (extraCount > 0) {
+          out.push({
+            type: "repeat-extra",
+            el: children[i + sampleSize - 1],
+            depth,
+            repeatGroup: { id: groupId, index: sampleSize - 1 },
+            repeatExtra: {
+              count: extraCount,
+              sampleEls: children.slice(i, i + sampleSize),
+              extraEls: children.slice(i + sampleSize, i + runLength)
+            }
+          });
+        }
+        i += runLength;
         continue;
       }
-      if (type === null) continue;
-      out.push({ el: child, type, depth });
+      processChild(children[i], registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, rootEl);
+      i += 1;
     }
+  }
+  function processChild(child, registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, rootEl) {
+    const type = classify(child);
+    if (type === "container") {
+      if (depth < maxDepth) {
+        visit(child, registry, out, depth + 1, maxDepth, repeatSampleSize, state, repeatGroup, rootEl);
+      } else {
+        const block = { type: "block", el: child, depth: depth + 1 };
+        if (repeatGroup) block.repeatGroup = repeatGroup;
+        out.push(block);
+      }
+      return;
+    }
+    if (type === null) return;
+    const candidate = { el: child, type, depth };
+    if (repeatGroup) candidate.repeatGroup = repeatGroup;
+    out.push(candidate);
+  }
+  function matchingRunLength(children, start) {
+    const signature = siblingSignature(children[start]);
+    let end = start + 1;
+    while (end < children.length && siblingSignature(children[end]) === signature) end++;
+    return end - start;
+  }
+  function siblingSignature(el) {
+    return `${el.tagName}.${normalizeClassName(el.getAttribute("class") ?? "")}.${el.children.length}`;
+  }
+  function normalizeClassName(className) {
+    return String(className).trim().split(/\s+/).filter(Boolean).sort().join(" ");
+  }
+  function isUniformHeightRun(children, start, runLength) {
+    let min = Infinity;
+    let max = 0;
+    for (let k = 0; k < runLength; k++) {
+      const height = children[start + k].getBoundingClientRect().height;
+      if (height < min) min = height;
+      if (height > max) max = height;
+    }
+    if (max === 0) return false;
+    return (max - min) / max <= REPEAT_HEIGHT_TOLERANCE;
   }
 
   // js/src/synthesizer/measure.js
   function measure(host, candidates) {
     const hostRect = host.el.getBoundingClientRect();
     const hostStyle = window.getComputedStyle(host.el);
+    const clipCache = /* @__PURE__ */ new Map();
     const results = candidates.map((candidate) => {
       const style = window.getComputedStyle(candidate.el);
       const entry = {
@@ -278,10 +352,13 @@
         depth: candidate.depth,
         rect: candidate.el.getBoundingClientRect(),
         visibility: style.visibility,
-        transform: style.transform
+        transform: style.transform,
+        clipRect: computeClipRect(candidate.el, host.el, hostRect, clipCache)
       };
+      if (candidate.repeatGroup) entry.repeatGroup = candidate.repeatGroup;
       if (candidate.type === "text") entry.lineRects = measureTextLines(candidate.el);
       if (candidate.type === "media") entry.borderRadius = style.borderRadius;
+      if (candidate.type === "repeat-extra") entry.repeat = measureRepeat(candidate.repeatExtra);
       return entry;
     });
     return { hostRect, hostTransform: hostStyle.transform, results };
@@ -297,26 +374,113 @@
     }
     return rects;
   }
+  function computeClipRect(el, hostEl, hostRect, cache) {
+    let clip = hostRect;
+    let ancestor = el.parentElement;
+    while (ancestor && ancestor !== hostEl) {
+      let info;
+      if (cache.has(ancestor)) {
+        info = cache.get(ancestor);
+      } else {
+        const style = window.getComputedStyle(ancestor);
+        const clips = style.overflow !== "visible" || style.overflowX !== "visible" || style.overflowY !== "visible";
+        info = clips ? { rect: ancestor.getBoundingClientRect() } : null;
+        cache.set(ancestor, info);
+      }
+      if (info) clip = intersectRects(clip, info.rect);
+      ancestor = ancestor.parentElement;
+    }
+    return clip;
+  }
+  function intersectRects(a, b) {
+    const left = Math.max(a.left, b.left);
+    const top = Math.max(a.top, b.top);
+    const right = Math.min(a.right, b.right);
+    const bottom = Math.min(a.bottom, b.bottom);
+    return { left, top, right, bottom, width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
+  }
+  function measureRepeat(repeatExtra) {
+    const rects = repeatExtra.sampleEls.map((el) => el.getBoundingClientRect());
+    const last = rects[rects.length - 1];
+    let pitch = { x: 0, y: last.height };
+    if (rects.length >= 2) {
+      const prev = rects[rects.length - 2];
+      pitch = { x: last.left - prev.left, y: last.top - prev.top };
+    }
+    const extraTextBones = (repeatExtra.extraEls || []).map((el) => measureShallowTextBones(el));
+    return { count: repeatExtra.count, pitch, itemRect: last, extraTextBones };
+  }
+  function measureShallowTextBones(el) {
+    if (hasDirectText(el)) return [measureTextLines(el)];
+    return Array.from(el.children).filter((child) => hasDirectText(child)).map((child) => measureTextLines(child));
+  }
 
   // js/src/synthesizer/emit.js
   function emit(host, measured, rowsHint) {
     if (isNonAxisAligned(measured.hostTransform)) return null;
     const bones = [];
+    const templatesByGroup = /* @__PURE__ */ new Map();
     for (const entry of measured.results) {
+      if (entry.type === "repeat-extra") continue;
       if (!isVisible(entry)) continue;
-      if (!rectIntersectsHost(entry.rect, measured.hostRect)) continue;
+      if (!rectIntersectsHost(entry.rect, entry.clipRect || measured.hostRect)) continue;
       if (isNonAxisAligned(entry.transform)) continue;
+      const produced = [];
       if (entry.type === "text") {
         const lines = (entry.lineRects || []).filter((r) => r.width > 0 && r.height > 0);
-        for (const rect of lines) bones.push(toBone("text", rect, measured.hostRect));
-        continue;
+        for (const rect of lines) produced.push(toBone("text", rect, measured.hostRect));
+      } else if (entry.type === "block") {
+        produced.push(toBone("block", entry.rect, measured.hostRect));
+      } else {
+        const type = entry.type === "media" && isAvatar(entry) ? "avatar" : entry.type;
+        produced.push(toBone(type, entry.rect, measured.hostRect));
       }
-      const type = entry.type === "media" && isAvatar(entry) ? "avatar" : entry.type;
-      bones.push(toBone(type, entry.rect, measured.hostRect));
+      bones.push(...produced);
+      if (entry.repeatGroup) {
+        const key = `${entry.repeatGroup.id}:${entry.repeatGroup.index}`;
+        if (!templatesByGroup.has(key)) templatesByGroup.set(key, []);
+        templatesByGroup.get(key).push(...produced);
+      }
+    }
+    for (const entry of measured.results) {
+      if (entry.type !== "repeat-extra") continue;
+      const key = `${entry.repeatGroup.id}:${entry.repeatGroup.index}`;
+      const template = templatesByGroup.get(key);
+      if (!template || template.length === 0) continue;
+      const clip = relativeClip(entry.clipRect || measured.hostRect, measured.hostRect);
+      for (let k = 1; k <= entry.repeat.count; k++) {
+        const dx = entry.repeat.pitch.x * k;
+        const dy = entry.repeat.pitch.y * k;
+        const extraTextRects = (entry.repeat.extraTextBones?.[k - 1] || []).flat().filter((r) => r.width > 0 && r.height > 0);
+        let textCursor = 0;
+        for (const templateBone of template) {
+          if (templateBone.type === "text") {
+            const real = extraTextRects[textCursor++];
+            if (real) {
+              const bone2 = { type: "text", x: real.left - measured.hostRect.left, y: real.top - measured.hostRect.top, width: real.width, height: real.height };
+              if (relativeRectIntersects(bone2, clip)) bones.push(bone2);
+              continue;
+            }
+          }
+          const bone = { type: templateBone.type, x: templateBone.x + dx, y: templateBone.y + dy, width: templateBone.width, height: templateBone.height };
+          if (relativeRectIntersects(bone, clip)) bones.push(bone);
+        }
+      }
     }
     if (bones.length > 0) return bones;
     if (rowsHint > 0) return syntheticRows(measured.hostRect, rowsHint);
     return null;
+  }
+  function relativeClip(clipRect, hostRect) {
+    return {
+      left: clipRect.left - hostRect.left,
+      top: clipRect.top - hostRect.top,
+      right: clipRect.right - hostRect.left,
+      bottom: clipRect.bottom - hostRect.top
+    };
+  }
+  function relativeRectIntersects(bone, clip) {
+    return bone.x + bone.width > clip.left && bone.x < clip.right && bone.y + bone.height > clip.top && bone.y < clip.bottom;
   }
   function isVisible(entry) {
     return entry.visibility !== "hidden" && entry.rect.width > 0 && entry.rect.height > 0;
@@ -406,21 +570,34 @@
   }
 
   // js/src/synthesizer/index.js
-  function createSynthesizer(registry, defaults = { maxDepth: 12 }, onResize) {
+  var LONG_SYNTHESIS_THRESHOLD_MS = 50;
+  function createSynthesizer(registry, defaults = { maxDepth: 12, repeatSampleSize: 3 }, onResize, now = () => performance.now()) {
     const cache = createSignatureCache();
+    const lastDuration = /* @__PURE__ */ new WeakMap();
     function synthesize(host) {
-      const candidates = collectAndClassify(host, registry, defaults.maxDepth);
+      if ((lastDuration.get(host) || 0) > LONG_SYNTHESIS_THRESHOLD_MS) return null;
+      const startedAt = now();
+      const candidates = collectAndClassify(host, registry, defaults.maxDepth, defaults.repeatSampleSize);
       const signature = cache.computeSignature(candidates);
       const cached = cache.get(host, signature);
-      if (cached) return cached;
+      if (cached) {
+        recordDuration(host, now() - startedAt);
+        return cached;
+      }
       const measured = measure(host, candidates);
       const boneTree = emit(host, measured, host.config.rows);
       if (boneTree) cache.set(host, signature, boneTree, () => onResize?.(host));
       else cache.invalidate(host);
+      recordDuration(host, now() - startedAt);
       return boneTree;
+    }
+    function recordDuration(host, ms) {
+      lastDuration.set(host, ms);
+      if (typeof window !== "undefined") window.__ghostwireLastSynthesisMs = ms;
     }
     function forget(host) {
       cache.invalidate(host);
+      lastDuration.delete(host);
     }
     return { synthesize, forget };
   }

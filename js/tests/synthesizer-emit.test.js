@@ -185,4 +185,39 @@ describe('synthesizer/emit — emit()', () => {
     ]);
     expect(emit({}, measured, 0)).toBeNull();
   });
+
+  it('SPEC-SYN-10/11: a cloned text bone uses its own real measured rect, not the pitch-translated template width', () => {
+    const measured = baseMeasured([
+      {
+        type: 'text',
+        rect: { top: 110, left: 60, right: 160, bottom: 130, width: 100, height: 20 },
+        visibility: 'visible',
+        transform: 'none',
+        repeatGroup: { id: 0, index: 2 },
+        lineRects: [{ top: 110, left: 60, right: 160, bottom: 130, width: 100, height: 20 }],
+      },
+      {
+        type: 'repeat-extra',
+        rect: { top: 130, left: 60, right: 160, bottom: 150, width: 100, height: 20 },
+        visibility: 'visible',
+        transform: 'none',
+        clipRect: HOST_RECT,
+        repeatGroup: { id: 0, index: 2 },
+        repeat: {
+          count: 1,
+          pitch: { x: 0, y: 20 },
+          extraTextBones: [[[{ top: 130, left: 60, right: 220, bottom: 150, width: 160, height: 20 }]]],
+        },
+      },
+    ]);
+
+    const bones = emit({}, measured, 0);
+
+    expect(bones).toHaveLength(2); // 1 template text bone + 1 real-measured clone
+    const clone = bones[1];
+    // real rect is host-relative: x = 60 - 50 = 10, y = 130 - 100 = 30
+    expect(clone).toEqual({ type: 'text', x: 10, y: 30, width: 160, height: 20 });
+    // NOT the pitch-translated template width (100) — proves the real rect won, not the template
+    expect(clone.width).not.toBe(100);
+  });
 });

@@ -208,4 +208,50 @@ describe('synthesizer/walk', () => {
     expect(candidates.every((c) => !c.repeatGroup)).toBe(true);
     expect(candidates.every((c) => c.type === 'icon')).toBe(true);
   });
+
+  it('SPEC-SYN-11: siblings with the same tag/class but different child counts are not folded into the same repeat group (protects layouts like a colspan group-header row mixed with data rows)', () => {
+    const table = document.createElement('table');
+    const headerRow = document.createElement('tr');
+    const headerCell = document.createElement('td');
+    headerCell.textContent = 'Group header';
+    headerCell.getBoundingClientRect = () => ({ top: 0, left: 0, right: 100, bottom: 20, width: 100, height: 20 });
+    headerRow.appendChild(headerCell);
+    headerRow.getBoundingClientRect = () => ({ top: 0, left: 0, right: 100, bottom: 20, width: 100, height: 20 });
+    table.appendChild(headerRow);
+
+    const dataRows = [];
+    for (let i = 0; i < 5; i++) {
+      const row = document.createElement('tr');
+      row.getBoundingClientRect = () => ({ top: (i + 1) * 20, left: 0, right: 100, bottom: (i + 1) * 20 + 20, width: 100, height: 20 });
+      for (let c = 0; c < 2; c++) {
+        const cell = document.createElement('td');
+        cell.textContent = `cell ${i}-${c}`;
+        cell.getBoundingClientRect = () => ({ top: (i + 1) * 20, left: c * 50, right: c * 50 + 50, bottom: (i + 1) * 20 + 20, width: 50, height: 20 });
+        row.appendChild(cell);
+      }
+      table.appendChild(row);
+      dataRows.push(row);
+    }
+    document.body.appendChild(table);
+    const host = { el: table, component: { id: 'c1' }, config: {}, state: 'idle', pending: 0, layer: null };
+    const registry = createRegistry();
+
+    const candidates = collectAndClassify(host, registry, 12, 3);
+
+    const headerCandidates = candidates.filter((c) => c.el === headerCell);
+    expect(headerCandidates).toHaveLength(1);
+    expect(headerCandidates[0].repeatGroup).toBeUndefined();
+
+    const extras = candidates.filter((c) => c.type === 'repeat-extra');
+    expect(extras).toHaveLength(1);
+    expect(extras[0].repeatExtra.count).toBe(2);
+    expect(extras[0].repeatExtra.sampleEls).toEqual(dataRows.slice(0, 3));
+    expect(extras[0].repeatExtra.extraEls).toEqual(dataRows.slice(3, 5));
+
+    const sampledTextCandidates = candidates.filter(
+      (c) => c.type === 'text' && c.repeatGroup && dataRows.includes(c.el.parentElement)
+    );
+    expect(sampledTextCandidates).toHaveLength(6); // 3 sampled rows x 2 cells each
+    expect(new Set(sampledTextCandidates.map((c) => c.repeatGroup.index))).toEqual(new Set([0, 1, 2]));
+  });
 });

@@ -1,3 +1,5 @@
+import { hasDirectText } from './walk.js';
+
 export function measure(host, candidates) {
   const hostRect = host.el.getBoundingClientRect();
   const hostStyle = window.getComputedStyle(host.el);
@@ -80,5 +82,23 @@ function measureRepeat(repeatExtra) {
     const prev = rects[rects.length - 2];
     pitch = { x: last.left - prev.left, y: last.top - prev.top };
   }
-  return { count: repeatExtra.count, pitch, itemRect: last };
+  const extraTextBones = (repeatExtra.extraEls || []).map((el) => measureShallowTextBones(el));
+  return { count: repeatExtra.count, pitch, itemRect: last, extraTextBones };
+}
+
+// SPEC-SYN-11/SPEC-SYN-10: a cloned repeat bone approximates a repeat item's
+// geometry from its sampled template, EXCEPT text — real content width
+// varies row-to-row, so text is measured directly for every occurrence, the
+// same way it already is for sampled items, never geometrically
+// approximated. This is a shallow (non-recursive-into-containers) scan: it
+// covers the shapes a repeat item actually takes in this codebase's
+// fixtures — the item itself is the text leaf (e.g. a plain `<li>` row), or
+// the item is a container whose direct children are text leaves (e.g. a
+// `<tr>` of `<td>` cells) — without walking arbitrarily deep, which would
+// defeat the point of sampling in the first place.
+function measureShallowTextBones(el) {
+  if (hasDirectText(el)) return [measureTextLines(el)];
+  return Array.from(el.children)
+    .filter((child) => hasDirectText(child))
+    .map((child) => measureTextLines(child));
 }

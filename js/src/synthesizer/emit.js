@@ -42,7 +42,27 @@ export function emit(host, measured, rowsHint) {
     for (let k = 1; k <= entry.repeat.count; k++) {
       const dx = entry.repeat.pitch.x * k;
       const dy = entry.repeat.pitch.y * k;
+      const extraTextRects = (entry.repeat.extraTextBones?.[k - 1] || []).flat().filter((r) => r.width > 0 && r.height > 0);
+      let textCursor = 0;
+
       for (const templateBone of template) {
+        if (templateBone.type === 'text') {
+          const real = extraTextRects[textCursor++];
+          if (real) {
+            // SPEC-SYN-10/11: text width varies with real content even across
+            // otherwise-identical repeat items, so a cloned text bone is
+            // measured directly from its own real element rather than
+            // pitch-translated from the template — the only way to satisfy
+            // both "preserve real count/spacing" (SPEC-SYN-11) and "the real
+            // width" (SPEC-SYN-10) at once.
+            const bone = { type: 'text', x: real.left - measured.hostRect.left, y: real.top - measured.hostRect.top, width: real.width, height: real.height };
+            if (relativeRectIntersects(bone, clip)) bones.push(bone);
+            continue;
+          }
+          // No real measurement for this occurrence (e.g. this extra wrapped to
+          // more lines than the template) — fall through to pitch-translation,
+          // same as every other bone type.
+        }
         const bone = { type: templateBone.type, x: templateBone.x + dx, y: templateBone.y + dy, width: templateBone.width, height: templateBone.height };
         if (relativeRectIntersects(bone, clip)) bones.push(bone); // SPEC-SYN-14
       }

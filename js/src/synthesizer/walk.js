@@ -12,7 +12,7 @@ export function classify(el) {
   return null;
 }
 
-function hasDirectText(el) {
+export function hasDirectText(el) {
   for (const node of el.childNodes) {
     if (node.nodeType === Node.TEXT_NODE && node.textContent.trim() !== '') return true;
   }
@@ -72,7 +72,11 @@ function visit(node, registry, out, depth, maxDepth, repeatSampleSize, state, re
           el: children[i + sampleSize - 1],
           depth,
           repeatGroup: { id: groupId, index: sampleSize - 1 },
-          repeatExtra: { count: extraCount, sampleEls: children.slice(i, i + sampleSize) },
+          repeatExtra: {
+            count: extraCount,
+            sampleEls: children.slice(i, i + sampleSize),
+            extraEls: children.slice(i + sampleSize, i + runLength),
+          },
         });
       }
       i += runLength;
@@ -110,7 +114,7 @@ function matchingRunLength(children, start) {
 }
 
 function siblingSignature(el) {
-  return `${el.tagName}.${normalizeClassName(el.getAttribute('class') ?? '')}`;
+  return `${el.tagName}.${normalizeClassName(el.getAttribute('class') ?? '')}.${el.children.length}`;
 }
 
 function normalizeClassName(className) {

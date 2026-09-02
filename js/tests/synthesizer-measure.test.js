@@ -123,11 +123,79 @@ describe('synthesizer/measure', () => {
       el: items[2],
       depth: 1,
       repeatGroup: { id: 0, index: 2 },
-      repeatExtra: { count: 4, sampleEls: items },
+      repeatExtra: { count: 4, sampleEls: items, extraEls: [] },
     }]);
 
     expect(measured.results[0].repeat.count).toBe(4);
     expect(measured.results[0].repeat.pitch).toEqual({ x: 0, y: 20 });
     expect(measured.results[0].repeatGroup).toEqual({ id: 0, index: 2 });
+  });
+
+  it('SPEC-SYN-11/10: measures real text line rects for a repeat-extra whose item itself is the text leaf', () => {
+    const host = makeHost();
+    const sampleEls = [0, 1, 2].map((i) => {
+      const li = document.createElement('li');
+      li.textContent = `Item ${i}`;
+      li.getBoundingClientRect = () => ({ top: i * 20, left: 0, right: 100, bottom: i * 20 + 18, width: 100, height: 18 });
+      host.el.appendChild(li);
+      return li;
+    });
+    const extraLi = document.createElement('li');
+    extraLi.textContent = 'Extra item with a longer label';
+    extraLi.getBoundingClientRect = () => ({ top: 60, left: 0, right: 100, bottom: 78, width: 100, height: 18 });
+    host.el.appendChild(extraLi);
+
+    const extraRect = { top: 60, left: 0, right: 140, bottom: 78, width: 140, height: 18 };
+    vi.spyOn(document, 'createRange').mockReturnValue({
+      selectNodeContents: () => {},
+      getClientRects: () => [extraRect],
+    });
+
+    const measured = measure(host, [{
+      type: 'repeat-extra',
+      el: extraLi,
+      depth: 1,
+      repeatGroup: { id: 0, index: 2 },
+      repeatExtra: { count: 1, sampleEls, extraEls: [extraLi] },
+    }]);
+
+    expect(measured.results[0].repeat.extraTextBones).toEqual([[[extraRect]]]);
+  });
+
+  it('SPEC-SYN-11/10: measures real text line rects per cell for a repeat-extra whose item is a container of text-leaf children', () => {
+    const host = makeHost();
+    const sampleEls = [0, 1, 2].map((i) => {
+      const row = document.createElement('tr');
+      row.getBoundingClientRect = () => ({ top: i * 20, left: 0, right: 100, bottom: i * 20 + 18, width: 100, height: 18 });
+      host.el.appendChild(row);
+      return row;
+    });
+    const extraRow = document.createElement('tr');
+    extraRow.getBoundingClientRect = () => ({ top: 60, left: 0, right: 100, bottom: 78, width: 100, height: 18 });
+    const cellA = document.createElement('td');
+    cellA.textContent = 'Ada Lovelace';
+    const cellB = document.createElement('td');
+    cellB.textContent = 'ada@example.test';
+    extraRow.appendChild(cellA);
+    extraRow.appendChild(cellB);
+    host.el.appendChild(extraRow);
+
+    const rectA = [{ top: 60, left: 0, right: 80, bottom: 78, width: 80, height: 18 }];
+    const rectB = [{ top: 60, left: 80, right: 180, bottom: 78, width: 100, height: 18 }];
+    let call = 0;
+    vi.spyOn(document, 'createRange').mockImplementation(() => ({
+      selectNodeContents: () => {},
+      getClientRects: () => (call++ === 0 ? rectA : rectB),
+    }));
+
+    const measured = measure(host, [{
+      type: 'repeat-extra',
+      el: extraRow,
+      depth: 1,
+      repeatGroup: { id: 0, index: 2 },
+      repeatExtra: { count: 1, sampleEls, extraEls: [extraRow] },
+    }]);
+
+    expect(measured.results[0].repeat.extraTextBones).toEqual([[rectA, rectB]]);
   });
 });
