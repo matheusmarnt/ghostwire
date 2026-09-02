@@ -32,13 +32,27 @@ export function createV4Bridge() {
 
       handlers.onStart(ctx);
 
+      // Livewire internally calls the message's own invokeOnFinish() from
+      // within invokeOnCancel()/invokeOnFailure()/invokeOnError() (see
+      // vendor/livewire/livewire/dist/livewire.esm.js, Message class), which
+      // fires the onFinish interceptor callback too. Since we register a
+      // callback on all four terminal hooks, a cancelled/failed/errored
+      // message would otherwise call handlers.onFinish(ctx) twice. Guard
+      // with the same idempotent pattern as v3.js so it only ever fires once.
+      let finished = false;
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        handlers.onFinish(ctx);
+      };
+
       onSuccess(({ onRender }) => {
         onRender(() => handlers.onPostPaint(ctx));
       });
-      onError(() => handlers.onFinish(ctx));
-      onFailure(() => handlers.onFinish(ctx));
-      onCancel(() => handlers.onFinish(ctx));
-      onFinish(() => handlers.onFinish(ctx));
+      onError(() => finish());
+      onFailure(() => finish());
+      onCancel(() => finish());
+      onFinish(() => finish());
     });
   }
 

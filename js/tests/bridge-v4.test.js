@@ -170,7 +170,7 @@ describe('bridge v4', () => {
     expect(onPostPaint).toHaveBeenCalledOnce();
   });
 
-  it('wires onFinish for the error, failure, cancel, and finish paths (SPEC-INT-05, single finalization point)', () => {
+  it('wires onFinish for the error, failure, cancel, and finish paths individually (SPEC-INT-05)', () => {
     for (const hook of ['onError', 'onFailure', 'onCancel', 'onFinish']) {
       const onFinish = vi.fn();
       let capturedHookCb;
@@ -191,6 +191,43 @@ describe('bridge v4', () => {
 
       expect(onFinish).toHaveBeenCalledOnce();
     }
+  });
+
+  // Regression test for M1 final review Fix 2: real Livewire internals call
+  // the message's own invokeOnFinish() from within invokeOnCancel(),
+  // invokeOnFailure(), and invokeOnError() (see
+  // vendor/livewire/livewire/dist/livewire.esm.js, Message class, lines
+  // ~12123-12151), which fires the onFinish interceptor callback in addition
+  // to the terminal hook's own callback. The test above only ever fires ONE
+  // registered callback per iteration, so it cannot catch a double-invocation
+  // bug. This test fires TWO terminal callbacks for the SAME message, as
+  // Livewire's real internals do, and asserts handlers.onFinish still runs
+  // exactly once (single finalization point, actually enforced).
+  it('calls handlers.onFinish exactly once when Livewire fires two terminal hooks for the same message (e.g. onError then onFinish, SPEC-INT-05)', () => {
+    const onFinish = vi.fn();
+    let capturedOnError;
+    let capturedOnFinish;
+    global.Livewire = {
+      interceptMessage(cb) {
+        cb({
+          message: fakeMessage(),
+          onSuccess: () => {},
+          onError: (fn) => { capturedOnError = fn; },
+          onFailure: () => {},
+          onCancel: () => {},
+          onSkipped: () => {},
+          onFinish: (fn) => { capturedOnFinish = fn; },
+        });
+        return () => {};
+      },
+    };
+    createV4Bridge().subscribe({ onStart: () => {}, onPostPaint: () => {}, onFinish });
+
+    // Mirrors Message.invokeOnError() calling this.invokeOnFinish() itself.
+    capturedOnError();
+    capturedOnFinish();
+
+    expect(onFinish).toHaveBeenCalledOnce();
   });
 
   it('subscribe returns the unsubscribe function from Livewire.interceptMessage', () => {
