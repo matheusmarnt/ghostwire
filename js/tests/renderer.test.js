@@ -82,4 +82,74 @@ describe('renderer', () => {
     expect(host.layer.style.width).toBe('100px');
     expect(host.layer.style.height).toBe('50px');
   });
+
+  it('mountLayer replicates the host border-radius and clips overflow (SPEC-RND-02)', () => {
+    const renderer = createRenderer();
+    const host = makeHost();
+    host.el.getBoundingClientRect = () => ({ top: 10, left: 20, width: 100, height: 50 });
+    host.el.style.borderRadius = '8px';
+    host.el.style.overflow = 'hidden';
+
+    renderer.mountLayer(host);
+
+    expect(host.layer.style.borderRadius).toBe('8px');
+    expect(host.layer.style.overflow).toBe('hidden');
+  });
+
+  it('mountLayer leaves the layer unclipped when the host overflow is visible', () => {
+    const renderer = createRenderer();
+    const host = makeHost();
+    host.el.getBoundingClientRect = () => ({ top: 0, left: 0, width: 100, height: 50 });
+    host.el.style.overflow = 'visible';
+
+    renderer.mountLayer(host);
+
+    expect(host.layer.style.overflow).toBe('visible');
+  });
+
+  it('repositionLayer does not re-read border-radius/overflow on later calls (mount-time only, no forced recalc per morph)', () => {
+    const renderer = createRenderer();
+    const host = makeHost();
+    host.el.getBoundingClientRect = () => ({ top: 0, left: 0, width: 100, height: 50 });
+    host.el.style.borderRadius = '8px';
+    host.el.style.overflow = 'hidden';
+    renderer.mountLayer(host);
+
+    host.el.style.borderRadius = '0px'; // changed after mount — must not propagate on reposition
+    host.el.style.overflow = 'visible';
+    renderer.repositionLayer(host);
+
+    expect(host.layer.style.borderRadius).toBe('8px');
+    expect(host.layer.style.overflow).toBe('hidden');
+  });
+
+  it('renderBones paints one .gw-bone element per bone, positioned in host-relative coordinates', () => {
+    const renderer = createRenderer();
+    const host = makeHost();
+    renderer.mountLayer(host);
+
+    renderer.renderBones(host, [
+      { type: 'text', x: 4, y: 8, width: 100, height: 16 },
+      { type: 'avatar', x: 0, y: 0, width: 40, height: 40 },
+    ]);
+
+    const bones = host.layer.querySelectorAll('.gw-bone');
+    expect(bones).toHaveLength(2);
+    expect(bones[0].classList.contains('gw-bone--text')).toBe(true);
+    expect(bones[0].style.left).toBe('4px');
+    expect(bones[0].style.top).toBe('8px');
+    expect(bones[1].classList.contains('gw-bone--avatar')).toBe(true);
+  });
+
+  it('renderBones clears any previously rendered bones before repainting', () => {
+    const renderer = createRenderer();
+    const host = makeHost();
+    renderer.mountLayer(host);
+    renderer.renderBones(host, [{ type: 'text', x: 0, y: 0, width: 10, height: 10 }]);
+
+    renderer.renderBones(host, [{ type: 'control', x: 0, y: 0, width: 10, height: 10 }]);
+
+    expect(host.layer.querySelectorAll('.gw-bone')).toHaveLength(1);
+    expect(host.layer.querySelector('.gw-bone--text')).toBeNull();
+  });
 });

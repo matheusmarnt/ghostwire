@@ -2,6 +2,7 @@ import { detectBridge } from './bridge/index.js';
 import { createRegistry } from './registry.js';
 import { createScheduler } from './scheduler.js';
 import { createRenderer } from './renderer.js';
+import { createSynthesizer } from './synthesizer/index.js';
 
 const TIMED_MODIFIER_PATTERN = /^(delay|hold)\.(\d+)ms$/;
 
@@ -31,15 +32,35 @@ export function boot() {
 
   const registry = createRegistry();
   const renderer = createRenderer();
+  const synthesizer = createSynthesizer(registry, undefined, (host) => {
+    if (host.state !== 'visible' || host.config.mode === 'freeze') return; // only re-render an already-showing, non-frozen skeleton
+    const boneTree = synthesizer.synthesize(host);
+    if (boneTree) {
+      renderer.renderBones(host, boneTree);
+    } else {
+      renderer.removeLayer(host);
+      host.el.classList.remove('gw-concealed');
+      renderer.freeze(host);
+      host.degraded = true;
+    }
+  });
   const scheduler = createScheduler({
     onShow(host) {
-      if (host.config.off) return;
-      if (host.config.mode === 'freeze') renderer.freeze(host);
-      else renderer.mountLayer(host); // M1: empty portal — real bones land in M2's synthesizer
+      if (host.config.off || host.config.ignore || host.config.keep) return;
+      if (host.config.mode === 'freeze') { renderer.freeze(host); return; }
+
+      const boneTree = synthesizer.synthesize(host);
+      if (!boneTree) { renderer.freeze(host); host.degraded = true; return; } // SPEC-SYN-16/17 degrade
+
+      renderer.mountLayer(host);
+      renderer.renderBones(host, boneTree);
+      host.el.classList.add('gw-concealed');
     },
     onHide(host) {
-      if (host.config.mode === 'freeze') renderer.unfreeze(host);
-      else renderer.removeLayer(host);
+      if (host.config.off || host.config.ignore || host.config.keep) return;
+      if (host.config.mode === 'freeze' || host.degraded) { renderer.unfreeze(host); host.degraded = false; return; }
+      renderer.removeLayer(host);
+      host.el.classList.remove('gw-concealed');
     },
   });
 
@@ -48,11 +69,15 @@ export function boot() {
     if (config.off) { cleanup(() => {}); return; }
 
     const host = registry.attach(el, component, config);
+    if (config.keep) el.classList.add('gw-kept');
 
     cleanup(() => {
       scheduler.cancel(host);
+      synthesizer.forget(host);
       renderer.removeLayer(host);
       renderer.unfreeze(host);
+      host.el.classList.remove('gw-concealed');
+      el.classList.remove('gw-kept');
       registry.detach(host);
     });
   });

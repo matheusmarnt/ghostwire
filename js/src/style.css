@@ -23,3 +23,24 @@
   pointer-events: none;
   transition: opacity var(--ghostwire-fade-duration) ease-out;
 }
+
+.gw-bone {
+  position: absolute;
+  background-color: var(--ghostwire-bone-color);
+  border-radius: var(--ghostwire-bone-radius);
+}
+
+.gw-bone--avatar,
+.gw-bone--icon {
+  border-radius: 50%;
+}
+
+.gw-concealed {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.gw-kept {
+  visibility: visible;
+  pointer-events: auto;
+}

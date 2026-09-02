@@ -5,7 +5,7 @@
     @ghostwireStyles
 </head>
 <body>
-    @livewire('demo-table')
+    @livewire($component)
     @livewireScripts
     @ghostwireScripts
 </body>
