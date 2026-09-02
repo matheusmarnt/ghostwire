@@ -1,0 +1,25 @@
+/* Public token contract — SPEC-RND-04. Declared now for forward-compat;
+   only --ghostwire-fade-duration is consumed by M1 code. Animation
+   keyframes (shimmer/pulse/wave) land in M5 alongside the code that uses them. */
+:root {
+  --ghostwire-bone-color: oklch(0.92 0.005 250);
+  --ghostwire-bone-color-dark: oklch(0.28 0.01 250);
+  --ghostwire-bone-highlight: oklch(0.97 0.005 250);
+  --ghostwire-bone-radius: 0.375rem;
+  --ghostwire-bone-gap: 0.5rem;
+  --ghostwire-animation: shimmer;
+  --ghostwire-animation-speed: 1.4s;
+  --ghostwire-fade-duration: 150ms;
+}
+
+.gw-layer {
+  position: fixed;
+  pointer-events: none;
+  z-index: 2147483000;
+}
+
+.gw-frozen {
+  opacity: 0.6;
+  pointer-events: none;
+  transition: opacity var(--ghostwire-fade-duration) ease-out;
+}
