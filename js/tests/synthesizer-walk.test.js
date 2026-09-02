@@ -9,6 +9,21 @@ function makeHost(html) {
   return { el, component: { id: 'c1' }, config: {}, state: 'idle', pending: 0, layer: null };
 }
 
+function makeUniformHost(count, tag = 'li', className = 'row') {
+  const el = document.createElement('div');
+  const items = [];
+  for (let i = 0; i < count; i++) {
+    const item = document.createElement(tag);
+    item.className = className;
+    item.textContent = `Item ${i}`;
+    item.getBoundingClientRect = () => ({ top: i * 24, left: 0, right: 100, bottom: i * 24 + 20, width: 100, height: 20 });
+    el.appendChild(item);
+    items.push(item);
+  }
+  document.body.appendChild(el);
+  return { host: { el, component: { id: 'c1' }, config: {}, state: 'idle', pending: 0, layer: null }, items };
+}
+
 describe('synthesizer/walk', () => {
   beforeEach(() => { document.body.innerHTML = ''; });
 
@@ -125,5 +140,52 @@ describe('synthesizer/walk', () => {
     const blocks = candidates.filter((c) => c.type === 'block');
     expect(blocks).toHaveLength(1); // not one per ancestor level
     expect(blocks[0].el).toBe(host.el); // covers the whole host, so B's un-walked content isn't left with zero coverage
+  });
+
+  it('SPEC-SYN-11: samples the first repeatSampleSize items of a uniform run of >= 3 siblings', () => {
+    const { host } = makeUniformHost(6);
+    const registry = createRegistry();
+
+    const candidates = collectAndClassify(host, registry, 12, 3);
+
+    const sampled = candidates.filter((c) => c.type === 'text' && c.repeatGroup);
+    const extras = candidates.filter((c) => c.type === 'repeat-extra');
+    expect(sampled).toHaveLength(3);
+    expect(sampled.map((c) => c.repeatGroup.index)).toEqual([0, 1, 2]);
+    expect(extras).toHaveLength(1);
+    expect(extras[0].repeatExtra.count).toBe(3);
+    expect(extras[0].repeatGroup).toEqual({ id: 0, index: 2 });
+  });
+
+  it('SPEC-SYN-11: a run exactly at the sample size produces no repeat-extra marker', () => {
+    const { host } = makeUniformHost(3);
+    const registry = createRegistry();
+
+    const candidates = collectAndClassify(host, registry, 12, 3);
+
+    expect(candidates.filter((c) => c.type === 'repeat-extra')).toHaveLength(0);
+    expect(candidates.filter((c) => c.repeatGroup)).toHaveLength(3);
+  });
+
+  it('SPEC-SYN-11: a run below the 3-sibling minimum is walked individually, untagged', () => {
+    const { host } = makeUniformHost(2);
+    const registry = createRegistry();
+
+    const candidates = collectAndClassify(host, registry, 12, 3);
+
+    expect(candidates).toHaveLength(2);
+    expect(candidates.every((c) => !c.repeatGroup)).toBe(true);
+  });
+
+  it('SPEC-SYN-11: an unequal-height run is walked individually, not sampled (protects fixtures like CardGrid)', () => {
+    const { host, items } = makeUniformHost(3);
+    items[1].getBoundingClientRect = () => ({ top: 0, left: 0, right: 100, bottom: 80, width: 100, height: 80 }); // 4x its siblings' height
+    const registry = createRegistry();
+
+    const candidates = collectAndClassify(host, registry, 12, 3);
+
+    expect(candidates.filter((c) => c.type === 'repeat-extra')).toHaveLength(0);
+    expect(candidates.every((c) => !c.repeatGroup)).toBe(true);
+    expect(candidates).toHaveLength(3);
   });
 });
