@@ -186,19 +186,19 @@
       layer.setAttribute("aria-hidden", "true");
       document.body.appendChild(layer);
       host.layer = layer;
+      const style = window.getComputedStyle(host.el);
+      layer.style.borderRadius = style.borderRadius;
+      layer.style.overflow = style.overflow === "visible" ? "visible" : "hidden";
       repositionLayer(host);
       return layer;
     }
     function repositionLayer(host) {
       if (!host.layer) return;
       const rect = host.el.getBoundingClientRect();
-      const style = window.getComputedStyle(host.el);
       host.layer.style.top = `${rect.top}px`;
       host.layer.style.left = `${rect.left}px`;
       host.layer.style.width = `${rect.width}px`;
       host.layer.style.height = `${rect.height}px`;
-      host.layer.style.borderRadius = style.borderRadius;
-      host.layer.style.overflow = style.overflow === "visible" ? "visible" : "hidden";
     }
     function renderBones(host, boneTree) {
       if (!host.layer) return;
@@ -337,8 +337,9 @@
     const { width, height } = entry.rect;
     if (width === 0 || height === 0) return false;
     const aspectDelta = Math.abs(width - height) / Math.max(width, height);
-    const radiusPx = parseFloat(entry.borderRadius) || 0;
-    return aspectDelta < 0.1 && radiusPx >= Math.min(width, height) / 2;
+    const radius = entry.borderRadius || "";
+    const isCircular = radius.trim().endsWith("%") ? parseFloat(radius) >= 50 : parseFloat(radius) >= Math.min(width, height) / 2;
+    return aspectDelta < 0.1 && isCircular;
   }
   function isNonAxisAligned(transformValue) {
     if (!transformValue || transformValue === "none") return false;
@@ -383,7 +384,8 @@
       const previous = cache.get(host.el);
       if (previous?.observer) previous.observer.disconnect();
       const observer = new ResizeObserver((entries) => {
-        const width = entries[0].contentRect.width;
+        const entry = entries[0];
+        const width = entry.borderBoxSize ? Array.isArray(entry.borderBoxSize) ? entry.borderBoxSize[0].inlineSize : entry.borderBoxSize.inlineSize : entry.contentRect.width;
         const stored = cache.get(host.el);
         if (!stored) return;
         if (Math.abs(width - stored.width) >= RESIZE_THRESHOLD_PX) {
@@ -392,7 +394,7 @@
           onInvalidate?.(host);
         }
       });
-      observer.observe(host.el);
+      observer.observe(host.el, { box: "border-box" });
       cache.set(host.el, { signature, boneTree, observer, width: host.el.getBoundingClientRect().width });
     }
     function invalidate(host) {
@@ -404,7 +406,7 @@
   }
 
   // js/src/synthesizer/index.js
-  function createSynthesizer(registry, defaults = { maxDepth: 12 }) {
+  function createSynthesizer(registry, defaults = { maxDepth: 12 }, onResize) {
     const cache = createSignatureCache();
     function synthesize(host) {
       const candidates = collectAndClassify(host, registry, defaults.maxDepth);
@@ -413,8 +415,7 @@
       if (cached) return cached;
       const measured = measure(host, candidates);
       const boneTree = emit(host, measured, host.config.rows);
-      if (boneTree) cache.set(host, signature, boneTree, () => {
-      });
+      if (boneTree) cache.set(host, signature, boneTree, () => onResize?.(host));
       else cache.invalidate(host);
       return boneTree;
     }
@@ -450,7 +451,18 @@
     if (!bridge) return;
     const registry = createRegistry();
     const renderer = createRenderer();
-    const synthesizer = createSynthesizer(registry);
+    const synthesizer = createSynthesizer(registry, void 0, (host) => {
+      if (host.state !== "visible" || host.config.mode === "freeze") return;
+      const boneTree = synthesizer.synthesize(host);
+      if (boneTree) {
+        renderer.renderBones(host, boneTree);
+      } else {
+        renderer.removeLayer(host);
+        host.el.classList.remove("gw-concealed");
+        renderer.freeze(host);
+        host.degraded = true;
+      }
+    });
     const scheduler = createScheduler({
       onShow(host) {
         if (host.config.off || host.config.ignore || host.config.keep) return;
@@ -466,6 +478,7 @@
         }
         renderer.mountLayer(host);
         renderer.renderBones(host, boneTree);
+        host.el.classList.add("gw-concealed");
       },
       onHide(host) {
         if (host.config.off || host.config.ignore || host.config.keep) return;
@@ -475,6 +488,7 @@
           return;
         }
         renderer.removeLayer(host);
+        host.el.classList.remove("gw-concealed");
       }
     });
     window.Livewire.directive("ghost", ({ el, directive, component, cleanup }) => {
@@ -485,11 +499,14 @@
         return;
       }
       const host = registry.attach(el, component, config);
+      if (config.keep) el.classList.add("gw-kept");
       cleanup(() => {
         scheduler.cancel(host);
         synthesizer.forget(host);
         renderer.removeLayer(host);
         renderer.unfreeze(host);
+        host.el.classList.remove("gw-concealed");
+        el.classList.remove("gw-kept");
         registry.detach(host);
       });
     });

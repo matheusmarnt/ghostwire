@@ -26,7 +26,10 @@ export function createSignatureCache() {
     if (previous?.observer) previous.observer.disconnect();
 
     const observer = new ResizeObserver((entries) => {
-      const width = entries[0].contentRect.width;
+      const entry = entries[0];
+      const width = entry.borderBoxSize
+        ? (Array.isArray(entry.borderBoxSize) ? entry.borderBoxSize[0].inlineSize : entry.borderBoxSize.inlineSize)
+        : entry.contentRect.width;
       const stored = cache.get(host.el);
       if (!stored) return;
       if (Math.abs(width - stored.width) >= RESIZE_THRESHOLD_PX) {
@@ -35,7 +38,7 @@ export function createSignatureCache() {
         onInvalidate?.(host);
       }
     });
-    observer.observe(host.el);
+    observer.observe(host.el, { box: 'border-box' });
 
     cache.set(host.el, { signature, boneTree, observer, width: host.el.getBoundingClientRect().width });
   }

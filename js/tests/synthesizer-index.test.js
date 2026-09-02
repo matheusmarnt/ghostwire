@@ -1,11 +1,13 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createSynthesizer } from '../src/synthesizer/index.js';
 import { createRegistry } from '../src/registry.js';
 
 class FakeResizeObserver {
+  constructor(callback) { this.callback = callback; FakeResizeObserver.instances.push(this); }
   observe() {}
   disconnect() {}
 }
+FakeResizeObserver.instances = [];
 
 // Polyfill Range.getClientRects for jsdom compatibility
 if (!Range.prototype.getClientRects) {
@@ -29,6 +31,7 @@ function makeHost(html, config = {}) {
 describe('synthesizer/index', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
+    FakeResizeObserver.instances = [];
     global.ResizeObserver = FakeResizeObserver;
   });
 
@@ -83,5 +86,20 @@ describe('synthesizer/index', () => {
 
     expect(second).not.toBe(first);
     expect(second).toEqual(first);
+  });
+
+  it('SPEC-SYN-21: invokes the onResize callback when the signature cache invalidates past the resize threshold', () => {
+    const registry = createRegistry();
+    const onResize = vi.fn();
+    const synthesizer = createSynthesizer(registry, undefined, onResize);
+    const host = makeHost('<p>Hello world</p>');
+
+    synthesizer.synthesize(host);
+    expect(onResize).not.toHaveBeenCalled();
+
+    const observer = FakeResizeObserver.instances.at(-1);
+    observer.callback([{ borderBoxSize: [{ inlineSize: 500 }] }]); // host width 200 -> 500, past 4px threshold
+
+    expect(onResize).toHaveBeenCalledWith(host);
   });
 });

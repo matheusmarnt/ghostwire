@@ -34,6 +34,14 @@ describe('synthesizer/emit — pure helpers', () => {
     expect(isAvatar({ rect: { width: 40, height: 40 }, borderRadius: '4px' })).toBe(false);
   });
 
+  it('isAvatar: large square media (>100px) with a "50%" radius is an avatar (SPEC-SYN percentage fix)', () => {
+    expect(isAvatar({ rect: { width: 150, height: 150 }, borderRadius: '50%' })).toBe(true);
+  });
+
+  it('isAvatar: square media with a small percentage radius is not an avatar', () => {
+    expect(isAvatar({ rect: { width: 150, height: 150 }, borderRadius: '10%' })).toBe(false);
+  });
+
   it('rectIntersectsHost: true when the rect overlaps the host rect', () => {
     expect(rectIntersectsHost({ top: 110, left: 60, right: 100, bottom: 130 }, HOST_RECT)).toBe(true);
   });

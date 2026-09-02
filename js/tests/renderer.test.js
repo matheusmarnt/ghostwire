@@ -83,30 +83,44 @@ describe('renderer', () => {
     expect(host.layer.style.height).toBe('50px');
   });
 
-  it('repositionLayer replicates the host border-radius and clips overflow (SPEC-RND-02)', () => {
+  it('mountLayer replicates the host border-radius and clips overflow (SPEC-RND-02)', () => {
     const renderer = createRenderer();
     const host = makeHost();
     host.el.getBoundingClientRect = () => ({ top: 10, left: 20, width: 100, height: 50 });
     host.el.style.borderRadius = '8px';
     host.el.style.overflow = 'hidden';
-    renderer.mountLayer(host);
 
-    renderer.repositionLayer(host);
+    renderer.mountLayer(host);
 
     expect(host.layer.style.borderRadius).toBe('8px');
     expect(host.layer.style.overflow).toBe('hidden');
   });
 
-  it('repositionLayer leaves the layer unclipped when the host overflow is visible', () => {
+  it('mountLayer leaves the layer unclipped when the host overflow is visible', () => {
     const renderer = createRenderer();
     const host = makeHost();
     host.el.getBoundingClientRect = () => ({ top: 0, left: 0, width: 100, height: 50 });
     host.el.style.overflow = 'visible';
+
     renderer.mountLayer(host);
 
+    expect(host.layer.style.overflow).toBe('visible');
+  });
+
+  it('repositionLayer does not re-read border-radius/overflow on later calls (mount-time only, no forced recalc per morph)', () => {
+    const renderer = createRenderer();
+    const host = makeHost();
+    host.el.getBoundingClientRect = () => ({ top: 0, left: 0, width: 100, height: 50 });
+    host.el.style.borderRadius = '8px';
+    host.el.style.overflow = 'hidden';
+    renderer.mountLayer(host);
+
+    host.el.style.borderRadius = '0px'; // changed after mount — must not propagate on reposition
+    host.el.style.overflow = 'visible';
     renderer.repositionLayer(host);
 
-    expect(host.layer.style.overflow).toBe('visible');
+    expect(host.layer.style.borderRadius).toBe('8px');
+    expect(host.layer.style.overflow).toBe('hidden');
   });
 
   it('renderBones paints one .gw-bone element per bone, positioned in host-relative coordinates', () => {

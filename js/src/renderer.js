@@ -5,6 +5,13 @@ export function createRenderer() {
     layer.setAttribute('aria-hidden', 'true');
     document.body.appendChild(layer); // SPEC-MORPH-01: mounted outside the reconciled tree entirely, not as a DOM sibling of the host
     host.layer = layer;
+
+    // Host's own border-radius/overflow can't change between mount and unmount,
+    // so read them once here rather than on every repositionLayer() call (SPEC-RND-02).
+    const style = window.getComputedStyle(host.el);
+    layer.style.borderRadius = style.borderRadius;
+    layer.style.overflow = style.overflow === 'visible' ? 'visible' : 'hidden';
+
     repositionLayer(host);
     return layer;
   }
@@ -12,13 +19,10 @@ export function createRenderer() {
   function repositionLayer(host) {
     if (!host.layer) return;
     const rect = host.el.getBoundingClientRect();
-    const style = window.getComputedStyle(host.el);
     host.layer.style.top = `${rect.top}px`;
     host.layer.style.left = `${rect.left}px`;
     host.layer.style.width = `${rect.width}px`;
     host.layer.style.height = `${rect.height}px`;
-    host.layer.style.borderRadius = style.borderRadius; // SPEC-RND-02
-    host.layer.style.overflow = style.overflow === 'visible' ? 'visible' : 'hidden'; // SPEC-RND-02
   }
 
   function renderBones(host, boneTree) {

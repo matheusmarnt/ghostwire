@@ -141,6 +141,24 @@ describe('directive registration and modifier parsing', () => {
     expect(() => cleanupFn()).not.toThrow();
   });
 
+  it('applies .gw-kept to a .keep-marked host immediately at attach time (SPEC-MORPH-03)', () => {
+    boot();
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    let cleanupFn;
+    registeredCallback({
+      el,
+      directive: { modifiers: ['keep'], expression: '' },
+      component: { id: 'c1' },
+      cleanup: (fn) => { cleanupFn = fn; },
+    });
+
+    expect(el.classList.contains('gw-kept')).toBe(true);
+
+    cleanupFn();
+    expect(el.classList.contains('gw-kept')).toBe(false);
+  });
+
   it('parses the .rows.N modifier into config.rows without throwing', () => {
     boot();
     const el = document.createElement('div');

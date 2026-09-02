@@ -3,7 +3,7 @@ import { measure } from './measure.js';
 import { emit } from './emit.js';
 import { createSignatureCache } from './signature.js';
 
-export function createSynthesizer(registry, defaults = { maxDepth: 12 }) {
+export function createSynthesizer(registry, defaults = { maxDepth: 12 }, onResize) {
   const cache = createSignatureCache();
 
   function synthesize(host) {
@@ -16,7 +16,7 @@ export function createSynthesizer(registry, defaults = { maxDepth: 12 }) {
     const measured = measure(host, candidates);
     const boneTree = emit(host, measured, host.config.rows);
 
-    if (boneTree) cache.set(host, signature, boneTree, () => {});
+    if (boneTree) cache.set(host, signature, boneTree, () => onResize?.(host));
     else cache.invalidate(host);
 
     return boneTree;

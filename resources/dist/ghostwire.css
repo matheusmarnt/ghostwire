@@ -34,3 +34,13 @@
 .gw-bone--icon {
   border-radius: 50%;
 }
+
+.gw-concealed {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.gw-kept {
+  visibility: visible;
+  pointer-events: auto;
+}

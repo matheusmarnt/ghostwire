@@ -45,8 +45,11 @@ export function isAvatar(entry) {
   const { width, height } = entry.rect;
   if (width === 0 || height === 0) return false;
   const aspectDelta = Math.abs(width - height) / Math.max(width, height);
-  const radiusPx = parseFloat(entry.borderRadius) || 0;
-  return aspectDelta < 0.1 && radiusPx >= Math.min(width, height) / 2;
+  const radius = entry.borderRadius || '';
+  const isCircular = radius.trim().endsWith('%')
+    ? parseFloat(radius) >= 50
+    : parseFloat(radius) >= Math.min(width, height) / 2;
+  return aspectDelta < 0.1 && isCircular;
 }
 
 export function isNonAxisAligned(transformValue) {

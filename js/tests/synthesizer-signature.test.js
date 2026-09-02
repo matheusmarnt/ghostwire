@@ -2,10 +2,18 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createSignatureCache } from '../src/synthesizer/signature.js';
 
 class FakeResizeObserver {
-  constructor(callback) { this.callback = callback; this.observed = null; }
-  observe(el) { this.observed = el; }
+  constructor(callback) { this.callback = callback; this.observed = null; this.observedOptions = null; }
+  observe(el, options) { this.observed = el; this.observedOptions = options; }
   disconnect() { this.observed = null; }
-  trigger(width) { this.callback([{ contentRect: { width } }]); }
+  // Real browsers deliver borderBoxSize when { box: 'border-box' } is passed to
+  // observe() (SPEC-SYN-20 fix) — exercise that path, not just contentRect,
+  // since borderBoxSize is what production code now reads first.
+  trigger(width) {
+    this.callback([{ contentRect: { width }, borderBoxSize: [{ inlineSize: width }] }]);
+  }
+  triggerContentBoxOnly(width) {
+    this.callback([{ contentRect: { width } }]);
+  }
 }
 
 function makeHost() {
@@ -88,6 +96,36 @@ describe('synthesizer/signature', () => {
     lastObserver.trigger(202); // 200 -> 202, 2px < 4px threshold
 
     expect(cache.get(host, 42)).not.toBeNull();
+  });
+
+  it('observes with { box: "border-box" } so the callback receives borderBoxSize (SPEC-SYN-20 fix)', () => {
+    const cache = createSignatureCache();
+    const host = makeHost();
+    cache.set(host, 42, [{ type: 'text', x: 0, y: 0, width: 10, height: 10 }]);
+
+    expect(lastObserver.observedOptions).toEqual({ box: 'border-box' });
+  });
+
+  it('does not invalidate on set when borderBoxSize matches the stored border-box width exactly', () => {
+    const cache = createSignatureCache();
+    const host = makeHost(); // getBoundingClientRect() width: 200 (border-box)
+    cache.set(host, 42, [{ type: 'text', x: 0, y: 0, width: 10, height: 10 }]);
+
+    lastObserver.trigger(200); // borderBoxSize.inlineSize matches stored border-box width -> no drift
+
+    expect(cache.get(host, 42)).not.toBeNull();
+  });
+
+  it('falls back to contentRect.width when borderBoxSize is unavailable', () => {
+    const cache = createSignatureCache();
+    const host = makeHost();
+    const onInvalidate = vi.fn();
+    cache.set(host, 42, [{ type: 'text', x: 0, y: 0, width: 10, height: 10 }], onInvalidate);
+
+    lastObserver.triggerContentBoxOnly(205); // 200 -> 205, 5px >= 4px threshold
+
+    expect(cache.get(host, 42)).toBeNull();
+    expect(onInvalidate).toHaveBeenCalledWith(host);
   });
 
   it('invalidate disconnects the observer and drops the cache entry', () => {

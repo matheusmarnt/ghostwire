@@ -149,6 +149,32 @@ test('SPEC-SYN geometry: bones overlap their source elements within 2px', functi
     expect($data['matched'])->toBeTrue();
 })->with('gallery_layouts');
 
+test('SPEC-MORPH-03: host content is concealed (visibility: hidden) while bones are shown', function () {
+    $page = visit('/gallery/card-grid');
+
+    $page->script(<<<'JS'
+        window.__gwConcealedVisibility = null;
+
+        new MutationObserver(() => {
+            if (window.__gwConcealedVisibility !== null) return; // evaluate once, at first sighting
+
+            const layer = document.body.querySelector('.gw-layer');
+            if (!layer) return;
+            if (layer.querySelectorAll('.gw-bone').length === 0) return;
+
+            const host = document.querySelector('#card-grid');
+            window.__gwConcealedVisibility = getComputedStyle(host).visibility;
+        }).observe(document.body, { childList: true, subtree: true });
+
+        true;
+    JS);
+
+    $page->click('#refresh-btn');
+    $page->wait(1.0); // generous: clears delay(120) + server sleep(200) + hold(300) + morph/settle margin
+
+    expect($page->script('window.__gwConcealedVisibility'))->toBe('hidden');
+});
+
 test('SPEC-PERF-10: bones introduce zero CLS for gallery layouts 1-3', function (string $route, string $triggerSelector) {
     $page = visit($route);
 
