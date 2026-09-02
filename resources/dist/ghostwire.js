@@ -192,10 +192,26 @@
     function repositionLayer(host) {
       if (!host.layer) return;
       const rect = host.el.getBoundingClientRect();
+      const style = window.getComputedStyle(host.el);
       host.layer.style.top = `${rect.top}px`;
       host.layer.style.left = `${rect.left}px`;
       host.layer.style.width = `${rect.width}px`;
       host.layer.style.height = `${rect.height}px`;
+      host.layer.style.borderRadius = style.borderRadius;
+      host.layer.style.overflow = style.overflow === "visible" ? "visible" : "hidden";
+    }
+    function renderBones(host, boneTree) {
+      if (!host.layer) return;
+      host.layer.textContent = "";
+      for (const bone of boneTree) {
+        const el = document.createElement("div");
+        el.className = `gw-bone gw-bone--${bone.type}`;
+        el.style.left = `${bone.x}px`;
+        el.style.top = `${bone.y}px`;
+        el.style.width = `${bone.width}px`;
+        el.style.height = `${bone.height}px`;
+        host.layer.appendChild(el);
+      }
     }
     function removeLayer(host) {
       if (!host.layer) return;
@@ -208,7 +224,204 @@
     function unfreeze(host) {
       host.el.classList.remove("gw-frozen");
     }
-    return { mountLayer, repositionLayer, removeLayer, freeze, unfreeze };
+    return { mountLayer, repositionLayer, renderBones, removeLayer, freeze, unfreeze };
+  }
+
+  // js/src/synthesizer/walk.js
+  var LEAF_TAGS_MEDIA = ["IMG", "VIDEO", "PICTURE", "CANVAS"];
+  var LEAF_TAGS_CONTROL = ["INPUT", "SELECT", "TEXTAREA", "BUTTON"];
+  var MAX_CANDIDATES = 300;
+  function classify(el) {
+    if (el.tagName === "svg" || el.tagName === "SVG") return "icon";
+    if (LEAF_TAGS_MEDIA.includes(el.tagName)) return "media";
+    if (LEAF_TAGS_CONTROL.includes(el.tagName) || el.getAttribute("role") === "button") return "control";
+    if (/^H[1-6]$/.test(el.tagName)) return "heading";
+    if (hasDirectText(el)) return "text";
+    if (el.children.length > 0) return "container";
+    return null;
+  }
+  function hasDirectText(el) {
+    for (const node of el.childNodes) {
+      if (node.nodeType === Node.TEXT_NODE && node.textContent.trim() !== "") return true;
+    }
+    return false;
+  }
+  function collectAndClassify(host, registry, maxDepth = 12) {
+    const candidates = [];
+    visit(host.el, registry, candidates, 0, maxDepth);
+    return candidates;
+  }
+  function visit(node, registry, out, depth, maxDepth) {
+    for (const child of node.children) {
+      if (out.length >= MAX_CANDIDATES) return;
+      if (registry.hostFor(child)) continue;
+      if (child.getAttribute("aria-hidden") === "true") continue;
+      const type = classify(child);
+      if (type === "container") {
+        if (depth < maxDepth) visit(child, registry, out, depth + 1, maxDepth);
+        continue;
+      }
+      if (type === null) continue;
+      out.push({ el: child, type, depth });
+    }
+  }
+
+  // js/src/synthesizer/measure.js
+  function measure(host, candidates) {
+    const hostRect = host.el.getBoundingClientRect();
+    const hostStyle = window.getComputedStyle(host.el);
+    const results = candidates.map((candidate) => {
+      const style = window.getComputedStyle(candidate.el);
+      const entry = {
+        el: candidate.el,
+        type: candidate.type,
+        depth: candidate.depth,
+        rect: candidate.el.getBoundingClientRect(),
+        visibility: style.visibility,
+        transform: style.transform
+      };
+      if (candidate.type === "text") entry.lineRects = measureTextLines(candidate.el);
+      if (candidate.type === "media") entry.borderRadius = style.borderRadius;
+      return entry;
+    });
+    return { hostRect, hostTransform: hostStyle.transform, results };
+  }
+  function measureTextLines(el) {
+    const rects = [];
+    for (const node of el.childNodes) {
+      if (node.nodeType === Node.TEXT_NODE && node.textContent.trim() !== "") {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        rects.push(...range.getClientRects());
+      }
+    }
+    return rects;
+  }
+
+  // js/src/synthesizer/emit.js
+  function emit(host, measured, rowsHint) {
+    if (isNonAxisAligned(measured.hostTransform)) return null;
+    const bones = [];
+    for (const entry of measured.results) {
+      if (!isVisible(entry)) continue;
+      if (!rectIntersectsHost(entry.rect, measured.hostRect)) continue;
+      if (isNonAxisAligned(entry.transform)) continue;
+      if (entry.type === "text") {
+        const lines = (entry.lineRects || []).filter((r) => r.width > 0 && r.height > 0);
+        for (const rect of lines) bones.push(toBone("text", rect, measured.hostRect));
+        continue;
+      }
+      const type = entry.type === "media" && isAvatar(entry) ? "avatar" : entry.type;
+      bones.push(toBone(type, entry.rect, measured.hostRect));
+    }
+    if (bones.length > 0) return bones;
+    if (rowsHint > 0) return syntheticRows(measured.hostRect, rowsHint);
+    return null;
+  }
+  function isVisible(entry) {
+    return entry.visibility !== "hidden" && entry.rect.width > 0 && entry.rect.height > 0;
+  }
+  function rectIntersectsHost(rect, hostRect) {
+    return rect.right > hostRect.left && rect.left < hostRect.right && rect.bottom > hostRect.top && rect.top < hostRect.bottom;
+  }
+  function toBone(type, rect, hostRect) {
+    return {
+      type,
+      x: rect.left - hostRect.left,
+      y: rect.top - hostRect.top,
+      width: rect.width,
+      height: rect.height
+    };
+  }
+  function isAvatar(entry) {
+    const { width, height } = entry.rect;
+    if (width === 0 || height === 0) return false;
+    const aspectDelta = Math.abs(width - height) / Math.max(width, height);
+    const radiusPx = parseFloat(entry.borderRadius) || 0;
+    return aspectDelta < 0.1 && radiusPx >= Math.min(width, height) / 2;
+  }
+  function isNonAxisAligned(transformValue) {
+    if (!transformValue || transformValue === "none") return false;
+    if (transformValue.startsWith("matrix3d")) return true;
+    const match = transformValue.match(/^matrix\(([^)]+)\)$/);
+    if (!match) return true;
+    const [, b, c] = match[1].split(",").map(Number);
+    return b !== 0 || c !== 0;
+  }
+  function syntheticRows(hostRect, count) {
+    const gap = 8;
+    const available = hostRect.height - gap * (count - 1);
+    const rowHeight = available > 0 ? available / count : 16;
+    const bones = [];
+    for (let i = 0; i < count; i++) {
+      bones.push({ type: "text", x: 0, y: i * (rowHeight + gap), width: hostRect.width, height: rowHeight });
+    }
+    return bones;
+  }
+
+  // js/src/synthesizer/signature.js
+  var RESIZE_THRESHOLD_PX = 4;
+  function createSignatureCache() {
+    const cache = /* @__PURE__ */ new WeakMap();
+    function computeSignature(candidates) {
+      let hash = 2166136261;
+      for (const candidate of candidates) {
+        const key = `${candidate.el.tagName}|${candidate.type}|${candidate.el.className}|${candidate.depth}`;
+        for (let i = 0; i < key.length; i++) {
+          hash ^= key.charCodeAt(i);
+          hash = Math.imul(hash, 16777619);
+        }
+      }
+      return hash >>> 0;
+    }
+    function get(host, signature) {
+      const entry = cache.get(host.el);
+      if (entry && entry.signature === signature) return entry.boneTree;
+      return null;
+    }
+    function set(host, signature, boneTree, onInvalidate) {
+      const previous = cache.get(host.el);
+      if (previous?.observer) previous.observer.disconnect();
+      const observer = new ResizeObserver((entries) => {
+        const width = entries[0].contentRect.width;
+        const stored = cache.get(host.el);
+        if (!stored) return;
+        if (Math.abs(width - stored.width) >= RESIZE_THRESHOLD_PX) {
+          observer.disconnect();
+          cache.delete(host.el);
+          onInvalidate?.(host);
+        }
+      });
+      observer.observe(host.el);
+      cache.set(host.el, { signature, boneTree, observer, width: host.el.getBoundingClientRect().width });
+    }
+    function invalidate(host) {
+      const entry = cache.get(host.el);
+      if (entry?.observer) entry.observer.disconnect();
+      cache.delete(host.el);
+    }
+    return { computeSignature, get, set, invalidate };
+  }
+
+  // js/src/synthesizer/index.js
+  function createSynthesizer(registry, defaults = { maxDepth: 12 }) {
+    const cache = createSignatureCache();
+    function synthesize(host) {
+      const candidates = collectAndClassify(host, registry, defaults.maxDepth);
+      const signature = cache.computeSignature(candidates);
+      const cached = cache.get(host, signature);
+      if (cached) return cached;
+      const measured = measure(host, candidates);
+      const boneTree = emit(host, measured, host.config.rows);
+      if (boneTree) cache.set(host, signature, boneTree, () => {
+      });
+      else cache.invalidate(host);
+      return boneTree;
+    }
+    function forget(host) {
+      cache.invalidate(host);
+    }
+    return { synthesize, forget };
   }
 
   // js/src/index.js
@@ -237,15 +450,31 @@
     if (!bridge) return;
     const registry = createRegistry();
     const renderer = createRenderer();
+    const synthesizer = createSynthesizer(registry);
     const scheduler = createScheduler({
       onShow(host) {
-        if (host.config.off) return;
-        if (host.config.mode === "freeze") renderer.freeze(host);
-        else renderer.mountLayer(host);
+        if (host.config.off || host.config.ignore || host.config.keep) return;
+        if (host.config.mode === "freeze") {
+          renderer.freeze(host);
+          return;
+        }
+        const boneTree = synthesizer.synthesize(host);
+        if (!boneTree) {
+          renderer.freeze(host);
+          host.degraded = true;
+          return;
+        }
+        renderer.mountLayer(host);
+        renderer.renderBones(host, boneTree);
       },
       onHide(host) {
-        if (host.config.mode === "freeze") renderer.unfreeze(host);
-        else renderer.removeLayer(host);
+        if (host.config.off || host.config.ignore || host.config.keep) return;
+        if (host.config.mode === "freeze" || host.degraded) {
+          renderer.unfreeze(host);
+          host.degraded = false;
+          return;
+        }
+        renderer.removeLayer(host);
       }
     });
     window.Livewire.directive("ghost", ({ el, directive, component, cleanup }) => {
@@ -258,6 +487,7 @@
       const host = registry.attach(el, component, config);
       cleanup(() => {
         scheduler.cancel(host);
+        synthesizer.forget(host);
         renderer.removeLayer(host);
         renderer.unfreeze(host);
         registry.detach(host);

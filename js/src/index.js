@@ -2,6 +2,7 @@ import { detectBridge } from './bridge/index.js';
 import { createRegistry } from './registry.js';
 import { createScheduler } from './scheduler.js';
 import { createRenderer } from './renderer.js';
+import { createSynthesizer } from './synthesizer/index.js';
 
 const TIMED_MODIFIER_PATTERN = /^(delay|hold)\.(\d+)ms$/;
 
@@ -31,15 +32,22 @@ export function boot() {
 
   const registry = createRegistry();
   const renderer = createRenderer();
+  const synthesizer = createSynthesizer(registry);
   const scheduler = createScheduler({
     onShow(host) {
-      if (host.config.off) return;
-      if (host.config.mode === 'freeze') renderer.freeze(host);
-      else renderer.mountLayer(host); // M1: empty portal — real bones land in M2's synthesizer
+      if (host.config.off || host.config.ignore || host.config.keep) return;
+      if (host.config.mode === 'freeze') { renderer.freeze(host); return; }
+
+      const boneTree = synthesizer.synthesize(host);
+      if (!boneTree) { renderer.freeze(host); host.degraded = true; return; } // SPEC-SYN-16/17 degrade
+
+      renderer.mountLayer(host);
+      renderer.renderBones(host, boneTree);
     },
     onHide(host) {
-      if (host.config.mode === 'freeze') renderer.unfreeze(host);
-      else renderer.removeLayer(host);
+      if (host.config.off || host.config.ignore || host.config.keep) return;
+      if (host.config.mode === 'freeze' || host.degraded) { renderer.unfreeze(host); host.degraded = false; return; }
+      renderer.removeLayer(host);
     },
   });
 
@@ -51,6 +59,7 @@ export function boot() {
 
     cleanup(() => {
       scheduler.cancel(host);
+      synthesizer.forget(host);
       renderer.removeLayer(host);
       renderer.unfreeze(host);
       registry.detach(host);

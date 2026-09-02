@@ -108,4 +108,75 @@ describe('directive registration and modifier parsing', () => {
     expect(scheduler.messagePostPaint).not.toHaveBeenCalled();
     expect(scheduler.messageFinish).not.toHaveBeenCalled();
   });
+
+  it('parses the .ignore modifier without throwing and registers a cleanup function', () => {
+    boot();
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    let cleanupFn;
+    registeredCallback({
+      el,
+      directive: { modifiers: ['ignore'], expression: '' },
+      component: { id: 'c1' },
+      cleanup: (fn) => { cleanupFn = fn; },
+    });
+
+    expect(cleanupFn).toBeTypeOf('function');
+    expect(() => cleanupFn()).not.toThrow();
+  });
+
+  it('parses the .keep modifier without throwing and registers a cleanup function', () => {
+    boot();
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    let cleanupFn;
+    registeredCallback({
+      el,
+      directive: { modifiers: ['keep'], expression: '' },
+      component: { id: 'c1' },
+      cleanup: (fn) => { cleanupFn = fn; },
+    });
+
+    expect(cleanupFn).toBeTypeOf('function');
+    expect(() => cleanupFn()).not.toThrow();
+  });
+
+  it('parses the .rows.N modifier into config.rows without throwing', () => {
+    boot();
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    let cleanupFn;
+    expect(() => registeredCallback({
+      el,
+      directive: { modifiers: ['rows.4'], expression: '' },
+      component: { id: 'c1' },
+      cleanup: (fn) => { cleanupFn = fn; },
+    })).not.toThrow();
+    expect(cleanupFn).toBeTypeOf('function');
+  });
+
+  it('cleanup() leaves the element ready for a fresh attach (no leaked synthesizer state blocks re-registration)', () => {
+    boot();
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+
+    let firstCleanup;
+    registeredCallback({
+      el,
+      directive: { modifiers: [], expression: '' },
+      component: { id: 'c1' },
+      cleanup: (fn) => { firstCleanup = fn; },
+    });
+    firstCleanup();
+
+    let secondCleanup;
+    expect(() => registeredCallback({
+      el,
+      directive: { modifiers: [], expression: '' },
+      component: { id: 'c1' },
+      cleanup: (fn) => { secondCleanup = fn; },
+    })).not.toThrow();
+
+    expect(secondCleanup).toBeTypeOf('function');
+  });
 });
