@@ -3,14 +3,16 @@ export function createRenderer() {
     const layer = document.createElement('div');
     layer.className = 'gw-layer';
     layer.setAttribute('aria-hidden', 'true');
-    document.body.appendChild(layer); // SPEC-MORPH-01: mounted outside the reconciled tree entirely, not as a DOM sibling of the host
-    host.layer = layer;
 
+    // ponytail: read host's border-radius/overflow BEFORE any DOM writes.
     // Host's own border-radius/overflow can't change between mount and unmount,
     // so read them once here rather than on every repositionLayer() call (SPEC-RND-02).
     const style = window.getComputedStyle(host.el);
     layer.style.borderRadius = style.borderRadius;
     layer.style.overflow = style.overflow === 'visible' ? 'visible' : 'hidden';
+
+    document.body.appendChild(layer); // SPEC-MORPH-01: mounted outside the reconciled tree entirely, not as a DOM sibling of the host
+    host.layer = layer;
 
     repositionLayer(host);
     return layer;
