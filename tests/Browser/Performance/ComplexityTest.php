@@ -83,7 +83,7 @@ test('SPEC-PERF-03: synthesis time scales sub-quadratically with node count', fu
 // noting only that it may be unsupported in some browser engines — it
 // says nothing about one signal being "primary," "secondary," "reliable,"
 // or a "fallback."
-test('SPEC-PERF-04: no task attributable to synthesis exceeds 50ms', function () {
+test('SPEC-PERF-04: no measured synthesize() call exceeds 50ms (see issue #5 for the dropped longtask cross-check)', function () {
     $synthesisMs = gwMedianSynthesisMs('/gallery/node-count?nodes=300', '#refresh-btn');
 
     expect($synthesisMs)->toBeLessThan(50);

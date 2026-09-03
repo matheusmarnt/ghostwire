@@ -103,28 +103,47 @@ describe('synthesizer/index', () => {
     expect(onResize).toHaveBeenCalledWith(host);
   });
 
-  it('SPEC-PERF-07: skips synthesis and returns null once a previous synthesize() call exceeded the long-task threshold', () => {
+  it('SPEC-PERF-07: skips synthesis only after two consecutive slow synthesize() calls, not a single one', () => {
     const registry = createRegistry();
     let call = 0;
-    const now = () => { call += 1; return call === 2 ? 1000 : 0; }; // first synthesize(): starts at 0, ends at 1000 -> 1000ms duration
+    const now = () => { call += 1; return call % 2 === 0 ? 1000 : 0; }; // every odd call is a "start" (0), every even call is an "end" 1000ms later — every synthesize() call measures as 1000ms (slow)
     const synthesizer = createSynthesizer(registry, undefined, undefined, now);
     const host = makeHost('<p>Hello world</p>');
 
     const first = synthesizer.synthesize(host);
-    expect(first).not.toBeNull(); // the slow call itself still completes and returns bones
+    expect(first).not.toBeNull(); // 1st slow call: streak becomes 1, but this call itself still completes
 
     const second = synthesizer.synthesize(host);
-    expect(second).toBeNull(); // SPEC-PERF-07: the next call degrades to freeze instead of repeating the expensive work
+    expect(second).not.toBeNull(); // 2nd slow call: streak was only 1 at entry, so this one still completes too — streak becomes 2 only after it finishes
+
+    const third = synthesizer.synthesize(host);
+    expect(third).toBeNull(); // streak is now 2 (the limit) at entry: SPEC-PERF-07 skips straight to freeze
   });
 
-  it('forget() clears the recorded synthesis duration so a fresh host is not pre-emptively frozen', () => {
+  it('SPEC-PERF-07: a fast synthesis resets the slow-streak counter, so isolated jitter never triggers freeze', () => {
     const registry = createRegistry();
+    const durations = [0, 1000, 2000, 2001, 2002, 2003]; // call1: 0->1000 (slow, 1000ms); call2: 2000->2001 (fast, 1ms) resets the streak; call3: 2002->2003 (fast, 1ms)
     let call = 0;
-    const now = () => { call += 1; return call === 2 ? 1000 : 0; };
+    const now = () => durations[call++];
     const synthesizer = createSynthesizer(registry, undefined, undefined, now);
     const host = makeHost('<p>Hello world</p>');
 
-    synthesizer.synthesize(host);
+    synthesizer.synthesize(host); // slow -> streak becomes 1
+    synthesizer.synthesize(host); // fast -> streak resets to 0
+    const third = synthesizer.synthesize(host); // should NOT be frozen despite the earlier slow call
+
+    expect(third).not.toBeNull();
+  });
+
+  it('forget() clears the slow-synthesis streak so a fresh host is not pre-emptively frozen', () => {
+    const registry = createRegistry();
+    let call = 0;
+    const now = () => { call += 1; return call % 2 === 0 ? 1000 : 0; };
+    const synthesizer = createSynthesizer(registry, undefined, undefined, now);
+    const host = makeHost('<p>Hello world</p>');
+
+    synthesizer.synthesize(host); // streak -> 1
+    synthesizer.synthesize(host); // streak -> 2 (would now freeze on the next call)
     synthesizer.forget(host);
     const after = synthesizer.synthesize(host);
 

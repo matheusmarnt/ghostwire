@@ -58,6 +58,30 @@ describe('synthesizer/signature', () => {
     expect(sigA).not.toBe(sigC);
   });
 
+  it('computeSignature differs when repeatExtra.count differs (a repeat run with a changed real item count must not hash identically — SPEC-SYN-11 preserve-real-count fix)', () => {
+    const cache = createSignatureCache();
+    const el = document.createElement('div');
+
+    const sigA = cache.computeSignature([{ el, type: 'repeat-extra', depth: 1, repeatExtra: { count: 9 } }]);
+    const sigB = cache.computeSignature([{ el, type: 'repeat-extra', depth: 1, repeatExtra: { count: 17 } }]);
+
+    expect(sigA).not.toBe(sigB);
+  });
+
+  it('computeSignature differs for SVG elements with different real classes (className is an SVGAnimatedString on SVG elements, not a plain string; mirrors the walk.js siblingSignature SVG fix)', () => {
+    const cache = createSignatureCache();
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const iconA = document.createElementNS(svgNS, 'svg');
+    iconA.setAttribute('class', 'icon-a');
+    const iconB = document.createElementNS(svgNS, 'svg');
+    iconB.setAttribute('class', 'icon-b');
+
+    const sigA = cache.computeSignature([{ el: iconA, type: 'icon', depth: 1 }]);
+    const sigB = cache.computeSignature([{ el: iconB, type: 'icon', depth: 1 }]);
+
+    expect(sigA).not.toBe(sigB);
+  });
+
   it('set then get returns the cached Bone Tree for a matching signature', () => {
     const cache = createSignatureCache();
     const host = makeHost();

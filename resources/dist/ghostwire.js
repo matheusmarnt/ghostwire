@@ -184,12 +184,16 @@
       const layer = document.createElement("div");
       layer.className = "gw-layer";
       layer.setAttribute("aria-hidden", "true");
-      document.body.appendChild(layer);
-      host.layer = layer;
       const style = window.getComputedStyle(host.el);
       layer.style.borderRadius = style.borderRadius;
       layer.style.overflow = style.overflow === "visible" ? "visible" : "hidden";
-      repositionLayer(host);
+      const rect = host.el.getBoundingClientRect();
+      layer.style.top = `${rect.top}px`;
+      layer.style.left = `${rect.left}px`;
+      layer.style.width = `${rect.width}px`;
+      layer.style.height = `${rect.height}px`;
+      document.body.appendChild(layer);
+      host.layer = layer;
       return layer;
     }
     function repositionLayer(host) {
@@ -264,9 +268,9 @@
     let i = 0;
     while (i < children.length) {
       if (out.length >= MAX_CANDIDATES) {
-        if (!out.capped) {
+        if (!state.capped) {
           out.push({ type: "block", el: rootEl, depth: 0 });
-          out.capped = true;
+          state.capped = true;
         }
         return;
       }
@@ -531,7 +535,7 @@
     function computeSignature(candidates) {
       let hash = 2166136261;
       for (const candidate of candidates) {
-        const key = `${candidate.el.tagName}|${candidate.type}|${candidate.el.className}|${candidate.depth}`;
+        const key = `${candidate.el.tagName}|${candidate.type}|${candidate.el.getAttribute("class") ?? ""}|${candidate.depth}|${candidate.repeatExtra?.count ?? ""}`;
         for (let i = 0; i < key.length; i++) {
           hash ^= key.charCodeAt(i);
           hash = Math.imul(hash, 16777619);
@@ -571,11 +575,12 @@
 
   // js/src/synthesizer/index.js
   var LONG_SYNTHESIS_THRESHOLD_MS = 50;
+  var SLOW_STREAK_LIMIT = 2;
   function createSynthesizer(registry, defaults = { maxDepth: 12, repeatSampleSize: 3 }, onResize, now = () => performance.now()) {
     const cache = createSignatureCache();
-    const lastDuration = /* @__PURE__ */ new WeakMap();
+    const slowStreak = /* @__PURE__ */ new WeakMap();
     function synthesize(host) {
-      if ((lastDuration.get(host) || 0) > LONG_SYNTHESIS_THRESHOLD_MS) return null;
+      if ((slowStreak.get(host) || 0) >= SLOW_STREAK_LIMIT) return null;
       const startedAt = now();
       const candidates = collectAndClassify(host, registry, defaults.maxDepth, defaults.repeatSampleSize);
       const signature = cache.computeSignature(candidates);
@@ -592,12 +597,16 @@
       return boneTree;
     }
     function recordDuration(host, ms) {
-      lastDuration.set(host, ms);
+      if (ms > LONG_SYNTHESIS_THRESHOLD_MS) {
+        slowStreak.set(host, (slowStreak.get(host) || 0) + 1);
+      } else {
+        slowStreak.delete(host);
+      }
       if (typeof window !== "undefined") window.__ghostwireLastSynthesisMs = ms;
     }
     function forget(host) {
       cache.invalidate(host);
-      lastDuration.delete(host);
+      slowStreak.delete(host);
     }
     return { synthesize, forget };
   }

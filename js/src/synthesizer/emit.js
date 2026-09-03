@@ -43,6 +43,12 @@ export function emit(host, measured, rowsHint) {
       const dx = entry.repeat.pitch.x * k;
       const dy = entry.repeat.pitch.y * k;
       const extraTextRects = (entry.repeat.extraTextBones?.[k - 1] || []).flat().filter((r) => r.width > 0 && r.height > 0);
+      // Ceiling: this assumes the template's text bones and the extra's real
+      // text-bearing leaves appear in the same flat, source-then-line order —
+      // true as long as no repeat item's cell content wraps to a different
+      // line count than its template counterpart. A repeat item whose content
+      // wraps differently per-instance would need per-source (not flat)
+      // matching here instead.
       let textCursor = 0;
 
       for (const templateBone of template) {

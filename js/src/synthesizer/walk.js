@@ -46,9 +46,9 @@ function visit(node, registry, out, depth, maxDepth, repeatSampleSize, state, re
   let i = 0;
   while (i < children.length) {
     if (out.length >= MAX_CANDIDATES) {
-      if (!out.capped) {
+      if (!state.capped) {
         out.push({ type: 'block', el: rootEl, depth: 0 });
-        out.capped = true;
+        state.capped = true;
       }
       return;
     }

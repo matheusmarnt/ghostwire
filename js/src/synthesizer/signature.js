@@ -6,7 +6,7 @@ export function createSignatureCache() {
   function computeSignature(candidates) {
     let hash = 2166136261; // FNV-1a offset basis
     for (const candidate of candidates) {
-      const key = `${candidate.el.tagName}|${candidate.type}|${candidate.el.className}|${candidate.depth}`;
+      const key = `${candidate.el.tagName}|${candidate.type}|${candidate.el.getAttribute('class') ?? ''}|${candidate.depth}|${candidate.repeatExtra?.count ?? ''}`;
       for (let i = 0; i < key.length; i++) {
         hash ^= key.charCodeAt(i);
         hash = Math.imul(hash, 16777619);
