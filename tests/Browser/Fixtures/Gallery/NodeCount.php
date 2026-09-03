@@ -7,6 +7,7 @@ use Livewire\Component;
 class NodeCount extends Component
 {
     public int $count = 100;
+
     public bool $refreshed = false;
 
     public function mount(): void
