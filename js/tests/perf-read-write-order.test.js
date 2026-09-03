@@ -25,25 +25,30 @@ describe('SPEC-PERF-01/02: read-before-write ordering', () => {
   });
 
   it('never calls getBoundingClientRect or getComputedStyle after the first DOM write during a full synthesize+render cycle', () => {
-    // Set up host with content and mocked getBoundingClientRect
+    // Set up host with content. jsdom's real getBoundingClientRect always
+    // returns an all-zero rect, which would make SPEC-SYN-12's zero-size
+    // filter reject every candidate — so Element.prototype.getBoundingClientRect
+    // is patched below to unconditionally return a fixed, non-zero rect for
+    // every element. Per-element shadowing (e.g. host.el.getBoundingClientRect = ...)
+    // is deliberately NOT used here: an own property on an element shadows
+    // the prototype method for that element, which would make calls to it
+    // invisible to this test's read/write event tracking.
     const host = { el: document.createElement('div'), component: { id: 'c1' }, config: {}, state: 'idle', pending: 0, layer: null };
     host.el.innerHTML = '<p>Hello world</p>';
-    host.el.getBoundingClientRect = () => ({ top: 0, left: 0, right: 200, bottom: 100, width: 200, height: 100 });
     document.body.appendChild(host.el);
-
-    // Mock getBoundingClientRect on all children
-    for (const child of host.el.querySelectorAll('*')) {
-      child.getBoundingClientRect = () => ({ top: 10, left: 10, right: 90, bottom: 30, width: 80, height: 20 });
-    }
 
     const events = [];
     const origGetBCR = Element.prototype.getBoundingClientRect;
     const origGetComputedStyle = window.getComputedStyle;
     const origAppendChild = Node.prototype.appendChild;
 
+    // Fully replaces jsdom's (useless, always-zero) implementation — does not
+    // delegate to origGetBCR — so every call is both recorded AND returns
+    // usable, deterministic, non-crashing geometry through this one patched
+    // method, with no per-element bypass possible.
     Element.prototype.getBoundingClientRect = function (...args) {
       events.push({ type: 'read', source: 'getBoundingClientRect', stack: new Error().stack });
-      return origGetBCR.apply(this, args);
+      return { top: 0, left: 0, right: 100, bottom: 20, width: 100, height: 20 };
     };
     window.getComputedStyle = function (...args) {
       events.push({ type: 'read', source: 'getComputedStyle', stack: new Error().stack });
