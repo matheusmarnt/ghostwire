@@ -3,16 +3,25 @@ export function createRenderer() {
     const layer = document.createElement('div');
     layer.className = 'gw-layer';
     layer.setAttribute('aria-hidden', 'true');
-    document.body.appendChild(layer); // SPEC-MORPH-01: mounted outside the reconciled tree entirely, not as a DOM sibling of the host
-    host.layer = layer;
 
-    // Host's own border-radius/overflow can't change between mount and unmount,
-    // so read them once here rather than on every repositionLayer() call (SPEC-RND-02).
+    // SPEC-PERF-01/02: read everything about the host BEFORE any DOM-tree
+    // write. Writes to `layer` here are safe pre-append — it isn't in the
+    // document tree yet, so setting its style doesn't dirty document layout.
+    // ponytail: host's own border-radius/overflow can't change between mount
+    // and unmount, so read them once here rather than on every
+    // repositionLayer() call (SPEC-RND-02).
     const style = window.getComputedStyle(host.el);
     layer.style.borderRadius = style.borderRadius;
     layer.style.overflow = style.overflow === 'visible' ? 'visible' : 'hidden';
 
-    repositionLayer(host);
+    const rect = host.el.getBoundingClientRect();
+    layer.style.top = `${rect.top}px`;
+    layer.style.left = `${rect.left}px`;
+    layer.style.width = `${rect.width}px`;
+    layer.style.height = `${rect.height}px`;
+
+    document.body.appendChild(layer); // SPEC-MORPH-01: mounted outside the reconciled tree entirely; also the ONLY DOM-tree write in this function, last
+    host.layer = layer;
     return layer;
   }
 

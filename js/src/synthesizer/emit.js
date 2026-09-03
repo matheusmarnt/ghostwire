@@ -2,24 +2,96 @@ export function emit(host, measured, rowsHint) {
   if (isNonAxisAligned(measured.hostTransform)) return null; // SPEC-SYN-16: degrade to freeze
 
   const bones = [];
+  const templatesByGroup = new Map(); // "groupId:index" -> Bone[]
+
   for (const entry of measured.results) {
+    if (entry.type === 'repeat-extra') continue; // handled in the second pass, once every template is collected
     if (!isVisible(entry)) continue; // SPEC-SYN-12
-    if (!rectIntersectsHost(entry.rect, measured.hostRect)) continue; // SPEC-SYN-12
+    if (!rectIntersectsHost(entry.rect, entry.clipRect || measured.hostRect)) continue; // SPEC-SYN-12/14
     if (isNonAxisAligned(entry.transform)) continue; // SPEC-SYN-16: skip just this one bone
 
+    const produced = [];
     if (entry.type === 'text') {
       const lines = (entry.lineRects || []).filter((r) => r.width > 0 && r.height > 0);
-      for (const rect of lines) bones.push(toBone('text', rect, measured.hostRect));
-      continue;
+      for (const rect of lines) produced.push(toBone('text', rect, measured.hostRect));
+    } else if (entry.type === 'block') {
+      produced.push(toBone('block', entry.rect, measured.hostRect)); // SPEC-SYN-13
+    } else {
+      const type = entry.type === 'media' && isAvatar(entry) ? 'avatar' : entry.type;
+      produced.push(toBone(type, entry.rect, measured.hostRect));
     }
 
-    const type = entry.type === 'media' && isAvatar(entry) ? 'avatar' : entry.type;
-    bones.push(toBone(type, entry.rect, measured.hostRect));
+    bones.push(...produced);
+    if (entry.repeatGroup) {
+      const key = `${entry.repeatGroup.id}:${entry.repeatGroup.index}`;
+      if (!templatesByGroup.has(key)) templatesByGroup.set(key, []);
+      templatesByGroup.get(key).push(...produced);
+    }
+  }
+
+  // SPEC-SYN-11: clone the sampled template's bones for every unsampled
+  // sibling, translated by the real measured pitch — preserving both the
+  // real item count and real spacing without individually walking them.
+  for (const entry of measured.results) {
+    if (entry.type !== 'repeat-extra') continue;
+    const key = `${entry.repeatGroup.id}:${entry.repeatGroup.index}`;
+    const template = templatesByGroup.get(key);
+    if (!template || template.length === 0) continue; // the sampled item produced no bones: nothing to clone
+
+    const clip = relativeClip(entry.clipRect || measured.hostRect, measured.hostRect);
+    for (let k = 1; k <= entry.repeat.count; k++) {
+      const dx = entry.repeat.pitch.x * k;
+      const dy = entry.repeat.pitch.y * k;
+      const extraTextRects = (entry.repeat.extraTextBones?.[k - 1] || []).flat().filter((r) => r.width > 0 && r.height > 0);
+      // Ceiling: this assumes the template's text bones and the extra's real
+      // text-bearing leaves appear in the same flat, source-then-line order —
+      // true as long as no repeat item's cell content wraps to a different
+      // line count than its template counterpart. A repeat item whose content
+      // wraps differently per-instance would need per-source (not flat)
+      // matching here instead.
+      let textCursor = 0;
+
+      for (const templateBone of template) {
+        if (templateBone.type === 'text') {
+          const real = extraTextRects[textCursor++];
+          if (real) {
+            // SPEC-SYN-10/11: text width varies with real content even across
+            // otherwise-identical repeat items, so a cloned text bone is
+            // measured directly from its own real element rather than
+            // pitch-translated from the template — the only way to satisfy
+            // both "preserve real count/spacing" (SPEC-SYN-11) and "the real
+            // width" (SPEC-SYN-10) at once.
+            const bone = { type: 'text', x: real.left - measured.hostRect.left, y: real.top - measured.hostRect.top, width: real.width, height: real.height };
+            if (relativeRectIntersects(bone, clip)) bones.push(bone);
+            continue;
+          }
+          // No real measurement for this occurrence (e.g. this extra wrapped to
+          // more lines than the template) — fall through to pitch-translation,
+          // same as every other bone type.
+        }
+        const bone = { type: templateBone.type, x: templateBone.x + dx, y: templateBone.y + dy, width: templateBone.width, height: templateBone.height };
+        if (relativeRectIntersects(bone, clip)) bones.push(bone); // SPEC-SYN-14
+      }
+    }
   }
 
   if (bones.length > 0) return bones;
   if (rowsHint > 0) return syntheticRows(measured.hostRect, rowsHint); // SPEC-SYN-17
   return null; // SPEC-SYN-17: empty host, no hint -> degrade to freeze
+}
+
+function relativeClip(clipRect, hostRect) {
+  return {
+    left: clipRect.left - hostRect.left,
+    top: clipRect.top - hostRect.top,
+    right: clipRect.right - hostRect.left,
+    bottom: clipRect.bottom - hostRect.top,
+  };
+}
+
+function relativeRectIntersects(bone, clip) {
+  return bone.x + bone.width > clip.left && bone.x < clip.right &&
+    bone.y + bone.height > clip.top && bone.y < clip.bottom;
 }
 
 function isVisible(entry) {

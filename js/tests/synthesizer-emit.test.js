@@ -131,4 +131,93 @@ describe('synthesizer/emit — emit()', () => {
     const measured = baseMeasured([]);
     expect(emit({}, measured, 0)).toBeNull();
   });
+
+  it('SPEC-SYN-13: emits a plain bone for a block-aggregated candidate', () => {
+    const measured = baseMeasured([
+      { type: 'block', rect: { top: 110, left: 60, right: 260, bottom: 200, width: 200, height: 90 }, visibility: 'visible', transform: 'none' },
+    ]);
+    const bones = emit({}, measured, 0);
+    expect(bones).toHaveLength(1);
+    expect(bones[0].type).toBe('block');
+  });
+
+  it('SPEC-SYN-14: excludes a candidate outside its own clipRect even though it is inside the host rect', () => {
+    const measured = baseMeasured([
+      { type: 'control', rect: { top: 250, left: 60, right: 160, bottom: 280, width: 100, height: 30 }, visibility: 'visible', transform: 'none', clipRect: { top: 100, left: 50, right: 350, bottom: 200 } },
+    ]);
+    expect(emit({}, measured, 0)).toBeNull();
+  });
+
+  it('SPEC-SYN-11: clones the last sampled item bones for each repeat-extra occurrence, translated by the measured pitch', () => {
+    const measured = baseMeasured([
+      { type: 'control', rect: { top: 110, left: 60, right: 160, bottom: 140, width: 100, height: 30 }, visibility: 'visible', transform: 'none', repeatGroup: { id: 0, index: 2 } },
+      { type: 'repeat-extra', rect: { top: 110, left: 60, right: 160, bottom: 140, width: 100, height: 30 }, visibility: 'visible', transform: 'none', clipRect: HOST_RECT, repeatGroup: { id: 0, index: 2 }, repeat: { count: 2, pitch: { x: 0, y: 30 } } },
+    ]);
+
+    const bones = emit({}, measured, 0);
+
+    expect(bones).toHaveLength(3); // 1 template bone + 2 clones
+    expect(bones[1].y).toBe(bones[0].y + 30);
+    expect(bones[2].y).toBe(bones[0].y + 60);
+  });
+
+  it('SPEC-SYN-11/14: cloned repeat-extra bones outside the clipRect are excluded', () => {
+    const measured = baseMeasured([
+      { type: 'control', rect: { top: 280, left: 60, right: 160, bottom: 298, width: 100, height: 18 }, visibility: 'visible', transform: 'none', repeatGroup: { id: 0, index: 2 } },
+      { type: 'repeat-extra', rect: { top: 280, left: 60, right: 160, bottom: 298, width: 100, height: 18 }, visibility: 'visible', transform: 'none', clipRect: HOST_RECT, repeatGroup: { id: 0, index: 2 }, repeat: { count: 3, pitch: { x: 0, y: 18 } } },
+    ]);
+
+    const bones = emit({}, measured, 0);
+
+    // HOST_RECT is { top: 100, left: 50, right: 350, bottom: 300 }, i.e. a
+    // host-relative clip bottom of 200. Template bone: relative y=180,
+    // height=18 (intersects, top=180<200). Clone k=1: y=198 (still
+    // intersects, top=198<200). Clone k=2: y=216 (216 is not < 200: fully
+    // past the clip, excluded). Clone k=3: y=234 (also excluded).
+    expect(bones).toHaveLength(2);
+    expect(bones[0].y).toBe(180); // the template bone itself, untranslated
+    expect(bones[1].y).toBe(198); // exactly clone k=1, not k=2 or k=3 — proves the clip boundary, not just a coincidental count
+  });
+
+  it('SPEC-SYN-11: a repeat-extra with no template bones (e.g. an empty sampled item) clones nothing', () => {
+    const measured = baseMeasured([
+      { type: 'repeat-extra', rect: { top: 110, left: 60, right: 160, bottom: 140, width: 100, height: 30 }, visibility: 'visible', transform: 'none', clipRect: HOST_RECT, repeatGroup: { id: 0, index: 2 }, repeat: { count: 2, pitch: { x: 0, y: 30 } } },
+    ]);
+    expect(emit({}, measured, 0)).toBeNull();
+  });
+
+  it('SPEC-SYN-10/11: a cloned text bone uses its own real measured rect, not the pitch-translated template width', () => {
+    const measured = baseMeasured([
+      {
+        type: 'text',
+        rect: { top: 110, left: 60, right: 160, bottom: 130, width: 100, height: 20 },
+        visibility: 'visible',
+        transform: 'none',
+        repeatGroup: { id: 0, index: 2 },
+        lineRects: [{ top: 110, left: 60, right: 160, bottom: 130, width: 100, height: 20 }],
+      },
+      {
+        type: 'repeat-extra',
+        rect: { top: 130, left: 60, right: 160, bottom: 150, width: 100, height: 20 },
+        visibility: 'visible',
+        transform: 'none',
+        clipRect: HOST_RECT,
+        repeatGroup: { id: 0, index: 2 },
+        repeat: {
+          count: 1,
+          pitch: { x: 0, y: 20 },
+          extraTextBones: [[[{ top: 130, left: 60, right: 220, bottom: 150, width: 160, height: 20 }]]],
+        },
+      },
+    ]);
+
+    const bones = emit({}, measured, 0);
+
+    expect(bones).toHaveLength(2); // 1 template text bone + 1 real-measured clone
+    const clone = bones[1];
+    // real rect is host-relative: x = 60 - 50 = 10, y = 130 - 100 = 30
+    expect(clone).toEqual({ type: 'text', x: 10, y: 30, width: 160, height: 20 });
+    // NOT the pitch-translated template width (100) — proves the real rect won, not the template
+    expect(clone.width).not.toBe(100);
+  });
 });
