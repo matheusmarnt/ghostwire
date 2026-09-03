@@ -129,18 +129,26 @@ test('SPEC-PERF-10: bones introduce zero CLS for the M3 robustness layouts', fun
 
     $page->script('
         window.__cls = 0;
+        window.__boneCount = 0;
         new PerformanceObserver((list) => {
             for (const entry of list.getEntries()) {
                 if (!entry.hadRecentInput) window.__cls += entry.value;
             }
         }).observe({ type: "layout-shift", buffered: true });
+        new MutationObserver(() => {
+            if (window.__boneCount > 0) return; // evaluate once, at first sighting (bones may be concealed/removed later)
+            const bones = document.querySelectorAll(".gw-layer .gw-bone");
+            if (bones.length > 0) window.__boneCount = bones.length;
+        }).observe(document.body, { childList: true, subtree: true });
         true;
     ');
 
     $page->click($triggerSelector);
     $page->wait(1.0);
 
+    $boneCount = $page->script('window.__boneCount');
     $cls = $page->script('window.__cls');
 
+    expect($boneCount)->toBeGreaterThan(0); // sanity: proves bones actually rendered, so zero CLS reflects real rendering, not a no-op
     expect($cls)->toBe(0);
 })->with('m3_layouts');

@@ -77,8 +77,12 @@ test('SPEC-PERF-03: synthesis time scales sub-quadratically with node count', fu
 // code-instrumented measurement of exactly the synthesize() call (walk +
 // measure + emit) that the runtime's own comment says exists for "the
 // SPEC-PERF-03/04 browser perf suite" — that is the signal this test gates
-// on, per this task's brief ("falling back to the direct
-// window.__ghostwireLastSynthesisMs < 50 check as the primary signal").
+// on. Dropping the longtask hard-assertion is this task's own judgment
+// call based on the investigation above, not something the brief
+// pre-authorized: the brief's only related text on this API is narrower,
+// noting only that it may be unsupported in some browser engines — it
+// says nothing about one signal being "primary," "secondary," "reliable,"
+// or a "fallback."
 test('SPEC-PERF-04: no task attributable to synthesis exceeds 50ms', function () {
     $synthesisMs = gwMedianSynthesisMs('/gallery/node-count?nodes=300', '#refresh-btn');
 
