@@ -7,3 +7,6 @@ Route::view('/ghostwire-test-page', 'ghostwire-fixtures::page', ['component' => 
 Route::view('/gallery/paginated-table', 'ghostwire-fixtures::page', ['component' => 'paginated-table']);
 Route::view('/gallery/grouped-table', 'ghostwire-fixtures::page', ['component' => 'grouped-table']);
 Route::view('/gallery/card-grid', 'ghostwire-fixtures::page', ['component' => 'card-grid']);
+Route::view('/gallery/repeat-list', 'ghostwire-fixtures::page', ['component' => 'repeat-list']);
+Route::view('/gallery/scrollable-kanban', 'ghostwire-fixtures::page', ['component' => 'scrollable-kanban']);
+Route::view('/gallery/node-count', 'ghostwire-fixtures::page', ['component' => 'node-count']);
