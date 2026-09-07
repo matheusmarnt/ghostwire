@@ -11,6 +11,11 @@ use Ghostwire\Tests\Browser\Fixtures\Gallery\PaginatedTable;
 use Ghostwire\Tests\Browser\Fixtures\Gallery\RepeatList;
 use Ghostwire\Tests\Browser\Fixtures\Gallery\ScrollableKanban;
 use Ghostwire\Tests\Browser\Fixtures\GhostAttributeProbe;
+use Ghostwire\Tests\Browser\Fixtures\Legacy\LegacyWidgetFive;
+use Ghostwire\Tests\Browser\Fixtures\Legacy\LegacyWidgetFour;
+use Ghostwire\Tests\Browser\Fixtures\Legacy\LegacyWidgetOne;
+use Ghostwire\Tests\Browser\Fixtures\Legacy\LegacyWidgetThree;
+use Ghostwire\Tests\Browser\Fixtures\Legacy\LegacyWidgetTwo;
 use Livewire\Livewire;
 use Livewire\LivewireServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
@@ -34,6 +39,11 @@ class TestCase extends Orchestra
         Livewire::component('scrollable-kanban', ScrollableKanban::class);
         Livewire::component('node-count', NodeCount::class);
         Livewire::component('ghost-attribute-probe', GhostAttributeProbe::class);
+        Livewire::component('legacy-widget-one', LegacyWidgetOne::class);
+        Livewire::component('legacy-widget-two', LegacyWidgetTwo::class);
+        Livewire::component('legacy-widget-three', LegacyWidgetThree::class);
+        Livewire::component('legacy-widget-four', LegacyWidgetFour::class);
+        Livewire::component('legacy-widget-five', LegacyWidgetFive::class);
     }
 
     protected function defineRoutes($router): void
