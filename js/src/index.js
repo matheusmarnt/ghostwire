@@ -99,7 +99,14 @@ export function boot() {
     const config = resolveHostConfig(directiveConfig, attributeConfig);
     if (config.mode === 'off') { cleanup(() => {}); return; }
 
+    // SPEC-API §10.1 grammar level 2: wire:ghost="actionA, actionB" targets
+    // only those actions; a bare wire:ghost (no expression) is unfiltered.
+    const targetActions = directive.expression
+      ? directive.expression.split(',').map((name) => name.trim()).filter(Boolean)
+      : null;
+
     const host = registry.attach(el, component, config);
+    host.targetActions = targetActions;
     if (config.keep) el.classList.add('gw-kept');
 
     cleanup(() => {
@@ -195,6 +202,7 @@ export function boot() {
       if (ctx.isSync) return; // SPEC-API-20 default silence
       for (const host of registry.hostsFor(ctx.component.id)) {
         if (host.config.mode === 'off') continue;
+        if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
         scheduler.messageStart(host, pickOverrides(host.config));
       }
     },

@@ -801,7 +801,9 @@
         });
         return;
       }
+      const targetActions = directive.expression ? directive.expression.split(",").map((name) => name.trim()).filter(Boolean) : null;
       const host = registry.attach(el, component, config);
+      host.targetActions = targetActions;
       if (config.keep) el.classList.add("gw-kept");
       cleanup(() => {
         scheduler.cancel(host);
@@ -844,6 +846,7 @@
         if (ctx.isSync) return;
         for (const host of registry.hostsFor(ctx.component.id)) {
           if (host.config.mode === "off") continue;
+          if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
           scheduler.messageStart(host, pickOverrides(host.config));
         }
       },

@@ -137,6 +137,42 @@ describe('directive registration and modifier parsing', () => {
     expect(scheduler.messageFinish).not.toHaveBeenCalled();
   });
 
+  it('only activates a host targeted by wire:ghost="name" when the triggering action matches (SPEC-API grammar §10.1)', () => {
+    boot();
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    registeredCallback({
+      el,
+      directive: { modifiers: [], expression: 'save, delete' },
+      component: { id: 'c1', el },
+      cleanup: () => {},
+    });
+
+    const scheduler = schedulerInstances.at(-1);
+
+    // Non-matching action: the host must not activate.
+    interceptedCallback({
+      message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'other' }] },
+      onSuccess: () => {},
+      onError: () => {},
+      onFailure: () => {},
+      onCancel: () => {},
+      onFinish: () => {},
+    });
+    expect(scheduler.messageStart).not.toHaveBeenCalled();
+
+    // Matching action: the host must activate.
+    interceptedCallback({
+      message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'save' }] },
+      onSuccess: () => {},
+      onError: () => {},
+      onFailure: () => {},
+      onCancel: () => {},
+      onFinish: () => {},
+    });
+    expect(scheduler.messageStart).toHaveBeenCalledTimes(1);
+  });
+
   it('parses the .ignore modifier without throwing and registers a cleanup function', () => {
     boot();
     const el = document.createElement('div');
