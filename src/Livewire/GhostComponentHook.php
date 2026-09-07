@@ -2,6 +2,7 @@
 
 namespace Ghostwire\Livewire;
 
+use Ghostwire\Support\ConfigResolver;
 use Livewire\ComponentHook;
 use Livewire\Drawer\Utils;
 
@@ -36,22 +37,80 @@ use Livewire\Drawer\Utils;
 // version branching required.
 //
 // Empirically confirmed side effect (both versions): Utils::stringifyHtmlAttributes()
-// runs every attribute value through escapeStringForHtml(), i.e.
-// htmlspecialchars(..., ENT_QUOTES) — so the JSON payload's double quotes are
-// rendered as `&quot;` in the raw HTML (correct, required escaping for a
-// double-quoted attribute; browsers decode it back to `"` in the DOM/dataset).
-// tests/Feature/Transport/ComponentHookTest.php asserts against the decoded
-// value for this reason.
+// runs every attribute value through escapeStringForHtml(). That helper
+// (vendor/livewire/livewire/src/Drawer/Utils.php:44-50) branches on the
+// value's type: a string/numeric is run through htmlspecialchars() as-is,
+// but anything else (our compact payload array) is first json_encode()'d and
+// *then* run through htmlspecialchars(..., ENT_QUOTES|ENT_SUBSTITUTE). So
+// passing the raw PHP array straight into insertAttributesIntoHtmlRoot()
+// below is itself the real, confirmed serialize+escape path (SPEC-SEC-01) —
+// no hand-rolled json_encode()/JSON_HEX_* call is needed or used here, since
+// that would just double-encode. The JSON's double quotes end up rendered as
+// `&quot;` in the raw HTML (correct, required escaping for a double-quoted
+// attribute; browsers decode it back to `"` in the DOM/dataset).
+// tests/Feature/Transport/*Test.php assert against the decoded value for
+// this reason.
 class GhostComponentHook extends ComponentHook
 {
     public function render($view, $data)
     {
         return function ($html, $replaceHtml) {
-            // Task 1 only proves the wiring: a fixed literal payload.
-            // Task 3 replaces this with real Ghostwire\ConfigResolver output.
+            // $this->component is set by ComponentHookRegistry::initializeHook()
+            // (vendor/livewire/livewire/src/ComponentHookRegistry.php) to the
+            // concrete Livewire component instance this hook run is scoped
+            // to — the real, confirmed way this hook knows "which component".
+            // $method is always null here: action-method-scoped resolution
+            // is out of scope for this task (handled later, JS-side).
+            $resolved = app(ConfigResolver::class)->resolve(get_class($this->component));
+
             $replaceHtml(Utils::insertAttributesIntoHtmlRoot($html, [
-                'data-ghost' => '{"m":"synthesize"}',
+                'data-ghost' => $this->compactPayload($resolved),
             ]));
         };
+    }
+
+    /**
+     * Compact-key, defaults-omitted payload for the `data-ghost` attribute
+     * (SPEC-API-30). `m` (mode) is always present; every other key is
+     * emitted only when it differs from the package default, and `only`/
+     * `except`/`rows` are omitted entirely while still null.
+     *
+     * @param  array{mode: string, only: ?array, except: ?array, delay: int, hold: int, rows: ?int, poll: bool, sync: bool, lazy: bool}  $resolved
+     * @return array<string, mixed>
+     */
+    private function compactPayload(array $resolved): array
+    {
+        $defaults = [
+            'mode' => config('ghostwire.mode', 'synthesize'),
+            'delay' => config('ghostwire.timing.delay', 120),
+            'hold' => config('ghostwire.timing.hold', 300),
+            'poll' => ! config('ghostwire.silence.poll', true),
+            'sync' => ! config('ghostwire.silence.sync', true),
+            'lazy' => (bool) config('ghostwire.learning.enabled', false),
+        ];
+
+        $keys = ['mode' => 'm', 'only' => 'o', 'except' => 'x', 'delay' => 'd', 'hold' => 'h', 'rows' => 'r', 'poll' => 'p', 'sync' => 's', 'lazy' => 'l'];
+
+        $payload = ['m' => $resolved['mode']]; // mode always present
+
+        foreach ($keys as $field => $key) {
+            if ($field === 'mode') {
+                continue;
+            }
+
+            $value = $resolved[$field];
+
+            if ($value === null) {
+                continue;
+            }
+
+            if (array_key_exists($field, $defaults) && $value === $defaults[$field]) {
+                continue;
+            }
+
+            $payload[$key] = $value;
+        }
+
+        return $payload;
     }
 }
