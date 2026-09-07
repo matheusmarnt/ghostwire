@@ -25,6 +25,19 @@ class MatrixConcreteOverridesMode extends MatrixBase
     public function anyAction(): void {}
 }
 
+trait MatrixConflictingTrait {}
+
+#[Ghost(hold: 700)]
+trait MatrixConflictingTraitWithPolicy {}
+
+#[Ghost(hold: 400)]
+class MatrixAncestorWithConflictingField {}
+
+class MatrixConcreteWithAncestorAndTraitConflict extends MatrixAncestorWithConflictingField
+{
+    use MatrixConflictingTraitWithPolicy;
+}
+
 it('resolves class-own field over inherited trait field over inherited base-class field over config over defaults', function () {
     $resolved = (new ConfigResolver)->resolve(MatrixConcreteUsesInheritedOnly::class);
 
@@ -47,4 +60,10 @@ it('lets the concrete class override the inherited mode while keeping the inheri
 
     expect($resolved['mode'])->toBe('synthesize') // concrete class's own declaration wins
         ->and($resolved['delay'])->toBe(999);      // still falls through to the inherited base
+});
+
+it('lets an ancestor class field win over a same-field trait declaration, both present at once (SPEC-API-11 ordering)', function () {
+    $resolved = (new ConfigResolver)->resolve(MatrixConcreteWithAncestorAndTraitConflict::class);
+
+    expect($resolved['hold'])->toBe(400); // ancestor's own declared value, not the trait's
 });
