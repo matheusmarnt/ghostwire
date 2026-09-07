@@ -1,5 +1,7 @@
 <?php
+
 // src/Support/ConfigResolver.php
+
 namespace Ghostwire\Support;
 
 use Ghostwire\Attributes\Ghost;
@@ -48,6 +50,26 @@ final class ConfigResolver
         }
 
         return null;
+    }
+
+    /**
+     * @return array<string, mixed> the package-default value for every field that has
+     *                              one (mode, delay, hold, poll, sync, lazy — only/except/rows
+     *                              have no non-null default, so they're excluded). Single
+     *                              source of truth for consumers (e.g. GhostComponentHook's
+     *                              compact-payload omission logic) that need to know which
+     *                              resolved value equals "the default" without duplicating it.
+     */
+    public function defaults(): array
+    {
+        return [
+            'mode' => $this->packageDefault('mode'),
+            'delay' => $this->packageDefault('delay'),
+            'hold' => $this->packageDefault('hold'),
+            'poll' => $this->packageDefault('poll'),
+            'sync' => $this->packageDefault('sync'),
+            'lazy' => $this->packageDefault('lazy'),
+        ];
     }
 
     private function packageDefault(string $field): mixed

@@ -8,18 +8,12 @@ trait GhostTraitDefaults {}
 #[Ghost(mode: 'freeze', delay: 50)]
 trait GhostTraitWithDefaults {}
 
-class GhostBaseComponent
-{
-}
+class GhostBaseComponent {}
 
 #[Ghost(except: ['refreshBadge'])]
-class GhostInheritedBase
-{
-}
+class GhostInheritedBase {}
 
-class GhostConcreteNoOwnAttribute extends GhostInheritedBase
-{
-}
+class GhostConcreteNoOwnAttribute extends GhostInheritedBase {}
 
 #[Ghost(mode: 'off')]
 class GhostConcreteOverridesMode extends GhostInheritedBase
@@ -32,9 +26,7 @@ class GhostConcreteOverridesMode extends GhostInheritedBase
 }
 
 #[Ghost(only: ['a'], except: ['b'])]
-class GhostInvalidBothFilters
-{
-}
+class GhostInvalidBothFilters {}
 
 class GhostUsesTraitPolicy
 {
@@ -92,4 +84,17 @@ it('inherits a trait-level attribute when nothing in the class chain declares it
 
     expect($resolved['mode'])->toBe('freeze')
         ->and($resolved['delay'])->toBe(50);
+});
+
+it('exposes the package defaults for the fields that have one, matching resolve()\'s own fallback', function () {
+    $defaults = (new ConfigResolver)->defaults();
+
+    expect($defaults)->toBe([
+        'mode' => 'synthesize',
+        'delay' => config('ghostwire.timing.delay'),
+        'hold' => config('ghostwire.timing.hold'),
+        'poll' => ! config('ghostwire.silence.poll'),
+        'sync' => ! config('ghostwire.silence.sync'),
+        'lazy' => config('ghostwire.learning.enabled'),
+    ]);
 });

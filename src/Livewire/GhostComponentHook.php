@@ -61,10 +61,11 @@ class GhostComponentHook extends ComponentHook
             // to — the real, confirmed way this hook knows "which component".
             // $method is always null here: action-method-scoped resolution
             // is out of scope for this task (handled later, JS-side).
-            $resolved = app(ConfigResolver::class)->resolve(get_class($this->component));
+            $resolver = app(ConfigResolver::class);
+            $resolved = $resolver->resolve(get_class($this->component));
 
             $replaceHtml(Utils::insertAttributesIntoHtmlRoot($html, [
-                'data-ghost' => $this->compactPayload($resolved),
+                'data-ghost' => $this->compactPayload($resolved, $resolver->defaults()),
             ]));
         };
     }
@@ -76,19 +77,11 @@ class GhostComponentHook extends ComponentHook
      * `except`/`rows` are omitted entirely while still null.
      *
      * @param  array{mode: string, only: ?array, except: ?array, delay: int, hold: int, rows: ?int, poll: bool, sync: bool, lazy: bool}  $resolved
+     * @param  array<string, mixed>  $defaults  from ConfigResolver::defaults() — single source of truth for "what's the default", so this method never re-declares package-default values itself.
      * @return array<string, mixed>
      */
-    private function compactPayload(array $resolved): array
+    private function compactPayload(array $resolved, array $defaults): array
     {
-        $defaults = [
-            'mode' => config('ghostwire.mode', 'synthesize'),
-            'delay' => config('ghostwire.timing.delay', 120),
-            'hold' => config('ghostwire.timing.hold', 300),
-            'poll' => ! config('ghostwire.silence.poll', true),
-            'sync' => ! config('ghostwire.silence.sync', true),
-            'lazy' => (bool) config('ghostwire.learning.enabled', false),
-        ];
-
         $keys = ['mode' => 'm', 'only' => 'o', 'except' => 'x', 'delay' => 'd', 'hold' => 'h', 'rows' => 'r', 'poll' => 'p', 'sync' => 's', 'lazy' => 'l'];
 
         $payload = ['m' => $resolved['mode']]; // mode always present
