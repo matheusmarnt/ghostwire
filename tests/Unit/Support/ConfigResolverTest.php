@@ -1,0 +1,83 @@
+<?php
+
+use Ghostwire\Attributes\Ghost;
+use Ghostwire\Support\ConfigResolver;
+
+trait GhostTraitDefaults {}
+
+#[Ghost(mode: 'freeze', delay: 50)]
+trait GhostTraitWithDefaults {}
+
+class GhostBaseComponent
+{
+}
+
+#[Ghost(except: ['refreshBadge'])]
+class GhostInheritedBase
+{
+}
+
+class GhostConcreteNoOwnAttribute extends GhostInheritedBase
+{
+}
+
+#[Ghost(mode: 'off')]
+class GhostConcreteOverridesMode extends GhostInheritedBase
+{
+    #[Ghost(rows: 15)]
+    public function applyFilters(): void {}
+
+    #[Ghost(mode: 'freeze')]
+    public function save(): void {}
+}
+
+#[Ghost(only: ['a'], except: ['b'])]
+class GhostInvalidBothFilters
+{
+}
+
+it('falls all the way through to package defaults when nothing declares anything', function () {
+    $resolved = (new ConfigResolver)->resolve(GhostBaseComponent::class);
+
+    expect($resolved['mode'])->toBe('synthesize')
+        ->and($resolved['only'])->toBeNull()
+        ->and($resolved['except'])->toBeNull()
+        ->and($resolved['delay'])->toBe(config('ghostwire.timing.delay'))
+        ->and($resolved['hold'])->toBe(config('ghostwire.timing.hold'))
+        ->and($resolved['rows'])->toBeNull()
+        ->and($resolved['poll'])->toBe(! config('ghostwire.silence.poll'))
+        ->and($resolved['sync'])->toBe(! config('ghostwire.silence.sync'))
+        ->and($resolved['lazy'])->toBe(config('ghostwire.learning.enabled'));
+});
+
+it('inherits a base class attribute field by field (SPEC-API-11)', function () {
+    $resolved = (new ConfigResolver)->resolve(GhostConcreteNoOwnAttribute::class);
+
+    expect($resolved['except'])->toBe(['refreshBadge'])
+        ->and($resolved['mode'])->toBe('synthesize'); // not declared anywhere -> package default
+});
+
+it('lets the concrete class override an inherited field, keeping the rest inherited (SPEC-API-10/11)', function () {
+    $resolved = (new ConfigResolver)->resolve(GhostConcreteOverridesMode::class);
+
+    expect($resolved['mode'])->toBe('off')       // concrete class's own declared field wins
+        ->and($resolved['except'])->toBe(['refreshBadge']); // not redeclared on concrete class -> inherited
+});
+
+it('lets a method attribute override the class, field by field, without discarding undeclared fields (SPEC-API-10)', function () {
+    $resolved = (new ConfigResolver)->resolve(GhostConcreteOverridesMode::class, 'applyFilters');
+
+    expect($resolved['rows'])->toBe(15)          // declared on the method
+        ->and($resolved['mode'])->toBe('off')    // not declared on the method -> falls through to class
+        ->and($resolved['except'])->toBe(['refreshBadge']); // still inherited past both method and class
+});
+
+it('lets a different method declare its own mode independently (SPEC-API-10)', function () {
+    $resolved = (new ConfigResolver)->resolve(GhostConcreteOverridesMode::class, 'save');
+
+    expect($resolved['mode'])->toBe('freeze');
+});
+
+it('rejects only+except coexisting on the same resolved config (SPEC-API-23)', function () {
+    (new ConfigResolver)->resolve(GhostInvalidBothFilters::class);
+})->throws(InvalidArgumentException::class);
