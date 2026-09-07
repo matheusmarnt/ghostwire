@@ -611,13 +611,122 @@
     return { synthesize, forget };
   }
 
+  // js/src/attributeConfig.js
+  var KEY_MAP = { m: "mode", o: "only", x: "except", d: "delay", h: "hold", r: "rows", p: "poll", s: "sync", l: "lazy" };
+  var KNOWN_COMPACT_KEYS = new Set(Object.keys(KEY_MAP));
+  var ACTION_NAME_PATTERN = /^[A-Za-z0-9_]{1,64}$/;
+  var DEFAULTS = { mode: "synthesize", only: null, except: null, delay: 120, hold: 300, rows: null, poll: false, sync: false, lazy: false };
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+  function sanitizeActionList(list) {
+    if (!Array.isArray(list)) return void 0;
+    const cleaned = list.filter((name) => typeof name === "string" && ACTION_NAME_PATTERN.test(name));
+    return cleaned.length > 0 ? cleaned : null;
+  }
+  function warn(message) {
+    if (false) console.warn(`[ghostwire] ${message}`);
+  }
+  function parseAttributeConfig(el) {
+    const raw = el.getAttribute("data-ghost");
+    if (raw == null) return null;
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      warn("data-ghost payload is not valid JSON \u2014 discarded, using defaults (SPEC-SEC-02)");
+      return null;
+    }
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      warn("data-ghost payload is not a JSON object \u2014 discarded, using defaults (SPEC-SEC-02)");
+      return null;
+    }
+    for (const key of Object.keys(parsed)) {
+      if (!KNOWN_COMPACT_KEYS.has(key)) {
+        warn(`data-ghost payload has unknown key "${key}" \u2014 whole payload discarded (SPEC-SEC-02)`);
+        return null;
+      }
+    }
+    const config = { ...DEFAULTS };
+    if ("m" in parsed) {
+      if (typeof parsed.m !== "string" || !["synthesize", "freeze", "off"].includes(parsed.m)) {
+        warn('data-ghost "m" is not a valid mode \u2014 whole payload discarded (SPEC-SEC-02)');
+        return null;
+      }
+      config.mode = parsed.m;
+    }
+    if ("d" in parsed) {
+      if (typeof parsed.d !== "number") {
+        warn('data-ghost "d" is not a number \u2014 whole payload discarded (SPEC-SEC-02)');
+        return null;
+      }
+      config.delay = clamp(parsed.d, 0, 6e4);
+    }
+    if ("h" in parsed) {
+      if (typeof parsed.h !== "number") {
+        warn('data-ghost "h" is not a number \u2014 whole payload discarded (SPEC-SEC-02)');
+        return null;
+      }
+      config.hold = clamp(parsed.h, 0, 6e4);
+    }
+    if ("r" in parsed) {
+      if (typeof parsed.r !== "number") {
+        warn('data-ghost "r" is not a number \u2014 whole payload discarded (SPEC-SEC-02)');
+        return null;
+      }
+      config.rows = clamp(parsed.r, 0, 1e3);
+    }
+    if ("p" in parsed) {
+      if (typeof parsed.p !== "boolean") {
+        warn('data-ghost "p" is not a boolean \u2014 whole payload discarded (SPEC-SEC-02)');
+        return null;
+      }
+      config.poll = parsed.p;
+    }
+    if ("s" in parsed) {
+      if (typeof parsed.s !== "boolean") {
+        warn('data-ghost "s" is not a boolean \u2014 whole payload discarded (SPEC-SEC-02)');
+        return null;
+      }
+      config.sync = parsed.s;
+    }
+    if ("l" in parsed) {
+      if (typeof parsed.l !== "boolean") {
+        warn('data-ghost "l" is not a boolean \u2014 whole payload discarded (SPEC-SEC-02)');
+        return null;
+      }
+      config.lazy = parsed.l;
+    }
+    if ("o" in parsed) {
+      const sanitized = sanitizeActionList(parsed.o);
+      if (sanitized === void 0) {
+        warn('data-ghost "o" is not an array \u2014 whole payload discarded (SPEC-SEC-02)');
+        return null;
+      }
+      config.only = sanitized;
+    }
+    if ("x" in parsed) {
+      const sanitized = sanitizeActionList(parsed.x);
+      if (sanitized === void 0) {
+        warn('data-ghost "x" is not an array \u2014 whole payload discarded (SPEC-SEC-02)');
+        return null;
+      }
+      config.except = sanitized;
+    }
+    return config;
+  }
+  function resolveHostConfig(directiveConfig, attributeConfig) {
+    const base = attributeConfig ?? DEFAULTS;
+    return { ...base, ...directiveConfig };
+  }
+
   // js/src/index.js
   var TIMED_MODIFIER_PATTERN = /^(delay|hold)\.(\d+)ms$/;
   function parseModifiers(modifiers) {
-    const config = { mode: "synthesize", off: false, ignore: false, keep: false };
+    const config = {};
     for (const modifier of modifiers) {
       if (modifier === "freeze") config.mode = "freeze";
-      else if (modifier === "off") config.off = true;
+      else if (modifier === "off") config.mode = "off";
       else if (modifier === "ignore") config.ignore = true;
       else if (modifier === "keep") config.keep = true;
       else if (modifier === "island") {
@@ -631,6 +740,12 @@
       }
     }
     return config;
+  }
+  function hasGhostDirective(el) {
+    for (const name of el.getAttributeNames()) {
+      if (name === "wire:ghost" || name.startsWith("wire:ghost.")) return true;
+    }
+    return false;
   }
   function boot() {
     const { bridge } = detectBridge();
@@ -651,7 +766,7 @@
     });
     const scheduler = createScheduler({
       onShow(host) {
-        if (host.config.off || host.config.ignore || host.config.keep) return;
+        if (host.config.mode === "off" || host.config.ignore || host.config.keep) return;
         if (host.config.mode === "freeze") {
           renderer.freeze(host);
           return;
@@ -667,7 +782,7 @@
         host.el.classList.add("gw-concealed");
       },
       onHide(host) {
-        if (host.config.off || host.config.ignore || host.config.keep) return;
+        if (host.config.mode === "off" || host.config.ignore || host.config.keep) return;
         if (host.config.mode === "freeze" || host.degraded) {
           renderer.unfreeze(host);
           host.degraded = false;
@@ -678,8 +793,10 @@
       }
     });
     window.Livewire.directive("ghost", ({ el, directive, component, cleanup }) => {
-      const config = parseModifiers(directive.modifiers);
-      if (config.off) {
+      const directiveConfig = parseModifiers(directive.modifiers);
+      const attributeConfig = parseAttributeConfig(component.el);
+      const config = resolveHostConfig(directiveConfig, attributeConfig);
+      if (config.mode === "off") {
         cleanup(() => {
         });
         return;
@@ -693,6 +810,21 @@
         renderer.unfreeze(host);
         host.el.classList.remove("gw-concealed");
         el.classList.remove("gw-kept");
+        registry.detach(host);
+      });
+    });
+    window.Livewire.hook("component.init", ({ component, cleanup }) => {
+      const root = component.el;
+      if (hasGhostDirective(root) || registry.hostFor(root)) return;
+      const attributeConfig = parseAttributeConfig(root);
+      if (attributeConfig === null || attributeConfig.mode === "off") return;
+      const host = registry.attach(root, component, attributeConfig);
+      cleanup(() => {
+        scheduler.cancel(host);
+        synthesizer.forget(host);
+        renderer.removeLayer(host);
+        renderer.unfreeze(host);
+        host.el.classList.remove("gw-concealed");
         registry.detach(host);
       });
     });
@@ -711,7 +843,7 @@
       onStart(ctx) {
         if (ctx.isSync) return;
         for (const host of registry.hostsFor(ctx.component.id)) {
-          if (host.config.off) continue;
+          if (host.config.mode === "off") continue;
           scheduler.messageStart(host, pickOverrides(host.config));
         }
       },

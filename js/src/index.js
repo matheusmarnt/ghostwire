@@ -3,17 +3,23 @@ import { createRegistry } from './registry.js';
 import { createScheduler } from './scheduler.js';
 import { createRenderer } from './renderer.js';
 import { createSynthesizer } from './synthesizer/index.js';
+import { parseAttributeConfig, resolveHostConfig } from './attributeConfig.js';
 
 const TIMED_MODIFIER_PATTERN = /^(delay|hold)\.(\d+)ms$/;
 
+// Only include a key when a modifier explicitly set it — never "declare"
+// mode/ignore/keep unconditionally. resolveHostConfig() spreads this object
+// over the attribute config, so an undeclared key here must stay absent
+// (not merely falsy) or it would stomp an explicit `#[Ghost(...)]` value
+// (SPEC-API-40).
 function parseModifiers(modifiers) {
-  const config = { mode: 'synthesize', off: false, ignore: false, keep: false };
+  const config = {};
   for (const modifier of modifiers) {
     if (modifier === 'freeze') config.mode = 'freeze';
-    else if (modifier === 'off') config.off = true;
+    else if (modifier === 'off') config.mode = 'off'; // SPEC-API-41: off is terminal, expressed as a mode value throughout
     else if (modifier === 'ignore') config.ignore = true;
     else if (modifier === 'keep') config.keep = true;
-    else if (modifier === 'island') { /* no-op on v3 and v4 alike for M1 — SPEC-INT-13 lands in M9 */ }
+    else if (modifier === 'island') { /* no-op on v3 and v4 alike — SPEC-INT-13 lands in M9 */ }
     else {
       const timed = modifier.match(TIMED_MODIFIER_PATTERN);
       if (timed) config[timed[1]] = Number(timed[2]);
@@ -24,6 +30,23 @@ function parseModifiers(modifiers) {
     }
   }
   return config;
+}
+
+// Mirrors v3.js's isPolledMethod wire:poll check. Needed because Livewire
+// fires "component.init" strictly before it processes that same element's
+// own directive.init pass (confirmed by reading vendor/livewire/livewire/
+// dist/livewire.esm.js's start()/interceptInit: initComponent(), which
+// fires component.init, runs before the directives.forEach(...
+// trigger("directive.init") ...) loop for that same el — both synchronous,
+// same call stack). So when wire:ghost sits directly on the component root,
+// registry.hostFor(root) is still empty the moment component.init fires —
+// the directive hasn't attached its host yet. A static attribute check is
+// what actually prevents the double-attach for that case.
+function hasGhostDirective(el) {
+  for (const name of el.getAttributeNames()) {
+    if (name === 'wire:ghost' || name.startsWith('wire:ghost.')) return true;
+  }
+  return false;
 }
 
 export function boot() {
@@ -46,7 +69,7 @@ export function boot() {
   });
   const scheduler = createScheduler({
     onShow(host) {
-      if (host.config.off || host.config.ignore || host.config.keep) return;
+      if (host.config.mode === 'off' || host.config.ignore || host.config.keep) return;
       if (host.config.mode === 'freeze') { renderer.freeze(host); return; }
 
       const boneTree = synthesizer.synthesize(host);
@@ -57,7 +80,7 @@ export function boot() {
       host.el.classList.add('gw-concealed');
     },
     onHide(host) {
-      if (host.config.off || host.config.ignore || host.config.keep) return;
+      if (host.config.mode === 'off' || host.config.ignore || host.config.keep) return;
       if (host.config.mode === 'freeze' || host.degraded) { renderer.unfreeze(host); host.degraded = false; return; }
       renderer.removeLayer(host);
       host.el.classList.remove('gw-concealed');
@@ -65,8 +88,16 @@ export function boot() {
   });
 
   window.Livewire.directive('ghost', ({ el, directive, component, cleanup }) => {
-    const config = parseModifiers(directive.modifiers);
-    if (config.off) { cleanup(() => {}); return; }
+    const directiveConfig = parseModifiers(directive.modifiers);
+    // SPEC-API-30: data-ghost lives on the component's own root, not
+    // necessarily on `el` (whichever element wire:ghost was written on —
+    // SPEC-API-03 nested-host case). `component.el` is a real property on
+    // both bridges' Component class (v3.js's isPolledMethod already reads
+    // it; confirmed directly in vendor/livewire/livewire/dist/livewire.esm.js
+    // for both the installed v4.4.3 and v3.8.7, checked for this task).
+    const attributeConfig = parseAttributeConfig(component.el);
+    const config = resolveHostConfig(directiveConfig, attributeConfig);
+    if (config.mode === 'off') { cleanup(() => {}); return; }
 
     const host = registry.attach(el, component, config);
     if (config.keep) el.classList.add('gw-kept');
@@ -78,6 +109,59 @@ export function boot() {
       renderer.unfreeze(host);
       host.el.classList.remove('gw-concealed');
       el.classList.remove('gw-kept');
+      registry.detach(host);
+    });
+  });
+
+  // SPEC-API-12/13: a host must exist even when there's no wire:ghost
+  // directive anywhere on the component (attribute-only auto-attach).
+  //
+  // Hook name and payload confirmed empirically, not guessed: grepped
+  // vendor/livewire/livewire/dist/livewire.esm.js for every `trigger(` call
+  // site backing `Livewire.hook()` (Livewire.hook === the internal `on()`
+  // event-bus function, dist line ~17640/component.init handling at
+  // js/store.js's initComponent()). The only component-lifecycle-start
+  // trigger is:
+  //   trigger("component.init", { component, cleanup })
+  // fired once per component, before it's added to the components registry
+  // and before effects are processed. The payload carries exactly these two
+  // keys — no `el` — so the host root is read from `component.el`.
+  // Re-checked against a temporary local install of livewire/livewire ^3.6
+  // (resolved to v3.8.7): identical trigger call, identical payload shape,
+  // same addCleanup()/destroyComponent() symmetry (see below). No dual-line
+  // divergence found for this hook.
+  //
+  // Component-teardown: there is no separate "component.removed" (or
+  // similarly named) public hook in either installed line — grepped for
+  // every `trigger("component...` and `trigger("morph...` call site and
+  // found none for teardown. Instead, `component.init`'s own `cleanup`
+  // callback (identical shape to the directive callback's `cleanup`) is
+  // Livewire's actual mechanism for this: it pushes onto the Component
+  // instance's internal cleanups array, which destroyComponent() drains via
+  // component.cleanup() when the component is removed (confirmed in both
+  // installed dist bundles). Using it here is symmetric with how the
+  // directive already tears itself down, and needs no separate hook lookup.
+  window.Livewire.hook('component.init', ({ component, cleanup }) => {
+    const root = component.el;
+    // SPEC-API-13: a directive-created host already owns this element.
+    // hasGhostDirective() is the real guard (see its comment above);
+    // registry.hostFor(root) is kept as a defensive second check.
+    if (hasGhostDirective(root) || registry.hostFor(root)) return;
+
+    const attributeConfig = parseAttributeConfig(root);
+    if (attributeConfig === null || attributeConfig.mode === 'off') return;
+
+    // No gw-kept handling here: `keep` has no data-ghost/attribute-config
+    // equivalent (attributeConfig.js's compact-key schema has no "keep"
+    // key) — SPEC-API reserves .keep to the directive only.
+    const host = registry.attach(root, component, attributeConfig);
+
+    cleanup(() => {
+      scheduler.cancel(host);
+      synthesizer.forget(host);
+      renderer.removeLayer(host);
+      renderer.unfreeze(host);
+      host.el.classList.remove('gw-concealed');
       registry.detach(host);
     });
   });
@@ -110,7 +194,7 @@ export function boot() {
     onStart(ctx) {
       if (ctx.isSync) return; // SPEC-API-20 default silence
       for (const host of registry.hostsFor(ctx.component.id)) {
-        if (host.config.off) continue;
+        if (host.config.mode === 'off') continue;
         scheduler.messageStart(host, pickOverrides(host.config));
       }
     },
