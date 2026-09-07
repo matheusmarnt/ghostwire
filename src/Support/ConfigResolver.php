@@ -72,6 +72,27 @@ final class ConfigResolver
         ];
     }
 
+    /**
+     * The package's literal default values — the same numbers hardcoded as
+     * js/src/attributeConfig.js's DEFAULTS constant. Unlike defaults()/packageDefault(),
+     * this never reads config() — it's what the JS runtime falls back to when a field
+     * is omitted from data-ghost, so the omission decision in GhostComponentHook must
+     * compare against THIS, not against a deployment's possibly-customized config value.
+     *
+     * @return array<string, mixed>
+     */
+    public function literalDefaults(): array
+    {
+        return [
+            'mode' => 'synthesize',
+            'delay' => 120,
+            'hold' => 300,
+            'poll' => false,
+            'sync' => false,
+            'lazy' => false,
+        ];
+    }
+
     private function packageDefault(string $field): mixed
     {
         return match ($field) {

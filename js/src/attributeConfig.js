@@ -2,6 +2,12 @@ const KEY_MAP = { m: 'mode', o: 'only', x: 'except', d: 'delay', h: 'hold', r: '
 const KNOWN_COMPACT_KEYS = new Set(Object.keys(KEY_MAP));
 const ACTION_NAME_PATTERN = /^[A-Za-z0-9_]{1,64}$/;
 
+// Mirrors src/Support/ConfigResolver.php's literalDefaults() exactly — these
+// are fixed literals, not config()-driven values. GhostComponentHook's
+// compactPayload() omits a data-ghost field only when it matches
+// literalDefaults(), specifically so the browser's fallback here is always
+// correct even when a deployment customizes config/ghostwire.php. If either
+// side's numbers change, update the other too.
 const DEFAULTS = { mode: 'synthesize', only: null, except: null, delay: 120, hold: 300, rows: null, poll: false, sync: false, lazy: false };
 
 function clamp(value, min, max) {

@@ -65,7 +65,7 @@ class GhostComponentHook extends ComponentHook
             $resolved = $resolver->resolve(get_class($this->component));
 
             $replaceHtml(Utils::insertAttributesIntoHtmlRoot($html, [
-                'data-ghost' => $this->compactPayload($resolved, $resolver->defaults()),
+                'data-ghost' => $this->compactPayload($resolved, $resolver->literalDefaults()),
             ]));
         };
     }
@@ -77,7 +77,7 @@ class GhostComponentHook extends ComponentHook
      * `except`/`rows` are omitted entirely while still null.
      *
      * @param  array{mode: string, only: ?array, except: ?array, delay: int, hold: int, rows: ?int, poll: bool, sync: bool, lazy: bool}  $resolved
-     * @param  array<string, mixed>  $defaults  from ConfigResolver::defaults() — single source of truth for "what's the default", so this method never re-declares package-default values itself.
+     * @param  array<string, mixed>  $defaults  from ConfigResolver::literalDefaults() — deliberately NOT defaults()/config()-driven values: the browser can only ever fall back to the fixed literal js/src/attributeConfig.js hardcodes, so a field must stay in the payload whenever it differs from that literal, even if it happens to match a deployment's customized config() value (config-drift fix).
      * @return array<string, mixed>
      */
     private function compactPayload(array $resolved, array $defaults): array
