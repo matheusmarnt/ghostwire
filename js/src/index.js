@@ -32,21 +32,34 @@ function parseModifiers(modifiers) {
   return config;
 }
 
-// Mirrors v3.js's isPolledMethod wire:poll check. Needed because Livewire
-// fires "component.init" strictly before it processes that same element's
-// own directive.init pass (confirmed by reading vendor/livewire/livewire/
-// dist/livewire.esm.js's start()/interceptInit: initComponent(), which
-// fires component.init, runs before the directives.forEach(...
-// trigger("directive.init") ...) loop for that same el — both synchronous,
-// same call stack). So when wire:ghost sits directly on the component root,
-// registry.hostFor(root) is still empty the moment component.init fires —
-// the directive hasn't attached its host yet. A static attribute check is
-// what actually prevents the double-attach for that case.
-function hasGhostDirective(el) {
-  for (const name of el.getAttributeNames()) {
-    if (name === 'wire:ghost' || name.startsWith('wire:ghost.')) return true;
-  }
-  return false;
+// Mirrors v3.js's isPolledMethod wire:poll check, including its
+// whole-subtree scan (root plus every descendant via querySelectorAll('*'))
+// — needed for the identical reason isPolledMethod needs it: wire:ghost is
+// SPEC-API-03/SPEC-API-13 legal on any descendant of the component root, not
+// just the root itself (e.g. tests/Browser/Fixtures/views/demo-table.blade.php
+// puts wire:ghost.freeze/wire:ghost on #summary/#list, never on the root).
+// Checking only the root's own attributes missed that case and let
+// component.init auto-attach a spurious extra root host alongside the real
+// directive-created descendant host(s), violating SPEC-API-13.
+//
+// Also still needed for the root-itself case: Livewire fires "component.init"
+// strictly before it processes that same element's own directive.init pass
+// (confirmed by reading vendor/livewire/livewire/dist/livewire.esm.js's
+// start()/interceptInit: initComponent(), which fires component.init, runs
+// before the directives.forEach(... trigger("directive.init") ...) loop for
+// that same el — both synchronous, same call stack). So when wire:ghost sits
+// directly on the component root, registry.hostFor(root) is still empty the
+// moment component.init fires — the directive hasn't attached its host yet.
+// A static attribute check is what actually prevents the double-attach for
+// that case.
+function hasGhostDirective(root) {
+  const elements = [root, ...Array.from(root.querySelectorAll('*'))];
+  return elements.some((el) => {
+    for (const name of el.getAttributeNames()) {
+      if (name === 'wire:ghost' || name.startsWith('wire:ghost.')) return true;
+    }
+    return false;
+  });
 }
 
 export function boot() {

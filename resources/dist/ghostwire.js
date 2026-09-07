@@ -746,11 +746,14 @@
     }
     return config;
   }
-  function hasGhostDirective(el) {
-    for (const name of el.getAttributeNames()) {
-      if (name === "wire:ghost" || name.startsWith("wire:ghost.")) return true;
-    }
-    return false;
+  function hasGhostDirective(root) {
+    const elements = [root, ...Array.from(root.querySelectorAll("*"))];
+    return elements.some((el) => {
+      for (const name of el.getAttributeNames()) {
+        if (name === "wire:ghost" || name.startsWith("wire:ghost.")) return true;
+      }
+      return false;
+    });
   }
   function boot() {
     const { bridge } = detectBridge();

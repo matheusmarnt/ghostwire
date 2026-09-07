@@ -604,5 +604,49 @@ describe('directive registration and modifier parsing', () => {
       // Exactly one host for this element — the directive's — not two.
       expect(registryInstances.at(-1).attach).toHaveBeenCalledTimes(1);
     });
+
+    // Final-whole-branch-review regression (SPEC-API-13): tests/Browser/
+    // Fixtures/views/demo-table.blade.php is the real, pre-existing pattern
+    // this reproduces — wire:ghost lives only on descendants (#summary,
+    // #list), never on the component root itself. hasGhostDirective() used
+    // to check only the root element's own attributes, missed the
+    // descendant-only directive, and let component.init auto-attach a
+    // spurious extra host at the root — concealing the real directive-
+    // created descendant host(s) underneath it. The guard must scan the
+    // whole component subtree (root + every descendant), mirroring
+    // js/src/bridge/v3.js's isPolledMethod.
+    it('skips auto-attach when wire:ghost lives only on a descendant, not the root (SPEC-API-13, demo-table.blade.php pattern)', () => {
+      boot();
+      const root = document.createElement('div');
+      root.setAttribute('data-ghost', '{"h":500}');
+      const child = document.createElement('div');
+      child.setAttribute('wire:ghost.freeze', '');
+      root.appendChild(child);
+      document.body.appendChild(root);
+      const component = { id: 'c7', el: root };
+
+      let autoAttachCleanupCalled = false;
+      componentInitCallback()({
+        component,
+        cleanup: () => { autoAttachCleanupCalled = true; },
+      });
+      expect(autoAttachCleanupCalled).toBe(false); // hasGhostDirective() must have short-circuited before registering any cleanup
+      expect(registryInstances.at(-1).attach).not.toHaveBeenCalled();
+
+      // The descendant's own wire:ghost directive still creates its host
+      // normally — the guard must not suppress the real, directive-owned
+      // element, only the spurious root auto-attach.
+      let directiveCleanup;
+      registeredCallback({
+        el: child,
+        directive: { modifiers: ['freeze'], expression: '' },
+        component,
+        cleanup: (fn) => { directiveCleanup = fn; },
+      });
+      expect(directiveCleanup).toBeTypeOf('function');
+      expect(registryInstances.at(-1).attach).toHaveBeenCalledTimes(1);
+      const [attachedEl] = registryInstances.at(-1).attach.mock.calls.at(-1);
+      expect(attachedEl).toBe(child);
+    });
   });
 });
