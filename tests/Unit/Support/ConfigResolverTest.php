@@ -36,6 +36,11 @@ class GhostInvalidBothFilters
 {
 }
 
+class GhostUsesTraitPolicy
+{
+    use GhostTraitWithDefaults;
+}
+
 it('falls all the way through to package defaults when nothing declares anything', function () {
     $resolved = (new ConfigResolver)->resolve(GhostBaseComponent::class);
 
@@ -81,3 +86,10 @@ it('lets a different method declare its own mode independently (SPEC-API-10)', f
 it('rejects only+except coexisting on the same resolved config (SPEC-API-23)', function () {
     (new ConfigResolver)->resolve(GhostInvalidBothFilters::class);
 })->throws(InvalidArgumentException::class);
+
+it('inherits a trait-level attribute when nothing in the class chain declares its own (SPEC-API-11)', function () {
+    $resolved = (new ConfigResolver)->resolve(GhostUsesTraitPolicy::class);
+
+    expect($resolved['mode'])->toBe('freeze')
+        ->and($resolved['delay'])->toBe(50);
+});
