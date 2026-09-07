@@ -3,17 +3,23 @@ import { createRegistry } from './registry.js';
 import { createScheduler } from './scheduler.js';
 import { createRenderer } from './renderer.js';
 import { createSynthesizer } from './synthesizer/index.js';
+import { parseAttributeConfig, resolveHostConfig } from './attributeConfig.js';
 
 const TIMED_MODIFIER_PATTERN = /^(delay|hold)\.(\d+)ms$/;
 
+// Only include a key when a modifier explicitly set it — never "declare"
+// mode/ignore/keep unconditionally. resolveHostConfig() spreads this object
+// over the attribute config, so an undeclared key here must stay absent
+// (not merely falsy) or it would stomp an explicit `#[Ghost(...)]` value
+// (SPEC-API-40).
 function parseModifiers(modifiers) {
-  const config = { mode: 'synthesize', off: false, ignore: false, keep: false };
+  const config = {};
   for (const modifier of modifiers) {
     if (modifier === 'freeze') config.mode = 'freeze';
-    else if (modifier === 'off') config.off = true;
+    else if (modifier === 'off') config.mode = 'off'; // SPEC-API-41: off is terminal, expressed as a mode value throughout
     else if (modifier === 'ignore') config.ignore = true;
     else if (modifier === 'keep') config.keep = true;
-    else if (modifier === 'island') { /* no-op on v3 and v4 alike for M1 — SPEC-INT-13 lands in M9 */ }
+    else if (modifier === 'island') { /* no-op on v3 and v4 alike — SPEC-INT-13 lands in M9 */ }
     else {
       const timed = modifier.match(TIMED_MODIFIER_PATTERN);
       if (timed) config[timed[1]] = Number(timed[2]);
@@ -24,6 +30,36 @@ function parseModifiers(modifiers) {
     }
   }
   return config;
+}
+
+// Mirrors v3.js's isPolledMethod wire:poll check, including its
+// whole-subtree scan (root plus every descendant via querySelectorAll('*'))
+// — needed for the identical reason isPolledMethod needs it: wire:ghost is
+// SPEC-API-03/SPEC-API-13 legal on any descendant of the component root, not
+// just the root itself (e.g. tests/Browser/Fixtures/views/demo-table.blade.php
+// puts wire:ghost.freeze/wire:ghost on #summary/#list, never on the root).
+// Checking only the root's own attributes missed that case and let
+// component.init auto-attach a spurious extra root host alongside the real
+// directive-created descendant host(s), violating SPEC-API-13.
+//
+// Also still needed for the root-itself case: Livewire fires "component.init"
+// strictly before it processes that same element's own directive.init pass
+// (confirmed by reading vendor/livewire/livewire/dist/livewire.esm.js's
+// start()/interceptInit: initComponent(), which fires component.init, runs
+// before the directives.forEach(... trigger("directive.init") ...) loop for
+// that same el — both synchronous, same call stack). So when wire:ghost sits
+// directly on the component root, registry.hostFor(root) is still empty the
+// moment component.init fires — the directive hasn't attached its host yet.
+// A static attribute check is what actually prevents the double-attach for
+// that case.
+function hasGhostDirective(root) {
+  const elements = [root, ...Array.from(root.querySelectorAll('*'))];
+  return elements.some((el) => {
+    for (const name of el.getAttributeNames()) {
+      if (name === 'wire:ghost' || name.startsWith('wire:ghost.')) return true;
+    }
+    return false;
+  });
 }
 
 export function boot() {
@@ -46,7 +82,7 @@ export function boot() {
   });
   const scheduler = createScheduler({
     onShow(host) {
-      if (host.config.off || host.config.ignore || host.config.keep) return;
+      if (host.config.mode === 'off' || host.config.ignore || host.config.keep) return;
       if (host.config.mode === 'freeze') { renderer.freeze(host); return; }
 
       const boneTree = synthesizer.synthesize(host);
@@ -57,7 +93,7 @@ export function boot() {
       host.el.classList.add('gw-concealed');
     },
     onHide(host) {
-      if (host.config.off || host.config.ignore || host.config.keep) return;
+      if (host.config.mode === 'off' || host.config.ignore || host.config.keep) return;
       if (host.config.mode === 'freeze' || host.degraded) { renderer.unfreeze(host); host.degraded = false; return; }
       renderer.removeLayer(host);
       host.el.classList.remove('gw-concealed');
@@ -65,10 +101,25 @@ export function boot() {
   });
 
   window.Livewire.directive('ghost', ({ el, directive, component, cleanup }) => {
-    const config = parseModifiers(directive.modifiers);
-    if (config.off) { cleanup(() => {}); return; }
+    const directiveConfig = parseModifiers(directive.modifiers);
+    // SPEC-API-30: data-ghost lives on the component's own root, not
+    // necessarily on `el` (whichever element wire:ghost was written on —
+    // SPEC-API-03 nested-host case). `component.el` is a real property on
+    // both bridges' Component class (v3.js's isPolledMethod already reads
+    // it; confirmed directly in vendor/livewire/livewire/dist/livewire.esm.js
+    // for both the installed v4.4.3 and v3.8.7, checked for this task).
+    const attributeConfig = parseAttributeConfig(component.el);
+    const config = resolveHostConfig(directiveConfig, attributeConfig);
+    if (config.mode === 'off') { cleanup(() => {}); return; }
+
+    // SPEC-API §10.1 grammar level 2: wire:ghost="actionA, actionB" targets
+    // only those actions; a bare wire:ghost (no expression) is unfiltered.
+    const targetActions = directive.expression
+      ? directive.expression.split(',').map((name) => name.trim()).filter(Boolean)
+      : null;
 
     const host = registry.attach(el, component, config);
+    host.targetActions = targetActions;
     if (config.keep) el.classList.add('gw-kept');
 
     cleanup(() => {
@@ -78,6 +129,59 @@ export function boot() {
       renderer.unfreeze(host);
       host.el.classList.remove('gw-concealed');
       el.classList.remove('gw-kept');
+      registry.detach(host);
+    });
+  });
+
+  // SPEC-API-12/13: a host must exist even when there's no wire:ghost
+  // directive anywhere on the component (attribute-only auto-attach).
+  //
+  // Hook name and payload confirmed empirically, not guessed: grepped
+  // vendor/livewire/livewire/dist/livewire.esm.js for every `trigger(` call
+  // site backing `Livewire.hook()` (Livewire.hook === the internal `on()`
+  // event-bus function, dist line ~17640/component.init handling at
+  // js/store.js's initComponent()). The only component-lifecycle-start
+  // trigger is:
+  //   trigger("component.init", { component, cleanup })
+  // fired once per component, before it's added to the components registry
+  // and before effects are processed. The payload carries exactly these two
+  // keys — no `el` — so the host root is read from `component.el`.
+  // Re-checked against a temporary local install of livewire/livewire ^3.6
+  // (resolved to v3.8.7): identical trigger call, identical payload shape,
+  // same addCleanup()/destroyComponent() symmetry (see below). No dual-line
+  // divergence found for this hook.
+  //
+  // Component-teardown: there is no separate "component.removed" (or
+  // similarly named) public hook in either installed line — grepped for
+  // every `trigger("component...` and `trigger("morph...` call site and
+  // found none for teardown. Instead, `component.init`'s own `cleanup`
+  // callback (identical shape to the directive callback's `cleanup`) is
+  // Livewire's actual mechanism for this: it pushes onto the Component
+  // instance's internal cleanups array, which destroyComponent() drains via
+  // component.cleanup() when the component is removed (confirmed in both
+  // installed dist bundles). Using it here is symmetric with how the
+  // directive already tears itself down, and needs no separate hook lookup.
+  window.Livewire.hook('component.init', ({ component, cleanup }) => {
+    const root = component.el;
+    // SPEC-API-13: a directive-created host already owns this element.
+    // hasGhostDirective() is the real guard (see its comment above);
+    // registry.hostFor(root) is kept as a defensive second check.
+    if (hasGhostDirective(root) || registry.hostFor(root)) return;
+
+    const attributeConfig = parseAttributeConfig(root);
+    if (attributeConfig === null || attributeConfig.mode === 'off') return;
+
+    // No gw-kept handling here: `keep` has no data-ghost/attribute-config
+    // equivalent (attributeConfig.js's compact-key schema has no "keep"
+    // key) — SPEC-API reserves .keep to the directive only.
+    const host = registry.attach(root, component, attributeConfig);
+
+    cleanup(() => {
+      scheduler.cancel(host);
+      synthesizer.forget(host);
+      renderer.removeLayer(host);
+      renderer.unfreeze(host);
+      host.el.classList.remove('gw-concealed');
       registry.detach(host);
     });
   });
@@ -106,24 +210,86 @@ export function boot() {
     }
   });
 
+  // SPEC-API-20/21/22: the bridges (js/src/bridge/v3.js, v4.js) now only
+  // report isSync/isPoll/isRenderless as facts on ctx — they no longer
+  // unilaterally swallow a message. Silence is decided here, per host, so
+  // host.config.sync/poll (SPEC-API-30 data-ghost overrides, already
+  // resolved by attributeConfig.js) can opt a specific host back in.
+  //
+  // ctx.isRenderless can be corrected from false to true *after* onStart
+  // returns (both bridges confirmed this: v4's `.renderless` directive
+  // modifier is the one case known synchronously before onStart runs;
+  // otherwise -- a plain #[Renderless] PHP-attributed method, either line --
+  // the only signal is the response shape, discovered later in
+  // onSuccess/succeed, strictly after onStart already decided whether to
+  // call scheduler.messageStart). Reading the live, possibly-since-mutated
+  // ctx.isRenderless in onPostPaint/onFinish would desync onStart's actual
+  // decision from theirs whenever the deferred correction lands: onStart
+  // would have already called scheduler.messageStart (isRenderless was
+  // still false then), but onPostPaint/onFinish would then wrongly skip
+  // their balancing scheduler.messagePostPaint/messageFinish calls (now
+  // true), leaking host.pending and stranding the host in 'visible' (only
+  // recovering via the 15s hard timeout in scheduler.js). So onStart
+  // snapshots the value it actually acted on into ctx._gwSkippedRenderless,
+  // and all three handlers gate on that frozen snapshot instead -- it can
+  // never disagree with what onStart really did, in either sub-case
+  // (synchronous: snapshot is true, all three skip, no scheduler calls at
+  // all; deferred: snapshot is false, none of the three skip, matching the
+  // messageStart that did run).
+  //
+  // host.targetActions has the identical shape of bug: onStart already
+  // skips scheduler.messageStart for a host whose expression doesn't match
+  // the triggering action names, so onPostPaint/onFinish must skip their
+  // balancing calls for that same host too -- targetActions never mutates
+  // after ctx is built, so (unlike isRenderless) checking it live in all
+  // three handlers is safe and needs no snapshot.
+  //
+  // host.config.only/except (SPEC-API-23) are the same shape again: fixed
+  // per-host config, never mutated after ctx is built, so all three
+  // handlers gate on them live, right next to the targetActions check.
+  // only activates when the triggering action IS in the list; except
+  // activates unless it IS in the list. Both are null by default (no
+  // filtering) and PHP-side validation guarantees they never coexist, but
+  // the two checks are independent and correct regardless.
+  //
+  // host.config.mode === 'off' does NOT need mirroring here: both the
+  // directive and the attribute-only auto-attach path already refuse to
+  // ever call registry.attach() for a mode:'off' host, so the registry can
+  // never contain one -- onStart's check is defensive/unreachable, not a
+  // live desync risk.
   bridge.subscribe({
     onStart(ctx) {
-      if (ctx.isSync) return; // SPEC-API-20 default silence
+      // Frozen at the exact moment the messageStart decisions below are
+      // made -- see the comment above bridge.subscribe(). Neither bridge
+      // mutates ctx.isRenderless before onStart returns, only after.
+      ctx._gwSkippedRenderless = ctx.isRenderless;
       for (const host of registry.hostsFor(ctx.component.id)) {
-        if (host.config.off) continue;
+        if (host.config.mode === 'off') continue;
+        if (ctx.isRenderless) continue; // SPEC-API-22: no configurable exception, either line
+        if (ctx.isSync && !host.config.sync) continue; // SPEC-API-20 default silence, overridable
+        if (ctx.isPoll && !host.config.poll) continue; // SPEC-API-21 default silence, overridable
+        if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
+        if (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name))) continue;
+        if (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name))) continue;
         scheduler.messageStart(host, pickOverrides(host.config));
       }
     },
     onPostPaint(ctx) {
-      if (ctx.isSync) return; // SPEC-API-20 default silence — mirror onStart's guard
       for (const host of registry.hostsFor(ctx.component.id)) {
+        if (ctx._gwSkippedRenderless || (ctx.isSync && !host.config.sync) || (ctx.isPoll && !host.config.poll)) continue;
+        if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
+        if (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name))) continue;
+        if (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name))) continue;
         renderer.repositionLayer(host);
         scheduler.messagePostPaint(host);
       }
     },
     onFinish(ctx) {
-      if (ctx.isSync) return; // SPEC-API-20 default silence — mirror onStart's guard
       for (const host of registry.hostsFor(ctx.component.id)) {
+        if (ctx._gwSkippedRenderless || (ctx.isSync && !host.config.sync) || (ctx.isPoll && !host.config.poll)) continue;
+        if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
+        if (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name))) continue;
+        if (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name))) continue;
         scheduler.messageFinish(host);
       }
     },

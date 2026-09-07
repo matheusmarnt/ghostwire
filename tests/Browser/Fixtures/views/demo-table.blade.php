@@ -10,4 +10,5 @@
     </ul>
 
     <button wire:click="refresh" id="refresh-btn">Refresh</button>
+    <button wire:click="renderlessBump" id="renderless-btn">Renderless Bump</button>
 </div>

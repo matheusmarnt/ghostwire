@@ -56,7 +56,13 @@ describe('bridge v4', () => {
     });
 
     expect(captured).toHaveLength(1);
-    expect(captured[0]).toEqual({ component: { id: 'c1' }, actionNames: [], isSync: true });
+    expect(captured[0]).toEqual({
+      component: { id: 'c1' },
+      actionNames: [],
+      isSync: true,
+      isPoll: false,
+      isRenderless: false,
+    });
   });
 
   it('isSync is false when the message carries at least one action call', () => {
@@ -105,7 +111,7 @@ describe('bridge v4', () => {
     expect(captured[0].isSync).toBe(false);
   });
 
-  it('skips onStart entirely for a poll-originated message (SPEC-API-21, native v4 metadata)', () => {
+  it('reports isPoll true for a poll-originated message but still calls onStart (SPEC-API-21, native v4 metadata) — index.js decides silence now', () => {
     const onStart = vi.fn();
     global.Livewire = {
       interceptMessage(cb) {
@@ -119,7 +125,8 @@ describe('bridge v4', () => {
     };
     createV4Bridge().subscribe({ onStart, onPostPaint: () => {}, onFinish: () => {} });
 
-    expect(onStart).not.toHaveBeenCalled();
+    expect(onStart).toHaveBeenCalledOnce();
+    expect(onStart.mock.calls[0][0].isPoll).toBe(true);
   });
 
   it('does not silence a message with a real action just because a poll-metadata action is also present', () => {
@@ -129,6 +136,94 @@ describe('bridge v4', () => {
 
     expect(captured).toHaveLength(1);
     expect(captured[0].isSync).toBe(false);
+  });
+
+  // SPEC-API-22: confirmed via grepping the installed livewire/livewire ^4.0
+  // dist/livewire.esm.js — a `wire:click.renderless="method"` directive
+  // modifier sets action.metadata.renderless = true client-side before the
+  // request is even sent, so this case is knowable synchronously, same
+  // timing as isPoll.
+  it('reports isRenderless true at onStart when every action carries metadata.renderless (the .renderless directive modifier, known synchronously)', () => {
+    const onStart = vi.fn();
+    global.Livewire = {
+      interceptMessage(cb) {
+        cb({
+          message: fakeMessage({ actions: [{ name: 'save', metadata: { renderless: true } }] }),
+          onSuccess: () => {}, onError: () => {}, onFailure: () => {},
+          onCancel: () => {}, onSkipped: () => {}, onFinish: () => {},
+        });
+        return () => {};
+      },
+    };
+    createV4Bridge().subscribe({ onStart, onPostPaint: () => {}, onFinish: () => {} });
+
+    expect(onStart).toHaveBeenCalledOnce();
+    expect(onStart.mock.calls[0][0].isRenderless).toBe(true);
+  });
+
+  // SPEC-API-22: a #[Renderless]-attributed PHP method invoked via a *plain*
+  // wire:click carries no client-side marker at all (confirmed by a real
+  // capture, see the Task 6 report) — action.metadata is `{}`, same as any
+  // ordinary action. The only reliable signal is the response shape: the
+  // effects object never gets an "html" key (HandleComponents::render()
+  // returns nothing once the server decided to skip rendering). That's only
+  // knowable in onSuccess, after onStart already ran.
+  it('reports isRenderless false at onStart (not yet knowable) and true by onFinish/onPostPaint when the response has no "html" effect (plain #[Renderless] PHP attribute, no directive modifier)', () => {
+    // ctx is one shared, mutable object across onStart/onSuccess/onPostPaint/
+    // onFinish -- capture its isRenderless value at the moment onStart fires
+    // into a plain local (not the object reference) so a later mutation
+    // can't retroactively change what this assertion saw.
+    let isRenderlessAtStart = null;
+    let onFinishCtx = null;
+    let onPostPaintCtx = null;
+    let capturedRenderCb;
+    let capturedFinishCb;
+    global.Livewire = {
+      interceptMessage(cb) {
+        cb({
+          message: fakeMessage({ actions: [{ name: 'renderlessBump', metadata: {} }] }),
+          onSuccess: (successCb) => {
+            successCb({ payload: { effects: { returns: [null] } }, onSync: () => {}, onMorph: () => {}, onRender: (fn) => { capturedRenderCb = fn; } });
+          },
+          onError: () => {}, onFailure: () => {}, onCancel: () => {}, onSkipped: () => {},
+          onFinish: (fn) => { capturedFinishCb = fn; },
+        });
+        return () => {};
+      },
+    };
+    createV4Bridge().subscribe({
+      onStart: (ctx) => { isRenderlessAtStart = ctx.isRenderless; },
+      onPostPaint: (ctx) => { onPostPaintCtx = ctx; },
+      onFinish: (ctx) => { onFinishCtx = ctx; },
+    });
+
+    expect(isRenderlessAtStart).toBe(false);
+
+    capturedRenderCb();
+    capturedFinishCb();
+
+    expect(onPostPaintCtx.isRenderless).toBe(true);
+    expect(onFinishCtx.isRenderless).toBe(true);
+  });
+
+  it('reports isRenderless false when the response has an "html" effect (ordinary action)', () => {
+    let onFinishCtx = null;
+    global.Livewire = {
+      interceptMessage(cb) {
+        cb({
+          message: fakeMessage({ actions: [{ name: 'save', metadata: {} }] }),
+          onSuccess: (successCb) => {
+            successCb({ payload: { effects: { returns: [null], html: '<div></div>' } }, onSync: () => {}, onMorph: () => {}, onRender: () => {} });
+          },
+          onError: () => {}, onFailure: () => {}, onCancel: () => {}, onSkipped: () => {},
+          onFinish: (fn) => fn(),
+        });
+        return () => {};
+      },
+    };
+    createV4Bridge().subscribe({ onStart: () => {}, onPostPaint: () => {}, onFinish: (ctx) => { onFinishCtx = ctx; } });
+
+    expect(onFinishCtx.isRenderless).toBe(false);
   });
 
   it('skips onStart entirely when the message is already skipped (Tier C, SPEC-INT-06)', () => {
