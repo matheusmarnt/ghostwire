@@ -475,6 +475,86 @@ describe('directive registration and modifier parsing', () => {
       expect(registry.attach).toHaveBeenCalledTimes(2);
     });
 
+    // Finding 1 (final whole-branch review): host.config.only/except were
+    // transported from #[Ghost(...)] all the way onto the merged host
+    // config, but nothing in index.js ever read them, so a component
+    // activated purely via attribute-only auto-attach (no wire:ghost in the
+    // view at all) still ghosted on every action regardless of only/except.
+    // These two tests drive the auto-attach path specifically (not the
+    // directive path, which already had its own targetActions coverage
+    // above) to prove the gate now applies there too.
+    it('enforces data-ghost "o" (only) via the attribute-only auto-attach path (no wire:ghost in the view)', () => {
+      boot();
+      const root = document.createElement('div');
+      root.setAttribute('data-ghost', '{"o":["save"]}');
+      document.body.appendChild(root);
+
+      componentInitCallback()({
+        component: { id: 'c5', el: root },
+        cleanup: () => {},
+      });
+
+      const scheduler = schedulerInstances.at(-1);
+
+      // Non-matching action: "only" must keep the host silent.
+      interceptedCallback({
+        message: { isSkipped: () => false, component: { id: 'c5' }, getActions: () => [{ name: 'refreshBadge' }] },
+        onSuccess: () => {},
+        onError: () => {},
+        onFailure: () => {},
+        onCancel: () => {},
+        onFinish: () => {},
+      });
+      expect(scheduler.messageStart).not.toHaveBeenCalled();
+
+      // Matching action: "only" must let the host activate.
+      interceptedCallback({
+        message: { isSkipped: () => false, component: { id: 'c5' }, getActions: () => [{ name: 'save' }] },
+        onSuccess: () => {},
+        onError: () => {},
+        onFailure: () => {},
+        onCancel: () => {},
+        onFinish: () => {},
+      });
+      expect(scheduler.messageStart).toHaveBeenCalledTimes(1);
+    });
+
+    it('enforces data-ghost "x" (except) via the attribute-only auto-attach path (no wire:ghost in the view)', () => {
+      boot();
+      const root = document.createElement('div');
+      root.setAttribute('data-ghost', '{"x":["refreshBadge"]}');
+      document.body.appendChild(root);
+
+      componentInitCallback()({
+        component: { id: 'c6', el: root },
+        cleanup: () => {},
+      });
+
+      const scheduler = schedulerInstances.at(-1);
+
+      // Excluded action: "except" must keep the host silent.
+      interceptedCallback({
+        message: { isSkipped: () => false, component: { id: 'c6' }, getActions: () => [{ name: 'refreshBadge' }] },
+        onSuccess: () => {},
+        onError: () => {},
+        onFailure: () => {},
+        onCancel: () => {},
+        onFinish: () => {},
+      });
+      expect(scheduler.messageStart).not.toHaveBeenCalled();
+
+      // Any action not on the except list: must let the host activate.
+      interceptedCallback({
+        message: { isSkipped: () => false, component: { id: 'c6' }, getActions: () => [{ name: 'save' }] },
+        onSuccess: () => {},
+        onError: () => {},
+        onFailure: () => {},
+        onCancel: () => {},
+        onFinish: () => {},
+      });
+      expect(scheduler.messageStart).toHaveBeenCalledTimes(1);
+    });
+
     it('skips auto-attach when data-ghost mode is "off"', () => {
       boot();
       const root = document.createElement('div');

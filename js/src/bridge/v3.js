@@ -55,7 +55,13 @@ export function createV3Bridge() {
       // described in the Task 6 report. That signal only exists once the
       // response arrives, in the `succeed` callback below -- not at commit
       // time like isSync/isPoll -- so ctx.isRenderless starts false and is
-      // corrected here, before onFinish/onPostPaint run.
+      // corrected here, once the response arrives. NOTE: index.js's
+      // onPostPaint/onFinish do NOT read this corrected value -- they gate
+      // on ctx._gwSkippedRenderless, a snapshot taken at the start of
+      // onStart, before this correction can ever run (see the comment
+      // above bridge.subscribe() in index.js). This deferred correction is
+      // kept for callers/future work that need the true post-response
+      // Renderless status; from onStart's point of view it's write-only.
       const ctx = { component, actionNames, isSync, isPoll: looksLikePoll, isRenderless: false };
       handlers.onStart(ctx);
 

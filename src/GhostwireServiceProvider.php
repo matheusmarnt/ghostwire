@@ -4,6 +4,7 @@ namespace Ghostwire;
 
 use Ghostwire\Commands\InspectCommand;
 use Ghostwire\Livewire\GhostComponentHook;
+use Ghostwire\Support\ConfigResolver;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
@@ -13,6 +14,8 @@ class GhostwireServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__.'/../config/ghostwire.php', 'ghostwire');
+
+        $this->app->singleton(ConfigResolver::class);
     }
 
     public function boot(): void

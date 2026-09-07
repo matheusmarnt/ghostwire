@@ -855,6 +855,8 @@
           if (ctx.isSync && !host.config.sync) continue;
           if (ctx.isPoll && !host.config.poll) continue;
           if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
+          if (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name))) continue;
+          if (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name))) continue;
           scheduler.messageStart(host, pickOverrides(host.config));
         }
       },
@@ -862,6 +864,8 @@
         for (const host of registry.hostsFor(ctx.component.id)) {
           if (ctx._gwSkippedRenderless || ctx.isSync && !host.config.sync || ctx.isPoll && !host.config.poll) continue;
           if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
+          if (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name))) continue;
+          if (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name))) continue;
           renderer.repositionLayer(host);
           scheduler.messagePostPaint(host);
         }
@@ -870,6 +874,8 @@
         for (const host of registry.hostsFor(ctx.component.id)) {
           if (ctx._gwSkippedRenderless || ctx.isSync && !host.config.sync || ctx.isPoll && !host.config.poll) continue;
           if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
+          if (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name))) continue;
+          if (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name))) continue;
           scheduler.messageFinish(host);
         }
       }

@@ -231,6 +231,14 @@ export function boot() {
   // after ctx is built, so (unlike isRenderless) checking it live in all
   // three handlers is safe and needs no snapshot.
   //
+  // host.config.only/except (SPEC-API-23) are the same shape again: fixed
+  // per-host config, never mutated after ctx is built, so all three
+  // handlers gate on them live, right next to the targetActions check.
+  // only activates when the triggering action IS in the list; except
+  // activates unless it IS in the list. Both are null by default (no
+  // filtering) and PHP-side validation guarantees they never coexist, but
+  // the two checks are independent and correct regardless.
+  //
   // host.config.mode === 'off' does NOT need mirroring here: both the
   // directive and the attribute-only auto-attach path already refuse to
   // ever call registry.attach() for a mode:'off' host, so the registry can
@@ -248,6 +256,8 @@ export function boot() {
         if (ctx.isSync && !host.config.sync) continue; // SPEC-API-20 default silence, overridable
         if (ctx.isPoll && !host.config.poll) continue; // SPEC-API-21 default silence, overridable
         if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
+        if (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name))) continue;
+        if (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name))) continue;
         scheduler.messageStart(host, pickOverrides(host.config));
       }
     },
@@ -255,6 +265,8 @@ export function boot() {
       for (const host of registry.hostsFor(ctx.component.id)) {
         if (ctx._gwSkippedRenderless || (ctx.isSync && !host.config.sync) || (ctx.isPoll && !host.config.poll)) continue;
         if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
+        if (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name))) continue;
+        if (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name))) continue;
         renderer.repositionLayer(host);
         scheduler.messagePostPaint(host);
       }
@@ -263,6 +275,8 @@ export function boot() {
       for (const host of registry.hostsFor(ctx.component.id)) {
         if (ctx._gwSkippedRenderless || (ctx.isSync && !host.config.sync) || (ctx.isPoll && !host.config.poll)) continue;
         if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
+        if (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name))) continue;
+        if (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name))) continue;
         scheduler.messageFinish(host);
       }
     },

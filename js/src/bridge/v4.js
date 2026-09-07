@@ -55,9 +55,16 @@ export function createV4Bridge() {
       // captured from the real onSuccess payload. That signal only exists
       // post-response (in onSuccess below), not at intercept time like (1) —
       // so ctx.isRenderless starts from the synchronous check and is
-      // corrected there, before onFinish/onPostPaint run (confirmed real
-      // ordering in dist/livewire.esm.js: invokeOnSuccess() always precedes
-      // both invokeOnFinish() and the onRender-triggered onPostPaint).
+      // corrected in onSuccess below, once the response arrives (confirmed
+      // real ordering in dist/livewire.esm.js: invokeOnSuccess() always
+      // precedes both invokeOnFinish() and the onRender-triggered
+      // onPostPaint). NOTE: index.js's onPostPaint/onFinish do NOT read
+      // this corrected value -- they gate on ctx._gwSkippedRenderless, a
+      // snapshot taken at the start of onStart, before this correction can
+      // ever run (see the comment above bridge.subscribe() in index.js).
+      // This deferred correction is kept for callers/future work that need
+      // the true post-response Renderless status; from onStart's point of
+      // view it's write-only.
       const isRenderlessAtDispatch = message.getActions().length > 0
         && message.getActions().every((action) => action.metadata?.renderless === true);
 
