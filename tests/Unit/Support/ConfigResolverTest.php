@@ -33,6 +33,16 @@ class GhostUsesTraitPolicy
     use GhostTraitWithDefaults;
 }
 
+#[Ghost(hold: 500)]
+class GhostProvenanceBase {}
+
+#[Ghost(mode: 'freeze')]
+class GhostProvenanceConcrete extends GhostProvenanceBase
+{
+    #[Ghost(rows: 7)]
+    public function refresh(): void {}
+}
+
 it('falls all the way through to package defaults when nothing declares anything', function () {
     $resolved = (new ConfigResolver)->resolve(GhostBaseComponent::class);
 
@@ -84,6 +94,15 @@ it('inherits a trait-level attribute when nothing in the class chain declares it
 
     expect($resolved['mode'])->toBe('freeze')
         ->and($resolved['delay'])->toBe(50);
+});
+
+it('reports which precedence level decided each field (SPEC-API-42)', function () {
+    $result = (new ConfigResolver)->resolveWithProvenance(GhostProvenanceConcrete::class, 'refresh');
+
+    expect($result['rows'])->toBe(['value' => 7, 'level' => 'method'])       // declared on the method
+        ->and($result['mode'])->toBe(['value' => 'freeze', 'level' => 'class'])   // declared on the concrete class
+        ->and($result['hold'])->toBe(['value' => 500, 'level' => 'inherited'])    // declared on the ancestor
+        ->and($result['delay'])->toBe(['value' => config('ghostwire.timing.delay'), 'level' => 'default']); // never declared
 });
 
 it('exposes the package defaults for the fields that have one, matching resolve()\'s own fallback', function () {

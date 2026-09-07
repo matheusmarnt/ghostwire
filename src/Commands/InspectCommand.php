@@ -9,18 +9,27 @@ use Ghostwire\Support\ConfigResolver;
 use Illuminate\Console\Command;
 use Livewire\Finder\Finder;
 use Livewire\Mechanisms\ComponentRegistry;
+use ReflectionException;
 use ReflectionProperty;
 
 class InspectCommand extends Command
 {
     protected $signature = 'ghost:inspect';
 
-    protected $description = 'Show every registered Livewire component\'s resolved Ghostwire configuration (SPEC-API-42)';
+    protected $description = 'Show every registered Livewire component\'s resolved Ghostwire configuration and, per field, which #[Ghost] precedence level decided it (SPEC-API-42). Directive-level wire:ghost modifier/expression overrides only exist in the rendered DOM at runtime and are outside what this command can see.';
 
     public function handle(ConfigResolver $resolver): int
     {
         $line = InstalledVersions::getVersion('livewire/livewire');
         $this->info("Detected Livewire line: {$line}");
+
+        try {
+            $components = $this->registeredComponents();
+        } catch (ReflectionException) {
+            $this->error("Could not read Livewire's component registry — check for a Livewire version change.");
+
+            return self::FAILURE;
+        }
 
         // One field per line/writeln call (not a single $this->table() row) —
         // deliberately, not just stylistically. Laravel's expectsOutputToContain()
@@ -36,18 +45,28 @@ class InspectCommand extends Command
         // genuinely printed. Verified by re-creating Laravel's own
         // mockConsoleOutput() mock and dumping the real doWrite() call
         // boundaries — each table row was confirmed to arrive as one call.
-        foreach ($this->registeredComponents() as $name => $class) {
-            $resolved = $resolver->resolve($class);
-
+        foreach ($components as $name => $class) {
             $this->line("Component: {$name}");
             $this->line("  Class: {$class}");
-            $this->line("  Mode: {$resolved['mode']}");
-            $this->line('  Only: '.($resolved['only'] ? implode(',', $resolved['only']) : '—'));
-            $this->line('  Except: '.($resolved['except'] ? implode(',', $resolved['except']) : '—'));
-            $this->line("  Delay: {$resolved['delay']}ms  Hold: {$resolved['hold']}ms");
+
+            foreach ($resolver->resolveWithProvenance($class) as $field => $entry) {
+                $this->line("  {$field}: {$this->formatValue($entry['value'])} ({$entry['level']})");
+            }
+
+            $this->newLine();
         }
 
         return self::SUCCESS;
+    }
+
+    private function formatValue(mixed $value): string
+    {
+        return match (true) {
+            $value === null => '—',
+            is_array($value) => implode(',', $value),
+            is_bool($value) => $value ? 'true' : 'false',
+            default => (string) $value,
+        };
     }
 
     /**
@@ -88,6 +107,16 @@ class InspectCommand extends Command
      * registered class-only (no name arg) lands in a separate bucket keyed by
      * an unstable crc32 hash on both lines, which isn't a useful "name" for
      * an inspection table. Add it if a real app ever registers that way.
+     *
+     * Fragility warning: reading a protected/internal property is inherently
+     * more brittle than Task 1's confirmed *public* `Livewire::componentHook()`
+     * API — unlike a public method, a protected property carries no
+     * compatibility promise at all, so a future Livewire release could rename
+     * or restructure `$classComponents`/`$aliases` and this would silently
+     * return nothing or throw a ReflectionException, with no compile-time or
+     * type-level warning. handle() catches that and prints a clear message
+     * rather than a raw stack trace, since this is a debugging/introspection
+     * tool, not runtime-critical code.
      *
      * @return array<string, class-string>
      */

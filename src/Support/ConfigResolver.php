@@ -40,6 +40,51 @@ final class ConfigResolver
         return $resolved;
     }
 
+    /**
+     * Same resolution as resolve(), but returns each field alongside which precedence
+     * level decided it, for `ghost:inspect` (SPEC-API-42). Only levels visible to a
+     * static PHP inspection are distinguishable: 'method' (the action method's own
+     * #[Ghost]), 'class' (the concrete component class's own #[Ghost]), 'inherited'
+     * (anything picked up from an ancestor class or trait), and 'default' — SDD's
+     * precedence levels 6 (config/ghostwire.php) and 7 (package defaults) are
+     * deliberately collapsed into this one label: once config/ghostwire.php is
+     * published, a value matching the shipped default is indistinguishable at
+     * runtime from a value the app explicitly chose to leave unchanged, so reporting
+     * them as two separately-provable levels would claim a precision the runtime
+     * doesn't actually have. Directive-level overrides (SDD's precedence levels 1-2,
+     * wire:ghost modifiers/expressions) are invisible here entirely — they only exist
+     * in the rendered DOM at runtime, not in anything this command can reflect over
+     * statically; this command only ever shows the attribute-side of the chain.
+     *
+     * @return array<string, array{value: mixed, level: 'method'|'class'|'inherited'|'default'}>
+     */
+    public function resolveWithProvenance(string $componentClass, ?string $method = null): array
+    {
+        $levels = [
+            'method' => $method !== null ? $this->declaredArgsForMethod($componentClass, $method) : [],
+            'class' => $this->declaredArgsForClass($componentClass),
+            'inherited' => $this->inheritedArgs($componentClass),
+        ];
+
+        $result = [];
+        foreach (self::FIELDS as $field) {
+            $result[$field] = null;
+            foreach ($levels as $levelName => $levelArgs) {
+                if (array_key_exists($field, $levelArgs)) {
+                    $result[$field] = ['value' => $levelArgs[$field], 'level' => $levelName];
+                    break;
+                }
+            }
+            if ($result[$field] === null) {
+                $result[$field] = ['value' => $this->packageDefault($field), 'level' => 'default'];
+            }
+        }
+
+        $this->validate(array_map(static fn ($entry) => $entry['value'], $result));
+
+        return $result;
+    }
+
     /** @param array<int, array<string, mixed>> $levels */
     private function firstDeclared(array $levels, string $field): mixed
     {
@@ -117,9 +162,30 @@ final class ConfigResolver
             return $this->classChainCache[$class];
         }
 
+        $levels = [$this->declaredArgsForClass($class), ...$this->ancestorAndTraitLevels($class)];
+
+        return $this->classChainCache[$class] = $this->mergeLevels($levels);
+    }
+
+    /**
+     * Everything classChain() merges EXCEPT the class's own declared attribute —
+     * i.e. what the class would inherit if it declared #[Ghost] with no arguments
+     * at all. Used by resolveWithProvenance() (SPEC-API-42) to tell "declared on
+     * this class" apart from "picked up from an ancestor class or trait".
+     *
+     * @return array<string, mixed>
+     */
+    private function inheritedArgs(string $class): array
+    {
+        return $this->mergeLevels($this->ancestorAndTraitLevels($class));
+    }
+
+    /** @return array<int, array<string, mixed>> nearest-ancestor-first, then every trait used anywhere in the chain */
+    private function ancestorAndTraitLevels(string $class): array
+    {
         $levels = [];
 
-        $current = $class;
+        $current = get_parent_class($class);
         while ($current !== false) {
             $levels[] = $this->declaredArgsForClass($current);
             $current = get_parent_class($current);
@@ -129,6 +195,12 @@ final class ConfigResolver
             $levels[] = $this->declaredArgsForClass($trait);
         }
 
+        return $levels;
+    }
+
+    /** @param array<int, array<string, mixed>> $levels @return array<string, mixed> nearest-first: first level's value for a field wins */
+    private function mergeLevels(array $levels): array
+    {
         $merged = [];
         foreach ($levels as $level) {
             foreach ($level as $field => $value) {
@@ -138,7 +210,7 @@ final class ConfigResolver
             }
         }
 
-        return $this->classChainCache[$class] = $merged;
+        return $merged;
     }
 
     /** @return array<string, mixed> only the fields actually written at the #[Ghost(...)] call site */
