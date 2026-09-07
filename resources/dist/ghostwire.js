@@ -5,13 +5,15 @@
       return window.Livewire.interceptMessage(({ message, onSuccess, onError, onFailure, onCancel, onFinish }) => {
         if (message.isSkipped()) return;
         const isPoll = message.getActions().length > 0 && message.getActions().every((action) => action.metadata?.type === "poll");
-        if (isPoll) return;
         const actionNames = message.getActions().map((action) => action.name);
         const isSync = actionNames.length === 0 || actionNames.every((name) => name === "$set" || name === "$commit");
+        const isRenderlessAtDispatch = message.getActions().length > 0 && message.getActions().every((action) => action.metadata?.renderless === true);
         const ctx = {
           component: message.component,
           actionNames,
-          isSync
+          isSync,
+          isPoll,
+          isRenderless: isRenderlessAtDispatch
         };
         handlers.onStart(ctx);
         let finished = false;
@@ -20,7 +22,10 @@
           finished = true;
           handlers.onFinish(ctx);
         };
-        onSuccess(({ onRender }) => {
+        onSuccess(({ payload, onRender }) => {
+          if (!ctx.isRenderless) {
+            ctx.isRenderless = !Object.prototype.hasOwnProperty.call(payload?.effects ?? {}, "html");
+          }
           onRender(() => handlers.onPostPaint(ctx));
         });
         onError(() => finish());
@@ -52,8 +57,7 @@
         const actionNames = commit.calls.map((call) => call.method);
         const isSync = actionNames.length === 0;
         const looksLikePoll = actionNames.length > 0 && actionNames.every((name) => isPolledMethod(component, name));
-        if (looksLikePoll) return;
-        const ctx = { component, actionNames, isSync };
+        const ctx = { component, actionNames, isSync, isPoll: looksLikePoll, isRenderless: false };
         handlers.onStart(ctx);
         let finished = false;
         const finish = () => {
@@ -61,7 +65,8 @@
           finished = true;
           handlers.onFinish(ctx);
         };
-        succeed(() => {
+        succeed((response) => {
+          ctx.isRenderless = !Object.prototype.hasOwnProperty.call(response?.effects ?? {}, "html");
           requestAnimationFrame(() => {
             requestAnimationFrame(() => handlers.onPostPaint(ctx));
           });
@@ -843,23 +848,25 @@
     });
     bridge.subscribe({
       onStart(ctx) {
-        if (ctx.isSync) return;
         for (const host of registry.hostsFor(ctx.component.id)) {
           if (host.config.mode === "off") continue;
+          if (ctx.isRenderless) continue;
+          if (ctx.isSync && !host.config.sync) continue;
+          if (ctx.isPoll && !host.config.poll) continue;
           if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
           scheduler.messageStart(host, pickOverrides(host.config));
         }
       },
       onPostPaint(ctx) {
-        if (ctx.isSync) return;
         for (const host of registry.hostsFor(ctx.component.id)) {
+          if (ctx.isSync && !host.config.sync || ctx.isPoll && !host.config.poll) continue;
           renderer.repositionLayer(host);
           scheduler.messagePostPaint(host);
         }
       },
       onFinish(ctx) {
-        if (ctx.isSync) return;
         for (const host of registry.hostsFor(ctx.component.id)) {
+          if (ctx.isSync && !host.config.sync || ctx.isPoll && !host.config.poll) continue;
           scheduler.messageFinish(host);
         }
       }

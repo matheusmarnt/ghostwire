@@ -197,25 +197,50 @@ export function boot() {
     }
   });
 
+  // SPEC-API-20/21/22: the bridges (js/src/bridge/v3.js, v4.js) now only
+  // report isSync/isPoll/isRenderless as facts on ctx — they no longer
+  // unilaterally swallow a message. Silence is decided here, per host, so
+  // host.config.sync/poll (SPEC-API-30 data-ghost overrides, already
+  // resolved by attributeConfig.js) can opt a specific host back in.
+  //
+  // isRenderless (SPEC-API-22) is deliberately NOT part of the
+  // onPostPaint/onFinish skip condition below, even though it IS part of
+  // onStart's. Both bridges confirmed (see their comments) that isRenderless
+  // can only be known synchronously for one specific case (v4's
+  // `.renderless` directive modifier) — for a plain #[Renderless]-attributed
+  // PHP method (no client-side marker at all, on either line), the signal
+  // only exists once the response arrives, which is always AFTER onStart
+  // already ran and (if nothing else filtered the host) already called
+  // scheduler.messageStart for it. Skipping onPostPaint/onFinish's
+  // scheduler.messagePostPaint/messageFinish calls at that point — after
+  // messageStart already incremented host.pending — would leak pending and
+  // strand the host stuck 'visible' (only recovering via the 15s hard
+  // timeout in scheduler.js). So once a host's message has actually started,
+  // it's allowed to run its normal course; isRenderless only gets to
+  // *prevent* activation up front, for the case where it's genuinely known
+  // that early (mirrors how any sufficiently fast message already resolves
+  // before the show delay elapses and never visibly activates the ghost).
   bridge.subscribe({
     onStart(ctx) {
-      if (ctx.isSync) return; // SPEC-API-20 default silence
       for (const host of registry.hostsFor(ctx.component.id)) {
         if (host.config.mode === 'off') continue;
+        if (ctx.isRenderless) continue; // SPEC-API-22: no configurable exception, either line
+        if (ctx.isSync && !host.config.sync) continue; // SPEC-API-20 default silence, overridable
+        if (ctx.isPoll && !host.config.poll) continue; // SPEC-API-21 default silence, overridable
         if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
         scheduler.messageStart(host, pickOverrides(host.config));
       }
     },
     onPostPaint(ctx) {
-      if (ctx.isSync) return; // SPEC-API-20 default silence — mirror onStart's guard
       for (const host of registry.hostsFor(ctx.component.id)) {
+        if ((ctx.isSync && !host.config.sync) || (ctx.isPoll && !host.config.poll)) continue;
         renderer.repositionLayer(host);
         scheduler.messagePostPaint(host);
       }
     },
     onFinish(ctx) {
-      if (ctx.isSync) return; // SPEC-API-20 default silence — mirror onStart's guard
       for (const host of registry.hostsFor(ctx.component.id)) {
+        if ((ctx.isSync && !host.config.sync) || (ctx.isPoll && !host.config.poll)) continue;
         scheduler.messageFinish(host);
       }
     },
