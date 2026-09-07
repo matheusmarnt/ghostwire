@@ -10,6 +10,7 @@ use Ghostwire\Tests\Browser\Fixtures\Gallery\NodeCount;
 use Ghostwire\Tests\Browser\Fixtures\Gallery\PaginatedTable;
 use Ghostwire\Tests\Browser\Fixtures\Gallery\RepeatList;
 use Ghostwire\Tests\Browser\Fixtures\Gallery\ScrollableKanban;
+use Ghostwire\Tests\Browser\Fixtures\GhostAttributeProbe;
 use Livewire\Livewire;
 use Livewire\LivewireServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
@@ -32,6 +33,7 @@ class TestCase extends Orchestra
         Livewire::component('repeat-list', RepeatList::class);
         Livewire::component('scrollable-kanban', ScrollableKanban::class);
         Livewire::component('node-count', NodeCount::class);
+        Livewire::component('ghost-attribute-probe', GhostAttributeProbe::class);
     }
 
     protected function defineRoutes($router): void

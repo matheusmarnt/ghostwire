@@ -2,8 +2,10 @@
 
 namespace Ghostwire;
 
+use Ghostwire\Livewire\GhostComponentHook;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
 
 class GhostwireServiceProvider extends ServiceProvider
 {
@@ -14,6 +16,8 @@ class GhostwireServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Livewire::componentHook(GhostComponentHook::class);
+
         $this->publishes([
             __DIR__.'/../config/ghostwire.php' => config_path('ghostwire.php'),
         ], 'ghostwire-config');

@@ -10,3 +10,5 @@ Route::view('/gallery/card-grid', 'ghostwire-fixtures::page', ['component' => 'c
 Route::view('/gallery/repeat-list', 'ghostwire-fixtures::page', ['component' => 'repeat-list']);
 Route::view('/gallery/scrollable-kanban', 'ghostwire-fixtures::page', ['component' => 'scrollable-kanban']);
 Route::view('/gallery/node-count', 'ghostwire-fixtures::page', ['component' => 'node-count']);
+
+Route::view('/ghostwire-ghost-attribute-probe', 'ghostwire-fixtures::page', ['component' => 'ghost-attribute-probe']);
