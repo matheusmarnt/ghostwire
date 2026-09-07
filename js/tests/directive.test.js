@@ -173,6 +173,127 @@ describe('directive registration and modifier parsing', () => {
     expect(scheduler.messageStart).toHaveBeenCalledTimes(1);
   });
 
+  // Critical fix (post-Task-6 review): v4's synchronous Renderless signal
+  // (a `.renderless` directive modifier sets action.metadata.renderless
+  // before onStart even runs) made onStart correctly skip
+  // scheduler.messageStart for that host, but onPostPaint/onFinish didn't
+  // check isRenderless at all — they unconditionally called
+  // scheduler.messagePostPaint/messageFinish for the same host. In
+  // isolation that's a no-op (pending floors at 0), but a genuine, still
+  // in-flight message on the SAME host would have its host.pending
+  // decremented by the renderless message's spurious finish, silently
+  // cancelling it. index.js now snapshots ctx.isRenderless into
+  // ctx._gwSkippedRenderless the moment onStart runs (before either bridge
+  // can ever mutate it) and gates onPostPaint/onFinish on that frozen
+  // snapshot, so a message onStart skipped can never desync the ones it
+  // didn't.
+  it('a synchronous-Renderless message does not desync host.pending for a genuine concurrent message on the same host (Critical fix)', () => {
+    boot();
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    registeredCallback({
+      el,
+      directive: { modifiers: [], expression: '' },
+      component: { id: 'c1', el },
+      cleanup: () => {},
+    });
+
+    const scheduler = schedulerInstances.at(-1);
+    const registry = registryInstances.at(-1);
+    const host = [...registry.hostsFor('c1')][0];
+
+    // A genuine message starts first and is left in flight (its onFinish is
+    // captured, not invoked yet).
+    let realFinish;
+    interceptedCallback({
+      message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'save', metadata: {} }] },
+      onSuccess: () => {},
+      onError: () => {},
+      onFailure: () => {},
+      onCancel: () => {},
+      onFinish: (cb) => { realFinish = cb; },
+    });
+    expect(scheduler.messageStart).toHaveBeenCalledTimes(1);
+    expect(host.pending).toBe(1);
+
+    // A `.renderless`-modified message fires and fully resolves on the same
+    // host while the genuine message above is still in flight.
+    interceptedCallback({
+      message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'upload', metadata: { renderless: true } }] },
+      onSuccess: (cb) => cb({ payload: { effects: {} }, onRender: (fn) => fn() }),
+      onError: () => {},
+      onFailure: () => {},
+      onCancel: () => {},
+      onFinish: (cb) => cb(),
+    });
+
+    // onStart already skipped this message entirely -- onPostPaint/onFinish
+    // must not have touched the scheduler for it either.
+    expect(scheduler.messageStart).toHaveBeenCalledTimes(1);
+    expect(scheduler.messageFinish).not.toHaveBeenCalled();
+    expect(host.pending).toBe(1); // the genuine message's pending count survived untouched
+
+    // Finishing the genuine message is the actual regression check: before
+    // the fix, the renderless message's spurious messageFinish would already
+    // have decremented pending to 0 and reset the host to 'idle'.
+    realFinish();
+
+    expect(scheduler.messageFinish).toHaveBeenCalledTimes(1);
+    expect(host.pending).toBe(0);
+  });
+
+  // Same bug class as above, for host.targetActions (Task 5): onStart skips
+  // scheduler.messageStart when the triggering action doesn't match, but
+  // targetActions never mutates after ctx is built, so mirroring the check
+  // live in onPostPaint/onFinish (no snapshot needed) is enough.
+  it('a non-matching wire:ghost="name" message does not desync host.pending for a genuine concurrent matching message on the same host', () => {
+    boot();
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    registeredCallback({
+      el,
+      directive: { modifiers: [], expression: 'save' },
+      component: { id: 'c1', el },
+      cleanup: () => {},
+    });
+
+    const scheduler = schedulerInstances.at(-1);
+    const registry = registryInstances.at(-1);
+    const host = [...registry.hostsFor('c1')][0];
+
+    let realFinish;
+    interceptedCallback({
+      message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'save' }] },
+      onSuccess: () => {},
+      onError: () => {},
+      onFailure: () => {},
+      onCancel: () => {},
+      onFinish: (cb) => { realFinish = cb; },
+    });
+    expect(scheduler.messageStart).toHaveBeenCalledTimes(1);
+    expect(host.pending).toBe(1);
+
+    // A non-matching action fires and fully resolves on the same host while
+    // the matching message above is still in flight.
+    interceptedCallback({
+      message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'other' }] },
+      onSuccess: (cb) => cb({ payload: {}, onRender: (fn) => fn() }),
+      onError: () => {},
+      onFailure: () => {},
+      onCancel: () => {},
+      onFinish: (cb) => cb(),
+    });
+
+    expect(scheduler.messageStart).toHaveBeenCalledTimes(1);
+    expect(scheduler.messageFinish).not.toHaveBeenCalled();
+    expect(host.pending).toBe(1);
+
+    realFinish();
+
+    expect(scheduler.messageFinish).toHaveBeenCalledTimes(1);
+    expect(host.pending).toBe(0);
+  });
+
   it('parses the .ignore modifier without throwing and registers a cleanup function', () => {
     boot();
     const el = document.createElement('div');

@@ -203,25 +203,45 @@ export function boot() {
   // host.config.sync/poll (SPEC-API-30 data-ghost overrides, already
   // resolved by attributeConfig.js) can opt a specific host back in.
   //
-  // isRenderless (SPEC-API-22) is deliberately NOT part of the
-  // onPostPaint/onFinish skip condition below, even though it IS part of
-  // onStart's. Both bridges confirmed (see their comments) that isRenderless
-  // can only be known synchronously for one specific case (v4's
-  // `.renderless` directive modifier) — for a plain #[Renderless]-attributed
-  // PHP method (no client-side marker at all, on either line), the signal
-  // only exists once the response arrives, which is always AFTER onStart
-  // already ran and (if nothing else filtered the host) already called
-  // scheduler.messageStart for it. Skipping onPostPaint/onFinish's
-  // scheduler.messagePostPaint/messageFinish calls at that point — after
-  // messageStart already incremented host.pending — would leak pending and
-  // strand the host stuck 'visible' (only recovering via the 15s hard
-  // timeout in scheduler.js). So once a host's message has actually started,
-  // it's allowed to run its normal course; isRenderless only gets to
-  // *prevent* activation up front, for the case where it's genuinely known
-  // that early (mirrors how any sufficiently fast message already resolves
-  // before the show delay elapses and never visibly activates the ghost).
+  // ctx.isRenderless can be corrected from false to true *after* onStart
+  // returns (both bridges confirmed this: v4's `.renderless` directive
+  // modifier is the one case known synchronously before onStart runs;
+  // otherwise -- a plain #[Renderless] PHP-attributed method, either line --
+  // the only signal is the response shape, discovered later in
+  // onSuccess/succeed, strictly after onStart already decided whether to
+  // call scheduler.messageStart). Reading the live, possibly-since-mutated
+  // ctx.isRenderless in onPostPaint/onFinish would desync onStart's actual
+  // decision from theirs whenever the deferred correction lands: onStart
+  // would have already called scheduler.messageStart (isRenderless was
+  // still false then), but onPostPaint/onFinish would then wrongly skip
+  // their balancing scheduler.messagePostPaint/messageFinish calls (now
+  // true), leaking host.pending and stranding the host in 'visible' (only
+  // recovering via the 15s hard timeout in scheduler.js). So onStart
+  // snapshots the value it actually acted on into ctx._gwSkippedRenderless,
+  // and all three handlers gate on that frozen snapshot instead -- it can
+  // never disagree with what onStart really did, in either sub-case
+  // (synchronous: snapshot is true, all three skip, no scheduler calls at
+  // all; deferred: snapshot is false, none of the three skip, matching the
+  // messageStart that did run).
+  //
+  // host.targetActions has the identical shape of bug: onStart already
+  // skips scheduler.messageStart for a host whose expression doesn't match
+  // the triggering action names, so onPostPaint/onFinish must skip their
+  // balancing calls for that same host too -- targetActions never mutates
+  // after ctx is built, so (unlike isRenderless) checking it live in all
+  // three handlers is safe and needs no snapshot.
+  //
+  // host.config.mode === 'off' does NOT need mirroring here: both the
+  // directive and the attribute-only auto-attach path already refuse to
+  // ever call registry.attach() for a mode:'off' host, so the registry can
+  // never contain one -- onStart's check is defensive/unreachable, not a
+  // live desync risk.
   bridge.subscribe({
     onStart(ctx) {
+      // Frozen at the exact moment the messageStart decisions below are
+      // made -- see the comment above bridge.subscribe(). Neither bridge
+      // mutates ctx.isRenderless before onStart returns, only after.
+      ctx._gwSkippedRenderless = ctx.isRenderless;
       for (const host of registry.hostsFor(ctx.component.id)) {
         if (host.config.mode === 'off') continue;
         if (ctx.isRenderless) continue; // SPEC-API-22: no configurable exception, either line
@@ -233,14 +253,16 @@ export function boot() {
     },
     onPostPaint(ctx) {
       for (const host of registry.hostsFor(ctx.component.id)) {
-        if ((ctx.isSync && !host.config.sync) || (ctx.isPoll && !host.config.poll)) continue;
+        if (ctx._gwSkippedRenderless || (ctx.isSync && !host.config.sync) || (ctx.isPoll && !host.config.poll)) continue;
+        if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
         renderer.repositionLayer(host);
         scheduler.messagePostPaint(host);
       }
     },
     onFinish(ctx) {
       for (const host of registry.hostsFor(ctx.component.id)) {
-        if ((ctx.isSync && !host.config.sync) || (ctx.isPoll && !host.config.poll)) continue;
+        if (ctx._gwSkippedRenderless || (ctx.isSync && !host.config.sync) || (ctx.isPoll && !host.config.poll)) continue;
+        if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
         scheduler.messageFinish(host);
       }
     },

@@ -848,6 +848,7 @@
     });
     bridge.subscribe({
       onStart(ctx) {
+        ctx._gwSkippedRenderless = ctx.isRenderless;
         for (const host of registry.hostsFor(ctx.component.id)) {
           if (host.config.mode === "off") continue;
           if (ctx.isRenderless) continue;
@@ -859,14 +860,16 @@
       },
       onPostPaint(ctx) {
         for (const host of registry.hostsFor(ctx.component.id)) {
-          if (ctx.isSync && !host.config.sync || ctx.isPoll && !host.config.poll) continue;
+          if (ctx._gwSkippedRenderless || ctx.isSync && !host.config.sync || ctx.isPoll && !host.config.poll) continue;
+          if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
           renderer.repositionLayer(host);
           scheduler.messagePostPaint(host);
         }
       },
       onFinish(ctx) {
         for (const host of registry.hostsFor(ctx.component.id)) {
-          if (ctx.isSync && !host.config.sync || ctx.isPoll && !host.config.poll) continue;
+          if (ctx._gwSkippedRenderless || ctx.isSync && !host.config.sync || ctx.isPoll && !host.config.poll) continue;
+          if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
           scheduler.messageFinish(host);
         }
       }
