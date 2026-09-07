@@ -2,6 +2,7 @@
 
 namespace Ghostwire;
 
+use Ghostwire\Commands\InspectCommand;
 use Ghostwire\Livewire\GhostComponentHook;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
@@ -33,5 +34,11 @@ class GhostwireServiceProvider extends ServiceProvider
         Blade::directive('ghostwireScripts', function () {
             return "<?php echo '<script src=\"'.asset('vendor/ghostwire/ghostwire.js').'\" defer></script>'; ?>";
         });
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                InspectCommand::class,
+            ]);
+        }
     }
 }
