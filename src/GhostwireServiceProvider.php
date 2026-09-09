@@ -30,12 +30,16 @@ class GhostwireServiceProvider extends ServiceProvider
             __DIR__.'/../resources/dist' => public_path('vendor/ghostwire'),
         ], 'ghostwire-assets');
 
-        Blade::directive('ghostwireStyles', function () {
-            return "<?php echo '<link rel=\"stylesheet\" href=\"'.asset('vendor/ghostwire/ghostwire.css').'\">'; ?>";
+        Blade::directive('ghostwireStyles', function ($expression) {
+            $nonceExpr = trim($expression) !== '' ? $expression : 'null';
+
+            return '<?php $__ghostwireNonce = '.$nonceExpr.'; echo \'<link rel="stylesheet" href="\'.asset(\'vendor/ghostwire/ghostwire.css\').\'"\'.($__ghostwireNonce !== null ? \' nonce="\'.e($__ghostwireNonce).\'"\' : \'\').\'>\'; ?>';
         });
 
-        Blade::directive('ghostwireScripts', function () {
-            return "<?php echo '<script src=\"'.asset('vendor/ghostwire/ghostwire.js').'\" defer></script>'; ?>";
+        Blade::directive('ghostwireScripts', function ($expression) {
+            $nonceExpr = trim($expression) !== '' ? $expression : 'null';
+
+            return '<?php $__ghostwireNonce = '.$nonceExpr.'; echo \'<script src="\'.asset(\'vendor/ghostwire/ghostwire.js\').\'"\'.($__ghostwireNonce !== null ? \' nonce="\'.e($__ghostwireNonce).\'"\' : \'\').\' defer></script>\'; ?>';
         });
 
         if ($this->app->runningInConsole()) {
