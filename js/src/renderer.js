@@ -1,4 +1,26 @@
 export function createRenderer() {
+  let liveRegion = null;
+  let busyCount = 0;
+
+  function ensureLiveRegion() {
+    if (liveRegion) return liveRegion;
+    liveRegion = document.createElement('div');
+    liveRegion.setAttribute('aria-live', 'polite');
+    liveRegion.setAttribute('role', 'status');
+    liveRegion.className = 'gw-sr-only';
+    document.body.appendChild(liveRegion);
+    return liveRegion;
+  }
+
+  // SPEC-A11Y-04: "traduzível e desativável" — window.Ghostwire is this
+  // package's only global config surface (deliberately not a Laravel config
+  // key: announcements are a client-only concern, and this keeps the PHP
+  // config file untouched by M5).
+  function announce(message) {
+    if (window.Ghostwire?.announcements === false) return;
+    ensureLiveRegion().textContent = message;
+  }
+
   function mountLayer(host) {
     const layer = document.createElement('div');
     layer.className = 'gw-layer';
@@ -62,5 +84,42 @@ export function createRenderer() {
     host.el.classList.remove('gw-frozen');
   }
 
-  return { mountLayer, repositionLayer, renderBones, removeLayer, freeze, unfreeze };
+  // SPEC-A11Y-01: busy-ness tracks the scheduler's own VISIBLE state,
+  // independent of render mode — freeze/synthesize/keep/ignore hosts all
+  // reach onShow/onHide (js/src/index.js), so all of them get aria-busy.
+  // Only mode: 'off' hosts never call this at all (onStart skips
+  // scheduler.messageStart for them).
+  function markBusy(host) {
+    host.el.setAttribute('aria-busy', 'true');
+    busyCount += 1;
+    if (busyCount === 1) announce(window.Ghostwire?.messages?.busy ?? 'Loading');
+  }
+
+  function clearBusy(host) {
+    host.el.removeAttribute('aria-busy');
+    busyCount = Math.max(0, busyCount - 1);
+    if (busyCount === 0) announce(window.Ghostwire?.messages?.idle ?? 'Content updated');
+  }
+
+  // SPEC-A11Y-03: only the concealed (visibility: hidden) path needs this —
+  // freeze uses opacity/pointer-events only (SPEC-MORPH-03), which never
+  // forces the browser to blur an already-focused descendant, so freeze has
+  // nothing to restore. A visibility: hidden host DOES force a blur, so the
+  // focused element is captured right before .gw-concealed is applied and
+  // refocused right after it's removed.
+  function captureFocus(host) {
+    if (host.el.contains(document.activeElement)) {
+      host.savedFocus = document.activeElement;
+    }
+  }
+
+  function restoreFocus(host) {
+    const el = host.savedFocus;
+    host.savedFocus = null;
+    if (el && document.body.contains(el) && typeof el.focus === 'function') {
+      el.focus();
+    }
+  }
+
+  return { mountLayer, repositionLayer, renderBones, removeLayer, freeze, unfreeze, markBusy, clearBusy, captureFocus, restoreFocus };
 }

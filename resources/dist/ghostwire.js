@@ -185,6 +185,21 @@
 
   // js/src/renderer.js
   function createRenderer() {
+    let liveRegion = null;
+    let busyCount = 0;
+    function ensureLiveRegion() {
+      if (liveRegion) return liveRegion;
+      liveRegion = document.createElement("div");
+      liveRegion.setAttribute("aria-live", "polite");
+      liveRegion.setAttribute("role", "status");
+      liveRegion.className = "gw-sr-only";
+      document.body.appendChild(liveRegion);
+      return liveRegion;
+    }
+    function announce(message) {
+      if (window.Ghostwire?.announcements === false) return;
+      ensureLiveRegion().textContent = message;
+    }
     function mountLayer(host) {
       const layer = document.createElement("div");
       layer.className = "gw-layer";
@@ -233,7 +248,29 @@
     function unfreeze(host) {
       host.el.classList.remove("gw-frozen");
     }
-    return { mountLayer, repositionLayer, renderBones, removeLayer, freeze, unfreeze };
+    function markBusy(host) {
+      host.el.setAttribute("aria-busy", "true");
+      busyCount += 1;
+      if (busyCount === 1) announce(window.Ghostwire?.messages?.busy ?? "Loading");
+    }
+    function clearBusy(host) {
+      host.el.removeAttribute("aria-busy");
+      busyCount = Math.max(0, busyCount - 1);
+      if (busyCount === 0) announce(window.Ghostwire?.messages?.idle ?? "Content updated");
+    }
+    function captureFocus(host) {
+      if (host.el.contains(document.activeElement)) {
+        host.savedFocus = document.activeElement;
+      }
+    }
+    function restoreFocus(host) {
+      const el = host.savedFocus;
+      host.savedFocus = null;
+      if (el && document.body.contains(el) && typeof el.focus === "function") {
+        el.focus();
+      }
+    }
+    return { mountLayer, repositionLayer, renderBones, removeLayer, freeze, unfreeze, markBusy, clearBusy, captureFocus, restoreFocus };
   }
 
   // js/src/synthesizer/walk.js
@@ -768,12 +805,14 @@
       } else {
         renderer.removeLayer(host);
         host.el.classList.remove("gw-concealed");
+        renderer.restoreFocus(host);
         renderer.freeze(host);
         host.degraded = true;
       }
     });
     const scheduler = createScheduler({
       onShow(host) {
+        renderer.markBusy(host);
         if (host.config.mode === "off" || host.config.ignore || host.config.keep) return;
         if (host.config.mode === "freeze") {
           renderer.freeze(host);
@@ -785,11 +824,13 @@
           host.degraded = true;
           return;
         }
+        renderer.captureFocus(host);
         renderer.mountLayer(host);
         renderer.renderBones(host, boneTree);
         host.el.classList.add("gw-concealed");
       },
       onHide(host) {
+        renderer.clearBusy(host);
         if (host.config.mode === "off" || host.config.ignore || host.config.keep) return;
         if (host.config.mode === "freeze" || host.degraded) {
           renderer.unfreeze(host);
@@ -798,6 +839,7 @@
         }
         renderer.removeLayer(host);
         host.el.classList.remove("gw-concealed");
+        renderer.restoreFocus(host);
       }
     });
     window.Livewire.directive("ghost", ({ el, directive, component, cleanup }) => {

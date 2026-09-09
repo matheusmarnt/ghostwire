@@ -152,4 +152,77 @@ describe('renderer', () => {
     expect(host.layer.querySelectorAll('.gw-bone')).toHaveLength(1);
     expect(host.layer.querySelector('.gw-bone--text')).toBeNull();
   });
+
+  it('markBusy sets aria-busy on the host; clearBusy removes it', () => {
+    const renderer = createRenderer();
+    const host = makeHost();
+
+    renderer.markBusy(host);
+    expect(host.el.getAttribute('aria-busy')).toBe('true');
+
+    renderer.clearBusy(host);
+    expect(host.el.getAttribute('aria-busy')).toBeNull();
+  });
+
+  it('markBusy announces once via a single shared polite live region, even for multiple hosts', () => {
+    const renderer = createRenderer();
+    const hostA = makeHost();
+    const hostB = makeHost();
+
+    renderer.markBusy(hostA);
+    renderer.markBusy(hostB);
+
+    const regions = document.body.querySelectorAll('[aria-live="polite"]');
+    expect(regions.length).toBe(1);
+    expect(regions[0].textContent).toBe('Loading');
+
+    renderer.clearBusy(hostA);
+    expect(regions[0].textContent).toBe('Loading'); // one host still busy — no "idle" announcement yet
+
+    renderer.clearBusy(hostB);
+    expect(regions[0].textContent).toBe('Content updated');
+  });
+
+  it('markBusy/clearBusy respect window.Ghostwire.announcements === false', () => {
+    window.Ghostwire = { announcements: false };
+    const renderer = createRenderer();
+    const host = makeHost();
+
+    renderer.markBusy(host);
+
+    expect(document.body.querySelector('[aria-live="polite"]')).toBeNull();
+
+    delete window.Ghostwire;
+  });
+
+  it('captureFocus/restoreFocus preserve and restore focus that was inside the host', () => {
+    const renderer = createRenderer();
+    const host = makeHost();
+    const input = document.createElement('input');
+    host.el.appendChild(input);
+    input.focus();
+    expect(document.activeElement).toBe(input);
+
+    renderer.captureFocus(host);
+    input.remove(); // simulate the browser dropping focus once the host is hidden
+    expect(document.activeElement).not.toBe(input);
+
+    host.el.appendChild(input); // simulate the host becoming visible again
+    renderer.restoreFocus(host);
+
+    expect(document.activeElement).toBe(input);
+    expect(host.savedFocus).toBeNull();
+  });
+
+  it('captureFocus is a no-op when focus is outside the host', () => {
+    const renderer = createRenderer();
+    const host = makeHost();
+    const outside = document.createElement('input');
+    document.body.appendChild(outside);
+    outside.focus();
+
+    renderer.captureFocus(host);
+
+    expect(host.savedFocus).toBeUndefined();
+  });
 });

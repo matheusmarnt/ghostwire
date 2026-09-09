@@ -76,27 +76,34 @@ export function boot() {
     } else {
       renderer.removeLayer(host);
       host.el.classList.remove('gw-concealed');
+      renderer.restoreFocus(host); // SPEC-A11Y-03: leaving .gw-concealed here too (mid-cycle degrade to freeze)
       renderer.freeze(host);
       host.degraded = true;
     }
   });
   const scheduler = createScheduler({
     onShow(host) {
+      renderer.markBusy(host); // SPEC-A11Y-01: busy regardless of render mode
+
       if (host.config.mode === 'off' || host.config.ignore || host.config.keep) return;
       if (host.config.mode === 'freeze') { renderer.freeze(host); return; }
 
       const boneTree = synthesizer.synthesize(host);
       if (!boneTree) { renderer.freeze(host); host.degraded = true; return; } // SPEC-SYN-16/17 degrade
 
+      renderer.captureFocus(host); // SPEC-A11Y-03: before visibility: hidden forces a blur
       renderer.mountLayer(host);
       renderer.renderBones(host, boneTree);
       host.el.classList.add('gw-concealed');
     },
     onHide(host) {
+      renderer.clearBusy(host); // SPEC-A11Y-01
+
       if (host.config.mode === 'off' || host.config.ignore || host.config.keep) return;
       if (host.config.mode === 'freeze' || host.degraded) { renderer.unfreeze(host); host.degraded = false; return; }
       renderer.removeLayer(host);
       host.el.classList.remove('gw-concealed');
+      renderer.restoreFocus(host); // SPEC-A11Y-03
     },
   });
 
