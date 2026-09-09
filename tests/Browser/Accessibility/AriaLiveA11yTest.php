@@ -60,35 +60,65 @@ it('SPEC-A11Y-01: #summary (freeze) also gets aria-busy while visible', function
     expect($page->script('window.__gw.busySeen'))->toBeTrue();
 });
 
+// SPEC-A11Y-03 (fix round 1): the original version of this test lived on
+// /ghostwire-test-page and focused #list via a client-only tabindex="-1" —
+// #list has no naturally-focusable content, and #refresh-btn there is a
+// SIBLING of #list/#summary, not a descendant, so the click itself stole
+// focus onto the button before captureFocus ever ran, and even after fixing
+// that, Livewire's morph stripped the client-only tabindex before
+// restoreFocus ran, so #list was never focusable again by then either.
+// /gallery/card-grid's #refresh-btn (tests/Browser/Fixtures/views/gallery/card-grid.blade.php)
+// is a real, server-rendered, always-present button *inside* the wire:ghost
+// host (#card-grid) — genuinely focusable with no client-side hack, and
+// stable across the morph since its markup never changes between requests.
+//
+// A synchronous read of document.activeElement inside the class-mutation
+// MutationObserver callback is itself too early here, empirically: both the
+// browser's forced blur (visibility: hidden landing on #card-grid) and
+// restoreFocus()'s el.focus() call are *rendering-driven* focus changes, not
+// synchronous with the class mutation that triggers the observer callback —
+// a first version of this test read document.activeElement synchronously in
+// that callback and measured focus landing back on #refresh-btn ~180ms after
+// the gw-concealed class was actually removed, well after the observer had
+// already (wrongly) recorded refocused as false. Poll for a short window
+// after each transition instead of trusting the mutation callback's own
+// instant, the same "measure the real transition, don't trust a
+// point-in-time guess" principle FreezeLifecycleTest.php already established
+// for this codebase's morph/class races.
 it('SPEC-A11Y-03: focus inside a concealed host is restored after the ghost hides', function () {
-    $page = visit('/ghostwire-test-page');
+    $page = visit('/gallery/card-grid');
 
     $page->script('
-        const list = document.getElementById("list");
-        list.setAttribute("tabindex", "-1");
-        list.focus();
-        window.__gw = { focusedBefore: document.activeElement === list, blurredDuring: null, refocused: null };
+        window.__gw = { blurredDuring: null, refocused: null };
+        const host = document.getElementById("card-grid");
+        const btn = document.getElementById("refresh-btn");
+        const pollUntil = (predicate, onSettle) => {
+            const t0 = performance.now();
+            const iv = setInterval(() => {
+                if (predicate()) { onSettle(true); clearInterval(iv); }
+                else if (performance.now() - t0 > 500) { onSettle(false); clearInterval(iv); }
+            }, 5);
+        };
         new MutationObserver(() => {
-            if (window.__gw.blurredDuring === null && list.classList.contains("gw-concealed")) {
-                window.__gw.blurredDuring = document.activeElement !== list;
+            if (window.__gw.blurredDuring === null && host.classList.contains("gw-concealed")) {
+                pollUntil(() => document.activeElement !== btn, (blurred) => { window.__gw.blurredDuring = blurred; });
             }
-            if (window.__gw.blurredDuring === true && window.__gw.refocused === null && !list.classList.contains("gw-concealed")) {
-                window.__gw.refocused = document.activeElement === list;
+            if (window.__gw.blurredDuring === true && window.__gw.refocused === null && !host.classList.contains("gw-concealed")) {
+                pollUntil(() => document.activeElement === btn, (refocused) => { window.__gw.refocused = refocused; });
             }
-        }).observe(list, { attributes: true, attributeFilter: ["class"] });
+        }).observe(host, { attributes: true, attributeFilter: ["class"] });
         true;
     ');
 
-    expect($page->script('window.__gw.focusedBefore'))->toBeTrue();
+    $page->click('#refresh-btn');
 
-    // Plain $page->click('#refresh-btn') would itself steal focus onto the
-    // button (clicking any native button focuses it) before Ghostwire's own
-    // captureFocus ever runs, making blurredDuring/refocused vacuously true
-    // regardless of Ghostwire's behavior. Click and immediately re-focus
-    // #list in the same round-trip so focus is genuinely inside the host
-    // when the 120ms show-delay elapses and captureFocus actually fires.
-    $page->script('document.getElementById("refresh-btn").click(); document.getElementById("list").focus();');
-    $page->wait(1.5);
+    // Sanity check (mirrors this file's other tests' pre-condition checks):
+    // clicking a native button focuses it, so #refresh-btn — genuinely
+    // inside #card-grid — should already be document.activeElement here,
+    // before the 120ms show-delay elapses and captureFocus/conceal run.
+    expect($page->script('document.activeElement === document.getElementById("refresh-btn")'))->toBeTrue();
+
+    $page->wait(1.5); // generous: clears delay(120) + server sleep(200) + hold(300) + morph/settle margin + the polls' own <=500ms windows
 
     $data = json_decode($page->script('JSON.stringify(window.__gw)'), true);
 
