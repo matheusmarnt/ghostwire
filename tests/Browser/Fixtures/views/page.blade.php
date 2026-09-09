@@ -1,12 +1,16 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
-    @ghostwireStyles
+    <title>Ghostwire test fixture</title>
+    @ghostwireStyles($nonce ?? null)
 </head>
 <body>
-    @livewire($component)
+    <main>
+        <h1>Ghostwire test fixture</h1>
+        @livewire($component)
+    </main>
     @livewireScripts
-    @ghostwireScripts
+    @ghostwireScripts($nonce ?? null)
 </body>
 </html>
