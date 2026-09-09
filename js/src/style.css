@@ -1,6 +1,4 @@
-/* Public token contract — SPEC-RND-04. Declared now for forward-compat;
-   only --ghostwire-fade-duration is consumed by M1 code. Animation
-   keyframes (shimmer/pulse/wave) land in M5 alongside the code that uses them. */
+/* Public token contract — SPEC-RND-04. */
 :root {
   --ghostwire-bone-color: oklch(0.92 0.005 250);
   --ghostwire-bone-color-dark: oklch(0.28 0.01 250);
@@ -10,6 +8,37 @@
   --ghostwire-animation: shimmer;
   --ghostwire-animation-speed: 1.4s;
   --ghostwire-fade-duration: 150ms;
+}
+
+/* FR-51: automatic dark mode — no manual toggle class, OS/browser preference only. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ghostwire-bone-color: var(--ghostwire-bone-color-dark);
+  }
+}
+
+/* SPEC-RND-05: every keyframe below touches only transform/opacity — never a
+   layout-triggering property — so the sweep runs on the compositor thread,
+   consistent with this package's zero-forced-reflow performance budget
+   (SPEC-PERF-01/02). All three animate .gw-bone::after (a sheen overlay),
+   never .gw-bone itself, so a single mechanism (this pseudo-element) covers
+   every mode uniformly; --ghostwire-animation: none falls back to the
+   pseudo-element's own static opacity: 0 below (no animation needed for the
+   "off" case). */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: translateX(100%); opacity: 0; }
+}
+
+@keyframes wave {
+  0%, 100% { transform: translateX(-100%) scaleX(1); opacity: 0; }
+  50% { transform: translateX(0%) scaleX(1.6); opacity: 0.8; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 0.6; }
 }
 
 .gw-layer {
@@ -26,6 +55,7 @@
 
 .gw-bone {
   position: absolute;
+  overflow: hidden; /* clips the ::after sheen to the bone's own (possibly rounded) box */
   background-color: var(--ghostwire-bone-color);
   border-radius: var(--ghostwire-bone-radius);
 }
@@ -33,6 +63,24 @@
 .gw-bone--avatar,
 .gw-bone--icon {
   border-radius: 50%;
+}
+
+.gw-bone::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0; /* static, invisible fallback when --ghostwire-animation: none */
+  background: linear-gradient(90deg, transparent, var(--ghostwire-bone-highlight), transparent);
+  animation-name: var(--ghostwire-animation);
+  animation-duration: var(--ghostwire-animation-speed);
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gw-bone::after {
+    animation: none;
+  }
 }
 
 .gw-concealed {
@@ -43,4 +91,17 @@
 .gw-kept {
   visibility: visible;
   pointer-events: auto;
+}
+
+/* Visually-hidden-but-announced live region — SPEC-A11Y-04 (Task 3). */
+.gw-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
