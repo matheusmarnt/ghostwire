@@ -1,0 +1,31 @@
+---
+import '../styles/landing.css';
+const base = import.meta.env.BASE_URL;
+---
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>About — Ghostwire</title>
+  <link rel="icon" href={`${base}favicon.svg`} />
+</head>
+<body>
+  <section class="gw-hero">
+    <h1>About</h1>
+    <p>Ghostwire is built by <a href="https://github.com/matheusmarnt" style="color:#7c3aed;">Matheus Mariano</a>, a software engineer specializing in AI and GovTech. It's the fourth package in a line that tells one story — data → search → AI → rendering — alongside:</p>
+    <div class="gw-cta">
+      <a class="secondary" href="https://github.com/matheusmarnt/livecharts">livecharts</a>
+      <a class="secondary" href="https://github.com/matheusmarnt/scoutify">scoutify</a>
+      <a class="secondary" href="https://github.com/matheusmarnt/scoutify-mcp">scoutify-mcp</a>
+    </div>
+    <p style="margin-top:2rem;">
+      <a href="https://matheusmarnt.github.io/" style="color:#7c3aed;">Full portfolio →</a>
+    </p>
+  </section>
+  <nav class="gw-footer-nav">
+    <a href={`${base}`}>Home</a>
+    <a href={`${base}docs/install/`}>Docs</a>
+    <a href="https://github.com/matheusmarnt/ghostwire">GitHub</a>
+  </nav>
+</body>
+</html>

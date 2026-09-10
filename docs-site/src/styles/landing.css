@@ -1,0 +1,34 @@
+:root {
+  --gw-accent: #7c3aed;
+  --gw-bg: #0b0b12;
+  --gw-fg: #f4f4f8;
+  --gw-muted: #9a97ad;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--gw-bg); color: var(--gw-fg); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+.gw-hero { max-width: 880px; margin: 0 auto; padding: 4rem 1.5rem 2rem; text-align: center; }
+.gw-hero h1 { font-size: clamp(2rem, 5vw, 3.25rem); margin: 0 0 0.75rem; }
+.gw-hero p { color: var(--gw-muted); font-size: 1.1rem; max-width: 620px; margin: 0 auto 2rem; }
+.gw-cta { display: inline-flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; }
+.gw-cta a { padding: 0.65rem 1.25rem; border-radius: 0.5rem; text-decoration: none; font-weight: 600; }
+.gw-cta a.primary { background: var(--gw-accent); color: #fff; }
+.gw-cta a.secondary { border: 1px solid #333; color: var(--gw-fg); }
+.gw-slider-wrap { max-width: 720px; margin: 3rem auto; padding: 0 1.5rem; }
+.gw-slider-wrap label { display: block; margin-bottom: 0.5rem; color: var(--gw-muted); font-size: 0.9rem; }
+.gw-slider-wrap input[type="range"] { width: 100%; }
+.gw-latency-demo { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1.5rem; }
+@media (max-width: 640px) { .gw-latency-demo { grid-template-columns: 1fr; } }
+.gw-latency-panel { border: 1px solid #26263a; border-radius: 0.75rem; padding: 1rem; background: #121220; }
+.gw-latency-panel h3 { margin: 0 0 0.75rem; font-size: 0.85rem; color: var(--gw-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.gw-row { height: 1rem; border-radius: 0.25rem; margin-bottom: 0.6rem; background: #26263a; }
+.gw-row.w60 { width: 60%; } .gw-row.w80 { width: 80%; } .gw-row.w40 { width: 40%; }
+.gw-row.content { background: #3a3a55; }
+.gw-row.bone { background: var(--ghostwire-bone-color, #2a2a3d); position: relative; overflow: hidden; }
+.gw-row.bone::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent); animation: gw-shimmer 1.4s infinite; }
+@keyframes gw-shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+.gw-features { max-width: 960px; margin: 4rem auto; padding: 0 1.5rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; }
+.gw-feature { padding: 1.25rem; border-radius: 0.75rem; background: #121220; border: 1px solid #26263a; }
+.gw-feature h3 { margin: 0 0 0.4rem; font-size: 1rem; }
+.gw-feature p { margin: 0; color: var(--gw-muted); font-size: 0.9rem; }
+.gw-footer-nav { text-align: center; padding: 3rem 1.5rem; color: var(--gw-muted); }
+.gw-footer-nav a { color: var(--gw-fg); margin: 0 0.5rem; }
