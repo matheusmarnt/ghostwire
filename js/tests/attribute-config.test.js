@@ -52,4 +52,28 @@ describe('parseAttributeConfig', () => {
     const config = parseAttributeConfig(elWithDataGhost(`{"m":"synthesize","o":["${tooLong}","valid_Name1","bad-name"]}`));
     expect(config.only).toEqual(['valid_Name1']);
   });
+
+  describe('"a" (method-level action overrides, SPEC-API-10)', () => {
+    it('parses a valid "a" payload into config.actionOverrides with full field names and correct clamping', () => {
+      const config = parseAttributeConfig(elWithDataGhost(
+        '{"m":"synthesize","a":{"increment":{"m":"freeze","d":-5,"h":999999,"r":5000,"p":true,"s":true,"l":true}}}'
+      ));
+      expect(config.actionOverrides).toEqual({
+        increment: { mode: 'freeze', delay: 0, hold: 60000, rows: 1000, poll: true, sync: true, lazy: true },
+      });
+    });
+
+    it('discards the whole payload when an action entry has an unknown key (SPEC-SEC-02)', () => {
+      expect(parseAttributeConfig(elWithDataGhost('{"m":"synthesize","a":{"increment":{"z":1}}}'))).toBeNull();
+    });
+
+    it('discards the whole payload when "a" has an invalid action name (SPEC-SEC-02)', () => {
+      expect(parseAttributeConfig(elWithDataGhost('{"m":"synthesize","a":{"bad-name!":{"m":"freeze"}}}'))).toBeNull();
+    });
+
+    it('leaves config.actionOverrides falsy when "a" is absent', () => {
+      const config = parseAttributeConfig(elWithDataGhost('{"m":"synthesize"}'));
+      expect(config.actionOverrides).toBeFalsy();
+    });
+  });
 });

@@ -1,5 +1,12 @@
 const KEY_MAP = { m: 'mode', o: 'only', x: 'except', d: 'delay', h: 'hold', r: 'rows', p: 'poll', s: 'sync', l: 'lazy' };
-const KNOWN_COMPACT_KEYS = new Set(Object.keys(KEY_MAP));
+// 'a' (per-action method-level overrides, SPEC-API-10) is a top-level key
+// but not a compact-config field itself — it carries its own nested schema,
+// validated separately below. It must still be a recognized top-level key
+// here or the unknown-key loop discards the whole payload before ever
+// reaching that validation (ponytail: one-line fix, not a KEY_MAP entry
+// since 'a' has no scalar field/default of its own).
+const KNOWN_COMPACT_KEYS = new Set([...Object.keys(KEY_MAP), 'a']);
+const METHOD_OVERRIDE_KEYS = new Set(['m', 'd', 'h', 'r', 'p', 's', 'l']);
 const ACTION_NAME_PATTERN = /^[A-Za-z0-9_]{1,64}$/;
 
 // Mirrors src/Support/ConfigResolver.php's literalDefaults() exactly — these
@@ -98,6 +105,55 @@ export function parseAttributeConfig(el) {
     const sanitized = sanitizeActionList(parsed.x);
     if (sanitized === undefined) { warn('data-ghost "x" is not an array — whole payload discarded (SPEC-SEC-02)'); return null; }
     config.except = sanitized;
+  }
+
+  if ('a' in parsed) {
+    if (parsed.a === null || typeof parsed.a !== 'object' || Array.isArray(parsed.a)) {
+      warn('data-ghost "a" is not a JSON object — whole payload discarded (SPEC-SEC-02)');
+      return null;
+    }
+    const actionOverrides = {};
+    for (const [action, fields] of Object.entries(parsed.a)) {
+      if (!ACTION_NAME_PATTERN.test(action)) {
+        warn(`data-ghost "a" has an invalid action name — whole payload discarded (SPEC-SEC-02)`);
+        return null;
+      }
+      if (fields === null || typeof fields !== 'object' || Array.isArray(fields)) {
+        warn(`data-ghost "a.${action}" is not a JSON object — whole payload discarded (SPEC-SEC-02)`);
+        return null;
+      }
+      const override = {};
+      for (const [key, value] of Object.entries(fields)) {
+        if (!METHOD_OVERRIDE_KEYS.has(key)) {
+          warn(`data-ghost "a.${action}" has unknown key "${key}" — whole payload discarded (SPEC-SEC-02)`);
+          return null;
+        }
+        if (key === 'm') {
+          if (typeof value !== 'string' || !['synthesize', 'freeze', 'off'].includes(value)) {
+            warn(`data-ghost "a.${action}.m" is not a valid mode — whole payload discarded (SPEC-SEC-02)`);
+            return null;
+          }
+          override.mode = value;
+        } else if (key === 'd' || key === 'h' || key === 'r') {
+          if (typeof value !== 'number') {
+            warn(`data-ghost "a.${action}.${key}" is not a number — whole payload discarded (SPEC-SEC-02)`);
+            return null;
+          }
+          const field = key === 'd' ? 'delay' : key === 'h' ? 'hold' : 'rows';
+          const max = key === 'r' ? 1000 : 60000;
+          override[field] = clamp(value, 0, max);
+        } else {
+          if (typeof value !== 'boolean') {
+            warn(`data-ghost "a.${action}.${key}" is not a boolean — whole payload discarded (SPEC-SEC-02)`);
+            return null;
+          }
+          const field = key === 'p' ? 'poll' : key === 's' ? 'sync' : 'lazy';
+          override[field] = value;
+        }
+      }
+      actionOverrides[action] = override;
+    }
+    config.actionOverrides = actionOverrides;
   }
 
   return config;

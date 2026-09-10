@@ -127,6 +127,8 @@ export function boot() {
 
     const host = registry.attach(el, component, config);
     host.targetActions = targetActions;
+    host.actionOverrides = attributeConfig?.actionOverrides ?? null;
+    host.directiveConfig = directiveConfig;
     if (config.keep) el.classList.add('gw-kept');
 
     cleanup(() => {
@@ -183,6 +185,8 @@ export function boot() {
     // equivalent (attributeConfig.js's compact-key schema has no "keep"
     // key) — SPEC-API reserves .keep to the directive only.
     const host = registry.attach(root, component, attributeConfig);
+    host.actionOverrides = attributeConfig.actionOverrides ?? null;
+    host.directiveConfig = {};
 
     cleanup(() => {
       scheduler.cancel(host);
@@ -285,6 +289,7 @@ export function boot() {
       // mutates ctx.isRenderless before onStart returns, only after.
       ctx._gwSkippedRenderless = ctx.isRenderless;
       for (const host of registry.hostsFor(ctx.component.id)) {
+        applyActionOverride(host, ctx);
         if (host.config.mode === 'off') continue;
         if (ctx.isRenderless) continue; // SPEC-API-22: no configurable exception, either line
         if (ctx.isSync && !host.config.sync) continue; // SPEC-API-20 default silence, overridable
@@ -322,9 +327,45 @@ export function boot() {
         if (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name))) continue;
         if (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name))) continue;
         scheduler.messageFinish(host);
+        restoreActionOverride(host);
       }
     },
   });
+}
+
+// Per-message action-scoped override (SPEC-API-10 method-level #[Ghost]).
+// Temporarily mutates host.config for the lifetime of one message
+// (onStart..onFinish) rather than threading a parallel "effective config"
+// through every downstream reader (scheduler/renderer/synthesizer all
+// already read host.config directly, at various points across that
+// lifetime) — restored in onFinish. ponytail: assumes a host's messages
+// are never concurrently interleaved (matches this codebase's existing
+// single-flight assumption for ctx._gwSkippedRenderless); revisit if
+// Livewire ever pipelines overlapping commits to the same component.
+function applyActionOverride(host, ctx) {
+  host._gwBaseConfig = null;
+  if (!host.actionOverrides) return;
+
+  let merged = null;
+  for (const name of ctx.actionNames) {
+    const fields = host.actionOverrides[name];
+    if (!fields) continue;
+    merged = merged ? { ...fields, ...merged } : { ...fields }; // nearest-first: earlier actionNames win
+  }
+  if (!merged) return;
+
+  for (const key of Object.keys(host.directiveConfig)) delete merged[key]; // directive always outranks method-level
+  if (Object.keys(merged).length === 0) return;
+
+  host._gwBaseConfig = host.config;
+  host.config = { ...host.config, ...merged };
+}
+
+function restoreActionOverride(host) {
+  if (host._gwBaseConfig) {
+    host.config = host._gwBaseConfig;
+    host._gwBaseConfig = null;
+  }
 }
 
 function pickOverrides(config) {

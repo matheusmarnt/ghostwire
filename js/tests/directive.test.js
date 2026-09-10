@@ -383,6 +383,78 @@ describe('directive registration and modifier parsing', () => {
     expect(secondCleanup).toBeTypeOf('function');
   });
 
+  describe('method-level #[Ghost] override application (SPEC-API-10 runtime)', () => {
+    it('applies a method-level override to host.config for the duration of the matching commit, then restores it', () => {
+      boot();
+      const el = document.createElement('div');
+      el.setAttribute('data-ghost', '{"a":{"increment":{"m":"freeze"}}}');
+      document.body.appendChild(el);
+      registeredCallback({
+        el,
+        directive: { modifiers: [], expression: '' },
+        component: { id: 'c1', el },
+        cleanup: () => {},
+      });
+
+      const scheduler = schedulerInstances.at(-1);
+      const registry = registryInstances.at(-1);
+      const host = [...registry.hostsFor('c1')][0];
+      const baseMode = host.config.mode;
+      expect(baseMode).toBe('synthesize'); // pre-override value, no directive/attribute mode set
+
+      let finishCb;
+      interceptedCallback({
+        message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'increment' }] },
+        onSuccess: () => {},
+        onError: () => {},
+        onFailure: () => {},
+        onCancel: () => {},
+        onFinish: (cb) => { finishCb = cb; },
+      });
+
+      expect(scheduler.messageStart).toHaveBeenCalledTimes(1);
+      expect(scheduler.messageStart.mock.calls[0][0].config.mode).toBe('freeze');
+      expect(host.config.mode).toBe('freeze');
+
+      finishCb();
+
+      expect(scheduler.messageFinish).toHaveBeenCalledTimes(1);
+      expect(host.config.mode).toBe(baseMode); // restored after the commit finishes
+    });
+
+    it('lets an explicit directive value outrank a conflicting method-level override', () => {
+      boot();
+      const el = document.createElement('div');
+      el.setAttribute('data-ghost', '{"a":{"increment":{"m":"off"}}}');
+      document.body.appendChild(el);
+      registeredCallback({
+        el,
+        directive: { modifiers: ['freeze'], expression: '' },
+        component: { id: 'c1', el },
+        cleanup: () => {},
+      });
+
+      const registry = registryInstances.at(-1);
+      const host = [...registry.hostsFor('c1')][0];
+      expect(host.config.mode).toBe('freeze'); // directive already won at parse time
+
+      let finishCb;
+      interceptedCallback({
+        message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'increment' }] },
+        onSuccess: () => {},
+        onError: () => {},
+        onFailure: () => {},
+        onCancel: () => {},
+        onFinish: (cb) => { finishCb = cb; },
+      });
+
+      expect(host.config.mode).toBe('freeze'); // still freeze, not the method-level "off"
+
+      finishCb();
+      expect(host.config.mode).toBe('freeze');
+    });
+  });
+
   describe('data-ghost attribute merge and auto-attach (component.init)', () => {
     it("directive config wins over the attribute's mode where the directive explicitly set it (SPEC-API-40)", () => {
       boot();

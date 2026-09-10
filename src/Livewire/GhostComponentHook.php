@@ -62,10 +62,17 @@ class GhostComponentHook extends ComponentHook
             // $method is always null here: action-method-scoped resolution
             // is out of scope for this task (handled later, JS-side).
             $resolver = app(ConfigResolver::class);
-            $resolved = $resolver->resolve(get_class($this->component));
+            $componentClass = get_class($this->component);
+            $resolved = $resolver->resolve($componentClass);
+            $payload = $this->compactPayload($resolved, $resolver->literalDefaults());
+
+            $methodOverrides = $this->compactMethodOverrides($resolver->methodOverrides($componentClass));
+            if ($methodOverrides !== []) {
+                $payload['a'] = $methodOverrides;
+            }
 
             $replaceHtml(Utils::insertAttributesIntoHtmlRoot($html, [
-                'data-ghost' => $this->compactPayload($resolved, $resolver->literalDefaults()),
+                'data-ghost' => $payload,
             ]));
         };
     }
@@ -105,5 +112,29 @@ class GhostComponentHook extends ComponentHook
         }
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>>  $methodOverrides  from ConfigResolver::methodOverrides()
+     * @return array<string, array<string, mixed>>  action name => compact-key partial config
+     */
+    private function compactMethodOverrides(array $methodOverrides): array
+    {
+        $keys = ['mode' => 'm', 'delay' => 'd', 'hold' => 'h', 'rows' => 'r', 'poll' => 'p', 'sync' => 's', 'lazy' => 'l'];
+
+        $compact = [];
+        foreach ($methodOverrides as $action => $fields) {
+            $entry = [];
+            foreach ($fields as $field => $value) {
+                if (array_key_exists($field, $keys)) {
+                    $entry[$keys[$field]] = $value;
+                }
+            }
+            if ($entry !== []) {
+                $compact[$action] = $entry;
+            }
+        }
+
+        return $compact;
     }
 }

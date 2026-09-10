@@ -16,6 +16,8 @@ final class ConfigResolver
 
     private const POSITIONAL = ['mode', 'only', 'except', 'delay', 'hold', 'rows', 'poll', 'sync', 'lazy'];
 
+    private const METHOD_TRANSPORT_FIELDS = ['mode', 'delay', 'hold', 'rows', 'poll', 'sync', 'lazy'];
+
     /** @var array<class-string, array<string, mixed>> */
     private array $classChainCache = [];
 
@@ -83,6 +85,36 @@ final class ConfigResolver
         $this->validate(array_map(static fn ($entry) => $entry['value'], $result));
 
         return $result;
+    }
+
+    /**
+     * Every action method's own declared #[Ghost] fields, keyed by method name —
+     * NOT the full resolved config (SPEC-API-10 is a field-by-field override,
+     * and the runtime needs to know exactly what was declared vs. inherited to
+     * merge correctly at commit time, client-side). `only`/`except` are
+     * intentionally excluded: they gate WHICH commits activate a host at all
+     * (already correct at runtime since M4) and are not part of this transport.
+     * Methods with no #[Ghost] attribute of their own, or whose only declared
+     * fields are only/except, are omitted entirely.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public function methodOverrides(string $componentClass): array
+    {
+        $overrides = [];
+
+        foreach ((new ReflectionClass($componentClass))->getMethods(ReflectionMethod::IS_PUBLIC) as $reflectionMethod) {
+            $declared = array_intersect_key(
+                $this->declaredArgsForMethod($componentClass, $reflectionMethod->getName()),
+                array_flip(self::METHOD_TRANSPORT_FIELDS)
+            );
+
+            if ($declared !== []) {
+                $overrides[$reflectionMethod->getName()] = $declared;
+            }
+        }
+
+        return $overrides;
     }
 
     /** @param array<int, array<string, mixed>> $levels */

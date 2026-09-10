@@ -676,7 +676,8 @@
 
   // js/src/attributeConfig.js
   var KEY_MAP = { m: "mode", o: "only", x: "except", d: "delay", h: "hold", r: "rows", p: "poll", s: "sync", l: "lazy" };
-  var KNOWN_COMPACT_KEYS = new Set(Object.keys(KEY_MAP));
+  var KNOWN_COMPACT_KEYS = /* @__PURE__ */ new Set([...Object.keys(KEY_MAP), "a"]);
+  var METHOD_OVERRIDE_KEYS = /* @__PURE__ */ new Set(["m", "d", "h", "r", "p", "s", "l"]);
   var ACTION_NAME_PATTERN = /^[A-Za-z0-9_]{1,64}$/;
   var DEFAULTS = { mode: "synthesize", only: null, except: null, delay: 120, hold: 300, rows: null, poll: false, sync: false, lazy: false };
   function clamp(value, min, max) {
@@ -775,6 +776,54 @@
         return null;
       }
       config.except = sanitized;
+    }
+    if ("a" in parsed) {
+      if (parsed.a === null || typeof parsed.a !== "object" || Array.isArray(parsed.a)) {
+        warn('data-ghost "a" is not a JSON object \u2014 whole payload discarded (SPEC-SEC-02)');
+        return null;
+      }
+      const actionOverrides = {};
+      for (const [action, fields] of Object.entries(parsed.a)) {
+        if (!ACTION_NAME_PATTERN.test(action)) {
+          warn(`data-ghost "a" has an invalid action name \u2014 whole payload discarded (SPEC-SEC-02)`);
+          return null;
+        }
+        if (fields === null || typeof fields !== "object" || Array.isArray(fields)) {
+          warn(`data-ghost "a.${action}" is not a JSON object \u2014 whole payload discarded (SPEC-SEC-02)`);
+          return null;
+        }
+        const override = {};
+        for (const [key, value] of Object.entries(fields)) {
+          if (!METHOD_OVERRIDE_KEYS.has(key)) {
+            warn(`data-ghost "a.${action}" has unknown key "${key}" \u2014 whole payload discarded (SPEC-SEC-02)`);
+            return null;
+          }
+          if (key === "m") {
+            if (typeof value !== "string" || !["synthesize", "freeze", "off"].includes(value)) {
+              warn(`data-ghost "a.${action}.m" is not a valid mode \u2014 whole payload discarded (SPEC-SEC-02)`);
+              return null;
+            }
+            override.mode = value;
+          } else if (key === "d" || key === "h" || key === "r") {
+            if (typeof value !== "number") {
+              warn(`data-ghost "a.${action}.${key}" is not a number \u2014 whole payload discarded (SPEC-SEC-02)`);
+              return null;
+            }
+            const field = key === "d" ? "delay" : key === "h" ? "hold" : "rows";
+            const max = key === "r" ? 1e3 : 6e4;
+            override[field] = clamp(value, 0, max);
+          } else {
+            if (typeof value !== "boolean") {
+              warn(`data-ghost "a.${action}.${key}" is not a boolean \u2014 whole payload discarded (SPEC-SEC-02)`);
+              return null;
+            }
+            const field = key === "p" ? "poll" : key === "s" ? "sync" : "lazy";
+            override[field] = value;
+          }
+        }
+        actionOverrides[action] = override;
+      }
+      config.actionOverrides = actionOverrides;
     }
     return config;
   }
@@ -875,6 +924,8 @@
       const targetActions = directive.expression ? directive.expression.split(",").map((name) => name.trim()).filter(Boolean) : null;
       const host = registry.attach(el, component, config);
       host.targetActions = targetActions;
+      host.actionOverrides = attributeConfig?.actionOverrides ?? null;
+      host.directiveConfig = directiveConfig;
       if (config.keep) el.classList.add("gw-kept");
       cleanup(() => {
         scheduler.cancel(host);
@@ -893,6 +944,8 @@
       const attributeConfig = parseAttributeConfig(root);
       if (attributeConfig === null || attributeConfig.mode === "off") return;
       const host = registry.attach(root, component, attributeConfig);
+      host.actionOverrides = attributeConfig.actionOverrides ?? null;
+      host.directiveConfig = {};
       cleanup(() => {
         scheduler.cancel(host);
         synthesizer.forget(host);
@@ -924,6 +977,7 @@
       onStart(ctx) {
         ctx._gwSkippedRenderless = ctx.isRenderless;
         for (const host of registry.hostsFor(ctx.component.id)) {
+          applyActionOverride(host, ctx);
           if (host.config.mode === "off") continue;
           if (ctx.isRenderless) continue;
           if (ctx.isSync && !host.config.sync) continue;
@@ -954,9 +1008,31 @@
           if (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name))) continue;
           if (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name))) continue;
           scheduler.messageFinish(host);
+          restoreActionOverride(host);
         }
       }
     });
+  }
+  function applyActionOverride(host, ctx) {
+    host._gwBaseConfig = null;
+    if (!host.actionOverrides) return;
+    let merged = null;
+    for (const name of ctx.actionNames) {
+      const fields = host.actionOverrides[name];
+      if (!fields) continue;
+      merged = merged ? { ...fields, ...merged } : { ...fields };
+    }
+    if (!merged) return;
+    for (const key of Object.keys(host.directiveConfig)) delete merged[key];
+    if (Object.keys(merged).length === 0) return;
+    host._gwBaseConfig = host.config;
+    host.config = { ...host.config, ...merged };
+  }
+  function restoreActionOverride(host) {
+    if (host._gwBaseConfig) {
+      host.config = host._gwBaseConfig;
+      host._gwBaseConfig = null;
+    }
   }
   function pickOverrides(config) {
     const overrides = {};
