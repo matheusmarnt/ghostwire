@@ -1,0 +1,76 @@
+---
+import '../styles/landing.css';
+// Ghostwire's own real stylesheet — without this, .gw-bone elements render
+// structurally correct but completely unstyled (no color, no shimmer). Pure
+// CSS, framework-agnostic, safe to import directly into a plain Astro page.
+import '../../../js/src/style.css';
+const base = import.meta.env.BASE_URL;
+---
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gallery — Ghostwire</title>
+  <link rel="icon" href={`${base}favicon.svg`} />
+  <style>
+    .gw-gallery-item { max-width: 720px; margin: 2rem auto; padding: 0 1.5rem; }
+    .gw-gallery-item h2 { font-size: 1.1rem; }
+    .gw-gallery-stage { border: 1px solid #26263a; border-radius: 0.75rem; padding: 1rem; background: #121220; position: relative; min-height: 80px; }
+    .gw-toggle { margin-bottom: 0.75rem; }
+    .gw-toggle button { background: #7c3aed; color: #fff; border: none; padding: 0.4rem 0.9rem; border-radius: 0.4rem; cursor: pointer; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <section class="gw-hero">
+    <h1>Gallery</h1>
+    <p>Real layouts, real synthesis — toggle each one between its live content and Ghostwire's synthesized skeleton.</p>
+  </section>
+  <div id="gallery-root"></div>
+  <nav class="gw-footer-nav"><a href={`${base}`}>Home</a> <a href={`${base}playground/`}>Playground</a></nav>
+
+  <script>
+    import { FIXTURES } from '../lib/gallery-fixtures.js';
+    import { createRegistry } from '../../../js/src/registry.js';
+    import { createSynthesizer } from '../../../js/src/synthesizer/index.js';
+    import { createRenderer } from '../../../js/src/renderer.js';
+
+    const root = document.getElementById('gallery-root');
+    const registry = createRegistry();
+    const synthesizer = createSynthesizer(registry);
+    const renderer = createRenderer();
+
+    for (const fixture of FIXTURES) {
+      const item = document.createElement('div');
+      item.className = 'gw-gallery-item';
+      item.innerHTML = `
+        <h2>${fixture.label}</h2>
+        <div class="gw-toggle"><button type="button">Show skeleton</button></div>
+        <div class="gw-gallery-stage"><div class="gw-content">${fixture.html}</div></div>
+      `;
+      root.appendChild(item);
+
+      const stage = item.querySelector('.gw-gallery-stage');
+      const contentEl = item.querySelector('.gw-content');
+      const button = item.querySelector('button');
+      let host = null;
+      let showingSkeleton = false;
+
+      button.addEventListener('click', () => {
+        showingSkeleton = !showingSkeleton;
+        if (showingSkeleton) {
+          host = registry.attach(contentEl, { id: fixture.id }, { rows: null });
+          renderer.mountLayer(host);
+          const boneTree = synthesizer.synthesize(host);
+          if (boneTree) renderer.renderBones(host, boneTree);
+          contentEl.style.visibility = 'hidden';
+          button.textContent = 'Show content';
+        } else {
+          contentEl.style.visibility = 'visible';
+          if (host) { renderer.removeLayer(host); registry.detach(host); host = null; }
+          button.textContent = 'Show skeleton';
+        }
+      });
+    }
+  </script>
+</body>
+</html>
