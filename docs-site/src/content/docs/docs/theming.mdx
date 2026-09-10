@@ -1,0 +1,37 @@
+---
+title: Theming
+description: Tokens, dark mode, animations.
+---
+
+All theming is pure CSS, driven by custom properties on `:root` — no JS involved.
+
+| Token | Default | Purpose |
+|---|---|---|
+| `--ghostwire-bone-color` | `oklch(0.92 0.005 250)` | Base skeleton color (light) |
+| `--ghostwire-bone-color-dark` | `oklch(0.28 0.01 250)` | Base skeleton color (dark) |
+| `--ghostwire-bone-highlight` | `oklch(0.97 0.005 250)` | Shimmer sheen color (light) |
+| `--ghostwire-bone-highlight-dark` | `oklch(0.38 0.01 250)` | Shimmer sheen color (dark) |
+| `--ghostwire-bone-radius` | `0.375rem` | Corner radius on each bone |
+| `--ghostwire-bone-gap` | `0.5rem` | Spacing between stacked bones |
+| `--ghostwire-animation` | `shimmer` | Animation name — `shimmer`, `pulse`, `wave`, or `none` |
+| `--ghostwire-animation-speed` | `1.4s` | Animation cycle duration |
+| `--ghostwire-fade-duration` | `150ms` | Show/hide cross-fade duration |
+
+## Dark mode
+
+Automatic via `prefers-color-scheme: dark` — the `-dark` token variants apply with no configuration.
+
+## Reduced motion
+
+`prefers-reduced-motion: reduce` disables the shimmer/pulse/wave animation automatically, falling back to the sheen's static (invisible) state — same as setting `--ghostwire-animation: none` by hand.
+
+## Overriding
+
+Set any token on `:root` (or scoped to a container) in your own CSS, after Ghostwire's stylesheet loads:
+
+```css
+:root {
+  --ghostwire-bone-color: #e2e8f0;
+  --ghostwire-animation: pulse;
+}
+```

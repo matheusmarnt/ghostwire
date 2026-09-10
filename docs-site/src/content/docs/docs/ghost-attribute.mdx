@@ -1,0 +1,51 @@
+---
+title: '#[Ghost] attribute'
+description: Parameters, scopes, inheritance, bulk migration.
+---
+
+Apply to a component class — no view changes required:
+
+```php
+use Ghostwire\Attributes\Ghost;
+
+#[Ghost(mode: 'synthesize', delay: 200, hold: 400)]
+class ProductTable extends Component
+{
+    // ...
+}
+```
+
+## Parameters
+
+| Parameter | Type | Default | Meaning |
+|---|---|---|---|
+| `mode` | `'synthesize'｜'freeze'｜'off'` | `'synthesize'` | Loading strategy for this component |
+| `only` | `array<string>｜null` | `null` | Actions that activate the ghost |
+| `except` | `array<string>｜null` | `null` | Actions that never activate it |
+| `delay` | `int｜null` | `null` (package default: 120ms) | Delay before the ghost appears |
+| `hold` | `int｜null` | `null` (package default: 300ms) | Minimum visible duration |
+| `rows` | `int｜null` | `null` | Repeat-row hint for an empty host |
+| `poll` | `bool` | `false` | Allow polled messages to activate the ghost |
+| `sync` | `bool` | `false` | Allow property-only (sync) messages to activate it |
+| `lazy` | `bool` | `false` | Reuse the learned tree as the lazy placeholder |
+
+## Precedence cascade
+
+Seven levels, most to least specific: **method-level `#[Ghost]`** → **class-level `#[Ghost]`** → **inherited class `#[Ghost]`** → **`wire:ghost` directive on the element** → **`config/ghostwire.php`** → **package default**. Any field a given level doesn't declare falls through to the next. Inspect exactly which level decided a component's live configuration with:
+
+```bash
+php artisan ghost:inspect
+```
+
+## Method-level targeting
+
+```php
+#[Ghost(mode: 'freeze')]
+class ReportTable extends Component
+{
+    #[Ghost(mode: 'synthesize', delay: 50)]
+    public function refresh() { /* ... */ }
+}
+```
+
+`refresh()`'s own attribute overrides the class-level default for that action only.

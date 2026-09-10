@@ -1,0 +1,25 @@
+---
+title: How it works
+description: The synthesis algorithm — technical authority page.
+---
+
+Ghostwire's synthesizer runs a five-phase pipeline against the live DOM, every time a host needs a fresh skeleton:
+
+```
+walk(host)
+  ├─ 1. Collect     → traverse the subtree, applying .ignore/.keep exclusions
+  ├─ 2. Classify    → assign a BoneType to every eligible node (text, heading, media, control, container, icon)
+  ├─ 3. Measure     → one batched layout/style read pass — never interleaved with writes
+  ├─ 4. Reduce      → detect repeated siblings, fuse adjacent bones, cap node count
+  └─ 5. Emit        → a Bone Tree in coordinates relative to the host
+```
+
+**Read/write separation is load-bearing.** Every layout read (`getBoundingClientRect`, `getComputedStyle`) happens before any DOM write — mixing them forces a synchronous reflow per element instead of one batched reflow for the whole host. This is the single biggest performance invariant in the codebase, and it's enforced by a regression-guarding test, not just convention.
+
+**Repeat-sibling sampling** measures the first three structurally-uniform siblings in a run for real, then clones bones for the rest — preserving real count and spacing without re-measuring hundreds of near-identical rows. Text bones are always measured for real, never cloned, because per-row text width genuinely varies.
+
+**Signature-based memoization** hashes the classified candidate set (including repeat-run item count) so an unchanged host skips synthesis entirely on the next cycle, invalidated by a `ResizeObserver` watching border-box size.
+
+**Adaptive freeze** degrades a host from `synthesize` to `freeze` mode automatically after two consecutive slow (>50ms) syntheses — a single slow sample is treated as GC/engine jitter, not a structural signal.
+
+Try the algorithm directly, live, against your own markup, in the [playground](/ghostwire/playground/).

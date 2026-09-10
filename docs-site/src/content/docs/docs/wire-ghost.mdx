@@ -1,0 +1,25 @@
+---
+title: wire:ghost directive
+description: Modifier catalog, each with a demo.
+---
+
+`wire:ghost` activates synthesis on the element's subtree. Every modifier:
+
+| Modifier | Effect |
+|---|---|
+| `wire:ghost` | Synthesize mode (the default) |
+| `wire:ghost.freeze` | Dim and disable the live host in place instead of synthesizing |
+| `wire:ghost.off` | Opt this element out entirely (terminal — no other modifier changes this) |
+| `wire:ghost.ignore` | Exclude this element and its subtree from the parent host's walk |
+| `wire:ghost.keep` | Keep this element visible even while an ancestor host is concealed |
+| `wire:ghost.island` | No-op, documented — Livewire 4 island scoping lands in a future milestone (SPEC-INT-13) |
+| `wire:ghost.delay.<N>ms` | Override the default 120ms show-delay |
+| `wire:ghost.hold.<N>ms` | Override the default 300ms minimum-visible duration |
+| `wire:ghost.rows.<N>` | Repeat-row hint used when the host renders empty |
+| `wire:ghost="actionName"` | Only activate for this specific action (expression targeting) |
+
+Modifiers compose: `wire:ghost.freeze.delay.200ms` is valid.
+
+## Try it
+
+Every modifier above is demonstrated live in the [playground](/ghostwire/playground/) and the [gallery](/ghostwire/gallery/).

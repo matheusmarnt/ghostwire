@@ -1,0 +1,27 @@
+---
+title: Install
+description: Installation and first effect.
+---
+
+```bash
+composer require matheusmarnt/ghostwire
+```
+
+Publish the config (optional — sensible defaults ship without it):
+
+```bash
+php artisan vendor:publish --tag=ghostwire-config
+```
+
+Add the directive to any element inside a Livewire component:
+
+```blade
+<div wire:ghost>
+    <h2>{{ $title }}</h2>
+    <p>{{ $body }}</p>
+</div>
+```
+
+Trigger any Livewire update on that component (an action call, `wire:model.live`, etc.) — Ghostwire synthesizes a matching skeleton from the live DOM automatically, no further markup required. First visible effect: under 60 seconds from `composer require` (PRD §8.2 target).
+
+Don't want the loading strategy applied everywhere? `config/ghostwire.php`'s `strategy` key defaults to `opt-in` (only `wire:ghost`/`#[Ghost]`-marked components participate) — flip to `global` to apply it to every Livewire component, opt-out per component with `wire:ghost.off` or `#[Ghost(mode: 'off')]`.
