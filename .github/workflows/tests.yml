@@ -68,20 +68,16 @@ jobs:
       - name: Install Playwright browser for Pest
         if: matrix.php != '8.2'
         run: npx playwright install --with-deps chromium
-      - name: DIAGNOSTIC issue #2 (temporary, remove after root cause found)
+      - name: EXPERIMENT issue #2 (temporary): --parallel suppresses the auto-injected --cache-result
         run: |
           set +e
-          php -v
-          composer show sebastian/cli-parser
-          echo "--- both flags together (mimics real failure) ---"
-          vendor/bin/pest --cache-directory=/tmp/pest-diag1 --cache-result --version
-          echo "EXIT: $?"
-          echo "--- cache-result alone ---"
-          vendor/bin/pest --cache-result --version
-          echo "EXIT: $?"
-          echo "--- cache-directory alone ---"
-          vendor/bin/pest --cache-directory=/tmp/pest-diag2 --version
-          echo "EXIT: $?"
+          echo "--- full invocation with --parallel (should skip Cache::handleArguments' bare --cache-result push) ---"
+          if [ "${{ matrix.php }}" = "8.2" ]; then
+            vendor/bin/pest tests/Unit tests/Feature --parallel --cache-directory=/tmp/pest-exp
+          else
+            vendor/bin/pest --parallel --cache-directory=/tmp/pest-exp
+          fi
+          echo "EXPERIMENT EXIT: $?"
           set -e
       - name: Run tests
         # Explicit --cache-directory: Pest's own auto-detection
