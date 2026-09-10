@@ -496,6 +496,74 @@ describe('directive registration and modifier parsing', () => {
       expect(scheduler.messageFinish).not.toHaveBeenCalled();
       expect(host.config.mode).toBe('synthesize'); // override restored, not leaked permanently
     });
+
+    // Fix-round regression (final whole-branch review, Critical): this
+    // codebase does NOT guarantee single-flight messages per host --
+    // scheduler.js's host.pending counter exists precisely because a
+    // genuinely concurrent, non-skipped message on the same host is a
+    // real, already-handled case. The original applyActionOverride()
+    // stored the true base directly on host._gwBaseConfig, a single slot
+    // -- a second, overlapping message on the same host would overwrite
+    // it before the first message's onFinish restored from it, leaving
+    // nothing correct to restore (permanently fatal if the clobbered
+    // override was mode:'off'). The base must be recorded per-message (on
+    // ctx, not on host), guarded so only one message's override is active
+    // on a host at a time.
+    it('does not let a second overlapping message on the same host clobber the first message\'s override, and restores correctly regardless of finish order', () => {
+      boot();
+      const el = document.createElement('div');
+      el.setAttribute('data-ghost', '{"a":{"actionA":{"m":"freeze"},"actionB":{"m":"off"}}}');
+      document.body.appendChild(el);
+      registeredCallback({
+        el,
+        directive: { modifiers: [], expression: '' },
+        component: { id: 'c1', el },
+        cleanup: () => {},
+      });
+
+      const registry = registryInstances.at(-1);
+      const host = [...registry.hostsFor('c1')][0];
+      const baseMode = host.config.mode;
+      expect(baseMode).toBe('synthesize');
+
+      // Message A starts first, targeting actionA -> freeze.
+      let finishA;
+      interceptedCallback({
+        message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'actionA' }] },
+        onSuccess: () => {},
+        onError: () => {},
+        onFailure: () => {},
+        onCancel: () => {},
+        onFinish: (cb) => { finishA = cb; },
+      });
+      expect(host.config.mode).toBe('freeze');
+
+      // Message B starts on the SAME host before A finishes, targeting
+      // actionB -> off. B's override must NOT apply while A's is active
+      // (host._gwOverrideActive guard) -- it must not clobber A's saved
+      // base, and it must not even touch host.config.
+      let finishB;
+      interceptedCallback({
+        message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'actionB' }] },
+        onSuccess: () => {},
+        onError: () => {},
+        onFailure: () => {},
+        onCancel: () => {},
+        onFinish: (cb) => { finishB = cb; },
+      });
+      expect(host.config.mode).toBe('freeze'); // still A's override, B's did not apply
+
+      // B finishes first -- B never recorded a base for this host (its
+      // override was skipped by the guard), so this must be a no-op for
+      // host.config.
+      finishB();
+      expect(host.config.mode).toBe('freeze');
+
+      // A finishes -- must restore the TRUE original base, not something
+      // corrupted by B, regardless of B having finished first.
+      finishA();
+      expect(host.config.mode).toBe(baseMode);
+    });
   });
 
   describe('data-ghost attribute merge and auto-attach (component.init)', () => {

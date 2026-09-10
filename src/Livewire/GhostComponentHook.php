@@ -59,8 +59,13 @@ class GhostComponentHook extends ComponentHook
             // (vendor/livewire/livewire/src/ComponentHookRegistry.php) to the
             // concrete Livewire component instance this hook run is scoped
             // to — the real, confirmed way this hook knows "which component".
-            // $method is always null here: action-method-scoped resolution
-            // is out of scope for this task (handled later, JS-side).
+            // $method is always null here: this class-level resolve() call
+            // stays the base layer only. Method-level #[Ghost] overrides
+            // (SPEC-API-10, #9) are a separate, additional transport below
+            // — every action method's own declared fields are gathered via
+            // ConfigResolver::methodOverrides() and sent as the compact "a"
+            // map, merged client-side into the matching action's config for
+            // the duration of that one commit (js/src/index.js).
             $resolver = app(ConfigResolver::class);
             $componentClass = get_class($this->component);
             $resolved = $resolver->resolve($componentClass);

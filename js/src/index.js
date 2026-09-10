@@ -343,7 +343,7 @@ export function boot() {
         // too, it leaks permanently into host.config, since a later message
         // with no matching actionOverrides entry has nothing to restore it
         // from (applyActionOverride() only sets up a NEW override or clears
-        // its own _gwBaseConfig bookkeeping; it never undoes a stale one).
+        // its own bookkeeping; it never undoes a stale one).
         const skip = ctx._gwSkippedRenderless
           || host.config.mode === 'off'
           || (ctx.isSync && !host.config.sync)
@@ -352,7 +352,7 @@ export function boot() {
           || (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name)))
           || (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name)));
         if (!skip) scheduler.messageFinish(host);
-        restoreActionOverride(host);
+        restoreActionOverride(host, ctx);
       }
     },
   });
@@ -363,12 +363,29 @@ export function boot() {
 // (onStart..onFinish) rather than threading a parallel "effective config"
 // through every downstream reader (scheduler/renderer/synthesizer all
 // already read host.config directly, at various points across that
-// lifetime) — restored in onFinish. ponytail: assumes a host's messages
-// are never concurrently interleaved (matches this codebase's existing
-// single-flight assumption for ctx._gwSkippedRenderless); revisit if
-// Livewire ever pipelines overlapping commits to the same component.
+// lifetime) — restored in onFinish.
+//
+// The true base is stored on the triggering ctx itself (ctx._gwBases, a
+// Map keyed by host), NOT on the host, because this codebase does NOT
+// guarantee single-flight messages per host -- scheduler.js's host.pending
+// counter exists precisely because a genuinely concurrent, non-skipped
+// message on the same host is a real, already-handled case (see
+// CHANGELOG's M4 entry). Storing the base on the host itself would let a
+// second, overlapping message's applyActionOverride() call stomp the
+// first message's saved base before its own restoreActionOverride() ran,
+// leaving nothing correct to restore from once the first message finished
+// (permanently fatal if the clobbered override was mode:'off').
+//
+// host._gwOverrideActive guards against exactly that: only one message's
+// override can be active on a host at a time. A second, truly-overlapping
+// message targeting the same host simply does not get its own method-level
+// override applied for the window they overlap -- safe (no corruption),
+// just a documented narrow limitation, not a full fix for arbitrary
+// concurrent per-action overrides. Because each ctx only ever restores
+// what it itself recorded in ctx._gwBases, restoration is correct
+// regardless of which message's onFinish fires first.
 function applyActionOverride(host, ctx) {
-  host._gwBaseConfig = null;
+  if (host._gwOverrideActive) return; // another in-flight message already owns this host's override window
   if (!host.actionOverrides) return;
 
   let merged = null;
@@ -382,14 +399,17 @@ function applyActionOverride(host, ctx) {
   for (const key of Object.keys(host.directiveConfig)) delete merged[key]; // directive always outranks method-level
   if (Object.keys(merged).length === 0) return;
 
-  host._gwBaseConfig = host.config;
+  host._gwOverrideActive = true;
+  ctx._gwBases = ctx._gwBases || new Map();
+  ctx._gwBases.set(host, host.config);
   host.config = { ...host.config, ...merged };
 }
 
-function restoreActionOverride(host) {
-  if (host._gwBaseConfig) {
-    host.config = host._gwBaseConfig;
-    host._gwBaseConfig = null;
+function restoreActionOverride(host, ctx) {
+  if (ctx._gwBases?.has(host)) {
+    host.config = ctx._gwBases.get(host);
+    ctx._gwBases.delete(host);
+    host._gwOverrideActive = false;
   }
 }
 

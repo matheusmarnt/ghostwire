@@ -1005,13 +1005,13 @@
         for (const host of registry.hostsFor(ctx.component.id)) {
           const skip = ctx._gwSkippedRenderless || host.config.mode === "off" || ctx.isSync && !host.config.sync || ctx.isPoll && !host.config.poll || host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name)) || host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name)) || host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name));
           if (!skip) scheduler.messageFinish(host);
-          restoreActionOverride(host);
+          restoreActionOverride(host, ctx);
         }
       }
     });
   }
   function applyActionOverride(host, ctx) {
-    host._gwBaseConfig = null;
+    if (host._gwOverrideActive) return;
     if (!host.actionOverrides) return;
     let merged = null;
     for (const name of ctx.actionNames) {
@@ -1022,13 +1022,16 @@
     if (!merged) return;
     for (const key of Object.keys(host.directiveConfig)) delete merged[key];
     if (Object.keys(merged).length === 0) return;
-    host._gwBaseConfig = host.config;
+    host._gwOverrideActive = true;
+    ctx._gwBases = ctx._gwBases || /* @__PURE__ */ new Map();
+    ctx._gwBases.set(host, host.config);
     host.config = { ...host.config, ...merged };
   }
-  function restoreActionOverride(host) {
-    if (host._gwBaseConfig) {
-      host.config = host._gwBaseConfig;
-      host._gwBaseConfig = null;
+  function restoreActionOverride(host, ctx) {
+    if (ctx._gwBases?.has(host)) {
+      host.config = ctx._gwBases.get(host);
+      ctx._gwBases.delete(host);
+      host._gwOverrideActive = false;
     }
   }
   function pickOverrides(config) {
