@@ -1,0 +1,30 @@
+---
+title: Livewire 3/4 compatibility
+description: The Tier A/B/C matrix, bridge detection, and documented degradations (FR-81, SPEC-INT-20..25).
+---
+
+Ghostwire supports Livewire 3.6+ and 4.x from the same package. Bridge selection happens at `livewire:init`, by **runtime feature detection** — never a version string:
+
+1. `typeof Livewire.interceptMessage === 'function'` → Livewire 4 bridge
+2. else, `Livewire.hook` present → Livewire 3 bridge
+3. neither → the runtime disables itself, with a console warning in development only
+
+## Tier matrix
+
+| Tier | Capabilities |
+|---|---|
+| **A — identical on both lines** | Directive and every modifier except `.island` · `#[Ghost]` in full (class, method, inheritance, precedence) · synthesis · `freeze` mode · timing (delay/hold/timeout) · sync-message silence · theme and CSS tokens · accessibility (`aria-busy`, focus preservation, live region) · learning and export · morph coexistence |
+| **B — degraded on 3.x** | Post-paint removal — emulated via two chained `requestAnimationFrame` calls (costs up to one extra frame of skeleton, never a flash of unpainted content) · finalization — composed from `succeed`/`fail`/`request.fail`, idempotent · cancellation — resolved as finalization · poll detection — heuristic on trigger origin (`wire:poll` on the element) · per-action interception — filtered at the bridge level, same observable behavior |
+| **C — 4.x only** | Island scoping (`.island` modifier — no-op, documented, on 3.x) · message-skip handling |
+
+## What "degraded" means in practice
+
+Nothing in Tier B produces incorrect behavior — it produces the same *observable* result via a different, 3.x-compatible mechanism. A capability with no 3.x equivalent at all (Tier C) degrades to a documented no-op rather than an error or an emulation built on Livewire's internal APIs (Ghostwire never reaches into internals to fake a capability that isn't really there).
+
+## CI verification
+
+Both the contract test suite and the full browser test suite run against both Livewire lines on every PR (`.github/workflows/tests.yml`'s matrix). Behavior that diverges between lines outside this documented matrix is treated as a release-blocking bug.
+
+## Detection, not sniffing
+
+Version-string sniffing is explicitly disallowed by the package's own design (SPEC-INT-20) — a future Livewire patch release that changes internals without changing its public hooks should never require a Ghostwire update just because a string comparison broke.
