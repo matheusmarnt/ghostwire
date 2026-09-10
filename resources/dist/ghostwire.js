@@ -216,13 +216,19 @@
       host.layer = layer;
       return layer;
     }
-    function repositionLayer(host) {
-      if (!host.layer) return;
-      const rect = host.el.getBoundingClientRect();
+    function measureHostRect(host) {
+      if (!host.layer) return null;
+      return host.el.getBoundingClientRect();
+    }
+    function applyLayerRect(host, rect) {
+      if (!host.layer || !rect) return;
       host.layer.style.top = `${rect.top}px`;
       host.layer.style.left = `${rect.left}px`;
       host.layer.style.width = `${rect.width}px`;
       host.layer.style.height = `${rect.height}px`;
+    }
+    function repositionLayer(host) {
+      applyLayerRect(host, measureHostRect(host));
     }
     function renderBones(host, boneTree) {
       if (!host.layer) return;
@@ -276,7 +282,7 @@
         el.focus();
       }
     }
-    return { mountLayer, repositionLayer, renderBones, removeLayer, freeze, unfreeze, markBusy, clearBusy, captureFocus, restoreFocus };
+    return { mountLayer, repositionLayer, measureHostRect, applyLayerRect, renderBones, removeLayer, freeze, unfreeze, markBusy, clearBusy, captureFocus, restoreFocus };
   }
 
   // js/src/synthesizer/walk.js
@@ -920,14 +926,17 @@
         }
       },
       onPostPaint(ctx) {
+        const hosts = [];
         for (const host of registry.hostsFor(ctx.component.id)) {
           if (ctx._gwSkippedRenderless || ctx.isSync && !host.config.sync || ctx.isPoll && !host.config.poll) continue;
           if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
           if (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name))) continue;
           if (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name))) continue;
-          renderer.repositionLayer(host);
+          hosts.push(host);
           scheduler.messagePostPaint(host);
         }
+        const rects = hosts.map((host) => renderer.measureHostRect(host));
+        hosts.forEach((host, i) => renderer.applyLayerRect(host, rects[i]));
       },
       onFinish(ctx) {
         for (const host of registry.hostsFor(ctx.component.id)) {

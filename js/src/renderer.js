@@ -47,13 +47,28 @@ export function createRenderer() {
     return layer;
   }
 
-  function repositionLayer(host) {
-    if (!host.layer) return;
-    const rect = host.el.getBoundingClientRect();
+  // SPEC-PERF-01/02: split into an independent read (measure) and write
+  // (apply) half so a caller looping over several hosts on the same
+  // component (js/src/index.js's onPostPaint) can measure every host first
+  // and only then write any of them — otherwise host N+1's read lands right
+  // after host N's write in the same loop, forcing a synchronous reflow per
+  // host after the first. repositionLayer stays as a single-host convenience
+  // wrapper composing the two; no other caller needs to change.
+  function measureHostRect(host) {
+    if (!host.layer) return null;
+    return host.el.getBoundingClientRect();
+  }
+
+  function applyLayerRect(host, rect) {
+    if (!host.layer || !rect) return;
     host.layer.style.top = `${rect.top}px`;
     host.layer.style.left = `${rect.left}px`;
     host.layer.style.width = `${rect.width}px`;
     host.layer.style.height = `${rect.height}px`;
+  }
+
+  function repositionLayer(host) {
+    applyLayerRect(host, measureHostRect(host));
   }
 
   function renderBones(host, boneTree) {
@@ -146,5 +161,5 @@ export function createRenderer() {
     }
   }
 
-  return { mountLayer, repositionLayer, renderBones, removeLayer, freeze, unfreeze, markBusy, clearBusy, captureFocus, restoreFocus };
+  return { mountLayer, repositionLayer, measureHostRect, applyLayerRect, renderBones, removeLayer, freeze, unfreeze, markBusy, clearBusy, captureFocus, restoreFocus };
 }

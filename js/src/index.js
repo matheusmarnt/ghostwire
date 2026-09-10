@@ -296,14 +296,24 @@ export function boot() {
       }
     },
     onPostPaint(ctx) {
+      // SPEC-PERF-01/02: collect every eligible host first, then measure all
+      // of them before writing any of them — a component with 2+ hosts must
+      // not have host N+1's read land right after host N's write in the same
+      // cycle (forced synchronous reflow). messagePostPaint only flips a flag
+      // and arms an async setTimeout (scheduler.js), so calling it here for
+      // every host up front, before the measure/apply batch below, cannot
+      // race with a synchronous layer teardown.
+      const hosts = [];
       for (const host of registry.hostsFor(ctx.component.id)) {
         if (ctx._gwSkippedRenderless || (ctx.isSync && !host.config.sync) || (ctx.isPoll && !host.config.poll)) continue;
         if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
         if (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name))) continue;
         if (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name))) continue;
-        renderer.repositionLayer(host);
+        hosts.push(host);
         scheduler.messagePostPaint(host);
       }
+      const rects = hosts.map((host) => renderer.measureHostRect(host));
+      hosts.forEach((host, i) => renderer.applyLayerRect(host, rects[i]));
     },
     onFinish(ctx) {
       for (const host of registry.hostsFor(ctx.component.id)) {
