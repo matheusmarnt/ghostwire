@@ -43,3 +43,8 @@ AGENTS.md
 # Ghostwire planning docs — internal only, not for the public repo
 /PRD-ghostwire.md
 /SDD-ghostwire.md
+
+# docs-site (Astro)
+docs-site/node_modules/
+docs-site/dist/
+docs-site/.astro/

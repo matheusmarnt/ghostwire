@@ -1,0 +1,80 @@
+---
+import '../styles/landing.css';
+const base = import.meta.env.BASE_URL;
+---
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ghostwire — automatic runtime skeleton loaders for Livewire</title>
+  <meta name="description" content="Synthesized from your live DOM, zero markup. Dual Livewire 3.6+/4.x bridge." />
+  <link rel="icon" href={`${base}favicon.svg`} />
+</head>
+<body>
+  <section class="gw-hero">
+    <h1>Skeleton loaders your Livewire app already deserves.</h1>
+    <p>Add <code>wire:ghost</code> to any element. Ghostwire synthesizes a matching skeleton from your live DOM the instant a request starts — no hand-written placeholder markup, zero layout shift.</p>
+    <div class="gw-cta">
+      <a class="primary" href={`${base}docs/install/`}>Get started</a>
+      <a class="secondary" href={`${base}playground/`}>Try the playground</a>
+      <a class="secondary" href={`${base}gallery/`}>See the gallery</a>
+    </div>
+  </section>
+
+  <div class="gw-slider-wrap">
+    <label for="latency">Simulated network latency: <strong id="latency-value">500ms</strong></label>
+    <input type="range" id="latency" min="0" max="2" step="1" value="1" />
+    <div class="gw-latency-demo">
+      <div class="gw-latency-panel">
+        <h3>Without Ghostwire</h3>
+        <div id="blank-panel">
+          <p style="color:#5a5a70;font-size:0.9rem;">(blank while loading — then content pops in)</p>
+        </div>
+      </div>
+      <div class="gw-latency-panel">
+        <h3>With Ghostwire</h3>
+        <div class="gw-row bone w60"></div>
+        <div class="gw-row bone w80"></div>
+        <div class="gw-row bone w40"></div>
+      </div>
+    </div>
+  </div>
+
+  <section class="gw-features">
+    <div class="gw-feature"><h3>Zero markup</h3><p>Walks the live DOM and classifies nodes automatically — no placeholder templates to hand-author or keep in sync.</p></div>
+    <div class="gw-feature"><h3>Dual Livewire bridge</h3><p>3.6+ and 4.x from the same package, selected by runtime feature detection, never a version string.</p></div>
+    <div class="gw-feature"><h3>Morph-safe by construction</h3><p>The Ghost Layer never touches Livewire's reconciled tree — concealment is visibility/opacity only.</p></div>
+    <div class="gw-feature"><h3>Accessible by default</h3><p><code>aria-busy</code>, focus preservation, and a shared live region — axe-core clean at the strictest level.</p></div>
+  </section>
+
+  <nav class="gw-footer-nav">
+    <a href={`${base}docs/install/`}>Docs</a>
+    <a href={`${base}playground/`}>Playground</a>
+    <a href={`${base}gallery/`}>Gallery</a>
+    <a href={`${base}about/`}>About</a>
+    <a href="https://github.com/matheusmarnt/ghostwire">GitHub</a>
+  </nav>
+
+  <script>
+    const slider = document.getElementById('latency');
+    const label = document.getElementById('latency-value');
+    const blankPanel = document.getElementById('blank-panel');
+    const LEVELS = [
+      { ms: 100, text: '100ms' },
+      { ms: 500, text: '500ms' },
+      { ms: 2000, text: '2s' },
+    ];
+    let timer = null;
+    function render(level) {
+      label.textContent = level.text;
+      clearTimeout(timer);
+      blankPanel.innerHTML = '<p style="color:#5a5a70;font-size:0.9rem;">(blank while loading…)</p>';
+      timer = setTimeout(() => {
+        blankPanel.innerHTML = '<div class="gw-row content w60"></div><div class="gw-row content w80"></div><div class="gw-row content w40"></div>';
+      }, level.ms);
+    }
+    slider.addEventListener('input', () => render(LEVELS[Number(slider.value)]));
+    render(LEVELS[1]);
+  </script>
+</body>
+</html>

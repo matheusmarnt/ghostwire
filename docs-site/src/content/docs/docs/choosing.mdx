@@ -1,0 +1,13 @@
+---
+title: Choosing directive vs. attribute
+description: When to use each mode — a decision page.
+---
+
+**The directive decides *where*. The attribute decides *when*.**
+
+- Reach for **`wire:ghost`** when you're marking up a specific element and want the skeleton scoped to exactly that subtree — the common case for a single table, card grid, or panel.
+- Reach for **`#[Ghost]`** when you want a whole component's behavior configured without touching its view at all — ideal for bulk-migrating many existing components, or for method-level overrides tied to specific actions rather than specific markup.
+
+They compose: put `#[Ghost(mode: 'freeze')]` on the class as the default, then a `wire:ghost.delay.50ms` directive on one particularly slow-loading element inside it to override just that host's timing. The precedence cascade in [`/docs/ghost-attribute`](/ghostwire/docs/ghost-attribute/) resolves the combination.
+
+If you're migrating 60 legacy components without touching any view — start with `#[Ghost]` at the class level and a global `strategy: 'opt-in'` (or `'global'`) config default; add directive-level overrides only where a specific element needs different timing or mode than the rest of its component.

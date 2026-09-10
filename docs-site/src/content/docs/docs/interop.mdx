@@ -1,0 +1,20 @@
+---
+title: Interop
+description: '@placeholder, Wirebones, Flux, livecharts, scoutify.'
+---
+
+## Other Livewire skeleton/placeholder tools
+
+Ghostwire's approach (runtime DOM synthesis, zero markup) is deliberately different from markup-first tools like Livewire's own `@placeholder` directive or community packages like Wirebones (hand-authored placeholder templates). They aren't mutually exclusive — Ghostwire coexists with `@placeholder` on the same page; just don't apply both to the identical element, since `@placeholder` already fully owns that element's loading-state markup.
+
+## Flux
+
+Flux components render standard DOM elements under the hood, so `wire:ghost` classifies their rendered output the same as any other markup — no special integration required.
+
+## livecharts
+
+`livecharts` renders canvas/SVG-based charts, which `wire:ghost` classifies the same as any other non-text component (`icon`/`media`, not walked into) rather than trying to synthesize their internal structure. The two packages coexist on the same page without interference.
+
+## scoutify
+
+`scoutify`'s ⌘K search modal is a standard Livewire component like any other, so it works alongside `wire:ghost` without special handling — Ghostwire and `scoutify` don't interfere with each other on the same page.

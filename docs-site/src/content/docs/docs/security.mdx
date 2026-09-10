@@ -1,0 +1,29 @@
+---
+title: Security
+description: CSP, supply chain, data-surface hardening, and privacy (FR-90..93).
+---
+
+## Content-Security-Policy
+
+Ghostwire runs under a strict CSP — no inline `<script>`, no `eval`, no `new Function`. The compiled `resources/dist/ghostwire.js` bundle never uses either. The `@ghostwireStyles`/`@ghostwireScripts` Blade directives both accept an optional nonce argument for apps that thread a per-request CSP nonce through their asset pipeline.
+
+Verified in CI: the package's own test gallery runs against a real, enforced `script-src 'self' 'nonce-…'; style-src 'self' 'nonce-…'` policy — not just a documented claim.
+
+## Supply chain
+
+- **Dependency auditing** — `composer audit` runs in CI on every PR (`.github/workflows/security.yml`)
+- **Reproducible `dist/` build** — the committed `resources/dist/ghostwire.js`/`.css` are verified in CI to match a fresh `js/build.mjs` (esbuild) run from source, so what ships is provably what's in the repo, not something hand-edited post-build
+
+## Data-surface hardening
+
+- **Server→client transport** — the `data-ghost` payload (compact keys `m`/`o`/`x`/`d`/`h`/`r`/`p`/`s`/`l`) is schema-validated on the client: an unknown key discards the *whole* payload rather than partially trusting it, and a malformed value falls back to the package default for that field, never to an unvalidated pass-through
+- **Learning store** — validated, quota-capped (`learning.quota_kb`, default 256 KB), and holds structural bone-tree shape only — never textual DOM content
+- **`ghost:export`** — path-traversal-hardened (planned M7; see [issue #9](https://github.com/matheusmarnt/ghostwire/issues/9) for the related `#[Ghost]`-on-method transport work still open)
+
+## Privacy
+
+No data from the user's DOM ever leaves the browser. Learning, when enabled (`GHOSTWIRE_LEARNING` env var, off by default), is entirely local — nothing is ever transmitted. Zero telemetry, full stop.
+
+## Reporting a vulnerability
+
+See [`SECURITY.md`](https://github.com/matheusmarnt/ghostwire/blob/main/SECURITY.md) in the repository. Response target: under 72 hours (GOV-04).
