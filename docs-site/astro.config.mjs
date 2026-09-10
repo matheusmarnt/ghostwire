@@ -9,6 +9,10 @@ export default defineConfig({
     starlight({
       title: 'Ghostwire',
       description: 'Automatic runtime skeleton loaders for Livewire — synthesized from your live DOM, zero markup.',
+      logo: {
+        src: './src/assets/ghostwire.png',
+        replacesTitle: true,
+      },
       favicon: '/favicon.svg',
       editLink: {
         baseUrl: 'https://github.com/matheusmarnt/ghostwire/edit/main/docs-site/',
