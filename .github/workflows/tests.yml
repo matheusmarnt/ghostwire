@@ -38,7 +38,7 @@ jobs:
       fail-fast: false
       matrix:
         php: ['8.2', '8.3', '8.4']
-        laravel: ['11.*', '12.*', '13.*']
+        laravel: ['12.*', '13.*']
         livewire: ['^3.6', '^4.0']
         exclude:
           # Laravel 13 requires PHP 8.3+ — 8.2 x 13 is an invalid cell.
@@ -55,20 +55,6 @@ jobs:
           php-version: ${{ matrix.php }}
       - name: Require matrix versions
         run: |
-          # illuminate/support, not laravel/framework: tried pinning
-          # laravel/framework directly for issue #4 (pestphp/pest-plugin-laravel
-          # requires it, and it replaces illuminate/support in Composer's
-          # model) — reverted after real CI logs on this exact PR showed it
-          # trades #4's conflict for a worse one: orchestra/testbench's own
-          # Laravel-11-compatible branch (v9.x) only resolves to
-          # laravel/framework versions Composer's security-advisory policy
-          # blocks wholesale (every 11.x release up to and including the
-          # newest, v11.56.1, is covered by at least one active advisory),
-          # so pinning laravel/framework directly makes EVERY Laravel 11.*
-          # cell fail at composer update regardless of PHP version — strictly
-          # worse than #4's original, narrower failure. issue #4 is reopened
-          # as still genuinely unresolved (same category as #2: real,
-          # upstream, not fixable by a CI config change alone).
           composer require "illuminate/support:${{ matrix.laravel }}" "livewire/livewire:${{ matrix.livewire }}" --no-interaction --no-update
           if [ "${{ matrix.php }}" = "8.2" ]; then
             # pestphp/pest-plugin-browser has no PHP-8.2-compatible release

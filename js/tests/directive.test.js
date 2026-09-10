@@ -383,6 +383,189 @@ describe('directive registration and modifier parsing', () => {
     expect(secondCleanup).toBeTypeOf('function');
   });
 
+  describe('method-level #[Ghost] override application (SPEC-API-10 runtime)', () => {
+    it('applies a method-level override to host.config for the duration of the matching commit, then restores it', () => {
+      boot();
+      const el = document.createElement('div');
+      el.setAttribute('data-ghost', '{"a":{"increment":{"m":"freeze"}}}');
+      document.body.appendChild(el);
+      registeredCallback({
+        el,
+        directive: { modifiers: [], expression: '' },
+        component: { id: 'c1', el },
+        cleanup: () => {},
+      });
+
+      const scheduler = schedulerInstances.at(-1);
+      const registry = registryInstances.at(-1);
+      const host = [...registry.hostsFor('c1')][0];
+      const baseMode = host.config.mode;
+      expect(baseMode).toBe('synthesize'); // pre-override value, no directive/attribute mode set
+
+      let finishCb;
+      interceptedCallback({
+        message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'increment' }] },
+        onSuccess: () => {},
+        onError: () => {},
+        onFailure: () => {},
+        onCancel: () => {},
+        onFinish: (cb) => { finishCb = cb; },
+      });
+
+      expect(scheduler.messageStart).toHaveBeenCalledTimes(1);
+      expect(scheduler.messageStart.mock.calls[0][0].config.mode).toBe('freeze');
+      expect(host.config.mode).toBe('freeze');
+
+      finishCb();
+
+      expect(scheduler.messageFinish).toHaveBeenCalledTimes(1);
+      expect(host.config.mode).toBe(baseMode); // restored after the commit finishes
+    });
+
+    it('lets an explicit directive value outrank a conflicting method-level override', () => {
+      boot();
+      const el = document.createElement('div');
+      el.setAttribute('data-ghost', '{"a":{"increment":{"m":"off"}}}');
+      document.body.appendChild(el);
+      registeredCallback({
+        el,
+        directive: { modifiers: ['freeze'], expression: '' },
+        component: { id: 'c1', el },
+        cleanup: () => {},
+      });
+
+      const registry = registryInstances.at(-1);
+      const host = [...registry.hostsFor('c1')][0];
+      expect(host.config.mode).toBe('freeze'); // directive already won at parse time
+
+      let finishCb;
+      interceptedCallback({
+        message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'increment' }] },
+        onSuccess: () => {},
+        onError: () => {},
+        onFailure: () => {},
+        onCancel: () => {},
+        onFinish: (cb) => { finishCb = cb; },
+      });
+
+      expect(host.config.mode).toBe('freeze'); // still freeze, not the method-level "off"
+
+      finishCb();
+      expect(host.config.mode).toBe('freeze');
+    });
+
+    // Fix-round regression (coordinator-reported): a method-level override
+    // can dynamically flip an already-attached, non-off host's
+    // host.config.mode to 'off' for one commit. onStart already skips
+    // scheduler.messageStart for that host (mode === 'off' gate), but
+    // onPostPaint/onFinish did not check mode at all -- a stale assumption
+    // from when mode:'off' hosts could never exist in the registry (true
+    // only for the STATIC attach-time case). This must skip all three
+    // scheduler calls, exactly as if the host had genuinely never started,
+    // AND the override must still be restored afterward (not leaked
+    // permanently into host.config just because scheduler bookkeeping was
+    // skipped).
+    it('skips messageStart, messagePostPaint, AND messageFinish when a method-level override dynamically sets mode to off for the triggering action', () => {
+      boot();
+      const el = document.createElement('div');
+      el.setAttribute('data-ghost', '{"a":{"archive":{"m":"off"}}}');
+      document.body.appendChild(el);
+      registeredCallback({
+        el,
+        directive: { modifiers: [], expression: '' },
+        component: { id: 'c1', el },
+        cleanup: () => {},
+      });
+
+      const scheduler = schedulerInstances.at(-1);
+      const registry = registryInstances.at(-1);
+      const host = [...registry.hostsFor('c1')][0];
+      expect(host.config.mode).toBe('synthesize'); // statically attached, non-off
+
+      interceptedCallback({
+        message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'archive' }] },
+        onSuccess: (cb) => cb({ payload: { effects: { html: '<div></div>' } }, onRender: (fn) => fn() }),
+        onError: () => {},
+        onFailure: () => {},
+        onCancel: () => {},
+        onFinish: (cb) => cb(),
+      });
+
+      expect(scheduler.messageStart).not.toHaveBeenCalled();
+      expect(scheduler.messagePostPaint).not.toHaveBeenCalled();
+      expect(scheduler.messageFinish).not.toHaveBeenCalled();
+      expect(host.config.mode).toBe('synthesize'); // override restored, not leaked permanently
+    });
+
+    // Fix-round regression (final whole-branch review, Critical): this
+    // codebase does NOT guarantee single-flight messages per host --
+    // scheduler.js's host.pending counter exists precisely because a
+    // genuinely concurrent, non-skipped message on the same host is a
+    // real, already-handled case. The original applyActionOverride()
+    // stored the true base directly on host._gwBaseConfig, a single slot
+    // -- a second, overlapping message on the same host would overwrite
+    // it before the first message's onFinish restored from it, leaving
+    // nothing correct to restore (permanently fatal if the clobbered
+    // override was mode:'off'). The base must be recorded per-message (on
+    // ctx, not on host), guarded so only one message's override is active
+    // on a host at a time.
+    it('does not let a second overlapping message on the same host clobber the first message\'s override, and restores correctly regardless of finish order', () => {
+      boot();
+      const el = document.createElement('div');
+      el.setAttribute('data-ghost', '{"a":{"actionA":{"m":"freeze"},"actionB":{"m":"off"}}}');
+      document.body.appendChild(el);
+      registeredCallback({
+        el,
+        directive: { modifiers: [], expression: '' },
+        component: { id: 'c1', el },
+        cleanup: () => {},
+      });
+
+      const registry = registryInstances.at(-1);
+      const host = [...registry.hostsFor('c1')][0];
+      const baseMode = host.config.mode;
+      expect(baseMode).toBe('synthesize');
+
+      // Message A starts first, targeting actionA -> freeze.
+      let finishA;
+      interceptedCallback({
+        message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'actionA' }] },
+        onSuccess: () => {},
+        onError: () => {},
+        onFailure: () => {},
+        onCancel: () => {},
+        onFinish: (cb) => { finishA = cb; },
+      });
+      expect(host.config.mode).toBe('freeze');
+
+      // Message B starts on the SAME host before A finishes, targeting
+      // actionB -> off. B's override must NOT apply while A's is active
+      // (host._gwOverrideActive guard) -- it must not clobber A's saved
+      // base, and it must not even touch host.config.
+      let finishB;
+      interceptedCallback({
+        message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'actionB' }] },
+        onSuccess: () => {},
+        onError: () => {},
+        onFailure: () => {},
+        onCancel: () => {},
+        onFinish: (cb) => { finishB = cb; },
+      });
+      expect(host.config.mode).toBe('freeze'); // still A's override, B's did not apply
+
+      // B finishes first -- B never recorded a base for this host (its
+      // override was skipped by the guard), so this must be a no-op for
+      // host.config.
+      finishB();
+      expect(host.config.mode).toBe('freeze');
+
+      // A finishes -- must restore the TRUE original base, not something
+      // corrupted by B, regardless of B having finished first.
+      finishA();
+      expect(host.config.mode).toBe(baseMode);
+    });
+  });
+
   describe('data-ghost attribute merge and auto-attach (component.init)', () => {
     it("directive config wins over the attribute's mode where the directive explicitly set it (SPEC-API-40)", () => {
       boot();

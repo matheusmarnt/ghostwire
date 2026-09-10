@@ -33,6 +33,17 @@ class GhostUsesTraitPolicy
     use GhostTraitWithDefaults;
 }
 
+class GhostMethodOverridesFixture
+{
+    #[Ghost(mode: 'freeze', delay: 50)]
+    public function methodWithGhost(): void {}
+
+    #[Ghost(only: ['x'])]
+    public function methodWithOnlyOnly(): void {}
+
+    public function methodWithNoAttribute(): void {}
+}
+
 #[Ghost(hold: 500)]
 class GhostProvenanceBase {}
 
@@ -103,6 +114,14 @@ it('reports which precedence level decided each field (SPEC-API-42)', function (
         ->and($result['mode'])->toBe(['value' => 'freeze', 'level' => 'class'])   // declared on the concrete class
         ->and($result['hold'])->toBe(['value' => 500, 'level' => 'inherited'])    // declared on the ancestor
         ->and($result['delay'])->toBe(['value' => config('ghostwire.timing.delay'), 'level' => 'default']); // never declared
+});
+
+it('collects only the method-transport fields each action method declared for itself (SPEC-API-10 runtime transport, #9)', function () {
+    $overrides = (new ConfigResolver)->methodOverrides(GhostMethodOverridesFixture::class);
+
+    expect($overrides)->toBe([
+        'methodWithGhost' => ['mode' => 'freeze', 'delay' => 50],
+    ]);
 });
 
 it('exposes the package defaults for the fields that have one, matching resolve()\'s own fallback', function () {

@@ -59,13 +59,25 @@ class GhostComponentHook extends ComponentHook
             // (vendor/livewire/livewire/src/ComponentHookRegistry.php) to the
             // concrete Livewire component instance this hook run is scoped
             // to — the real, confirmed way this hook knows "which component".
-            // $method is always null here: action-method-scoped resolution
-            // is out of scope for this task (handled later, JS-side).
+            // $method is always null here: this class-level resolve() call
+            // stays the base layer only. Method-level #[Ghost] overrides
+            // (SPEC-API-10, #9) are a separate, additional transport below
+            // — every action method's own declared fields are gathered via
+            // ConfigResolver::methodOverrides() and sent as the compact "a"
+            // map, merged client-side into the matching action's config for
+            // the duration of that one commit (js/src/index.js).
             $resolver = app(ConfigResolver::class);
-            $resolved = $resolver->resolve(get_class($this->component));
+            $componentClass = get_class($this->component);
+            $resolved = $resolver->resolve($componentClass);
+            $payload = $this->compactPayload($resolved, $resolver->literalDefaults());
+
+            $methodOverrides = $this->compactMethodOverrides($resolver->methodOverrides($componentClass));
+            if ($methodOverrides !== []) {
+                $payload['a'] = $methodOverrides;
+            }
 
             $replaceHtml(Utils::insertAttributesIntoHtmlRoot($html, [
-                'data-ghost' => $this->compactPayload($resolved, $resolver->literalDefaults()),
+                'data-ghost' => $payload,
             ]));
         };
     }
@@ -105,5 +117,29 @@ class GhostComponentHook extends ComponentHook
         }
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>>  $methodOverrides  from ConfigResolver::methodOverrides()
+     * @return array<string, array<string, mixed>> action name => compact-key partial config
+     */
+    private function compactMethodOverrides(array $methodOverrides): array
+    {
+        $keys = ['mode' => 'm', 'delay' => 'd', 'hold' => 'h', 'rows' => 'r', 'poll' => 'p', 'sync' => 's', 'lazy' => 'l'];
+
+        $compact = [];
+        foreach ($methodOverrides as $action => $fields) {
+            $entry = [];
+            foreach ($fields as $field => $value) {
+                if (array_key_exists($field, $keys)) {
+                    $entry[$keys[$field]] = $value;
+                }
+            }
+            if ($entry !== []) {
+                $compact[$action] = $entry;
+            }
+        }
+
+        return $compact;
     }
 }

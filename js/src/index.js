@@ -127,6 +127,8 @@ export function boot() {
 
     const host = registry.attach(el, component, config);
     host.targetActions = targetActions;
+    host.actionOverrides = attributeConfig?.actionOverrides ?? null;
+    host.directiveConfig = directiveConfig;
     if (config.keep) el.classList.add('gw-kept');
 
     cleanup(() => {
@@ -183,6 +185,8 @@ export function boot() {
     // equivalent (attributeConfig.js's compact-key schema has no "keep"
     // key) — SPEC-API reserves .keep to the directive only.
     const host = registry.attach(root, component, attributeConfig);
+    host.actionOverrides = attributeConfig.actionOverrides ?? null;
+    host.directiveConfig = {};
 
     cleanup(() => {
       scheduler.cancel(host);
@@ -273,11 +277,22 @@ export function boot() {
   // filtering) and PHP-side validation guarantees they never coexist, but
   // the two checks are independent and correct regardless.
   //
-  // host.config.mode === 'off' does NOT need mirroring here: both the
-  // directive and the attribute-only auto-attach path already refuse to
-  // ever call registry.attach() for a mode:'off' host, so the registry can
-  // never contain one -- onStart's check is defensive/unreachable, not a
-  // live desync risk.
+  // host.config.mode === 'off' DOES need mirroring here (Task 2, SPEC-API-10
+  // runtime transport, #9). It didn't used to: the directive and the
+  // attribute-only auto-attach path both refuse to ever call
+  // registry.attach() for a statically mode:'off' host, so at attach time
+  // the registry can never contain one. But applyActionOverride() (called
+  // once, at the top of onStart's loop) can now flip an already-attached,
+  // non-off host's host.config.mode to 'off' for the duration of a single
+  // message, via a per-action method-level #[Ghost(mode: 'off')] override —
+  // and that mutation persists unchanged through onPostPaint/onFinish until
+  // restoreActionOverride() runs at the very end of onFinish. So exactly
+  // like targetActions/only/except below, mode is fixed for the whole
+  // onStart..onFinish window and safe to re-check live in all three
+  // handlers with no snapshot needed: onStart already skips
+  // scheduler.messageStart for a dynamically-off host, so onPostPaint/
+  // onFinish must skip their balancing messagePostPaint/messageFinish calls
+  // for that same host too, or those calls fire with no matching start.
   bridge.subscribe({
     onStart(ctx) {
       // Frozen at the exact moment the messageStart decisions below are
@@ -285,6 +300,7 @@ export function boot() {
       // mutates ctx.isRenderless before onStart returns, only after.
       ctx._gwSkippedRenderless = ctx.isRenderless;
       for (const host of registry.hostsFor(ctx.component.id)) {
+        applyActionOverride(host, ctx);
         if (host.config.mode === 'off') continue;
         if (ctx.isRenderless) continue; // SPEC-API-22: no configurable exception, either line
         if (ctx.isSync && !host.config.sync) continue; // SPEC-API-20 default silence, overridable
@@ -305,7 +321,7 @@ export function boot() {
       // race with a synchronous layer teardown.
       const hosts = [];
       for (const host of registry.hostsFor(ctx.component.id)) {
-        if (ctx._gwSkippedRenderless || (ctx.isSync && !host.config.sync) || (ctx.isPoll && !host.config.poll)) continue;
+        if (ctx._gwSkippedRenderless || host.config.mode === 'off' || (ctx.isSync && !host.config.sync) || (ctx.isPoll && !host.config.poll)) continue;
         if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
         if (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name))) continue;
         if (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name))) continue;
@@ -317,14 +333,84 @@ export function boot() {
     },
     onFinish(ctx) {
       for (const host of registry.hostsFor(ctx.component.id)) {
-        if (ctx._gwSkippedRenderless || (ctx.isSync && !host.config.sync) || (ctx.isPoll && !host.config.poll)) continue;
-        if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
-        if (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name))) continue;
-        if (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name))) continue;
-        scheduler.messageFinish(host);
+        // restoreActionOverride() must run for every host regardless of the
+        // skip decision below (unlike messageStart/messagePostPaint/
+        // messageFinish's balancing, which only need to agree with onStart
+        // when they're SKIPPED). A host that never got scheduler.messageStart
+        // this message (e.g. because a method-level override just flipped
+        // its mode to 'off') still had applyActionOverride() mutate its
+        // host.config in onStart -- if the override is not restored here
+        // too, it leaks permanently into host.config, since a later message
+        // with no matching actionOverrides entry has nothing to restore it
+        // from (applyActionOverride() only sets up a NEW override or clears
+        // its own bookkeeping; it never undoes a stale one).
+        const skip = ctx._gwSkippedRenderless
+          || host.config.mode === 'off'
+          || (ctx.isSync && !host.config.sync)
+          || (ctx.isPoll && !host.config.poll)
+          || (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name)))
+          || (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name)))
+          || (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name)));
+        if (!skip) scheduler.messageFinish(host);
+        restoreActionOverride(host, ctx);
       }
     },
   });
+}
+
+// Per-message action-scoped override (SPEC-API-10 method-level #[Ghost]).
+// Temporarily mutates host.config for the lifetime of one message
+// (onStart..onFinish) rather than threading a parallel "effective config"
+// through every downstream reader (scheduler/renderer/synthesizer all
+// already read host.config directly, at various points across that
+// lifetime) — restored in onFinish.
+//
+// The true base is stored on the triggering ctx itself (ctx._gwBases, a
+// Map keyed by host), NOT on the host, because this codebase does NOT
+// guarantee single-flight messages per host -- scheduler.js's host.pending
+// counter exists precisely because a genuinely concurrent, non-skipped
+// message on the same host is a real, already-handled case (see
+// CHANGELOG's M4 entry). Storing the base on the host itself would let a
+// second, overlapping message's applyActionOverride() call stomp the
+// first message's saved base before its own restoreActionOverride() ran,
+// leaving nothing correct to restore from once the first message finished
+// (permanently fatal if the clobbered override was mode:'off').
+//
+// host._gwOverrideActive guards against exactly that: only one message's
+// override can be active on a host at a time. A second, truly-overlapping
+// message targeting the same host simply does not get its own method-level
+// override applied for the window they overlap -- safe (no corruption),
+// just a documented narrow limitation, not a full fix for arbitrary
+// concurrent per-action overrides. Because each ctx only ever restores
+// what it itself recorded in ctx._gwBases, restoration is correct
+// regardless of which message's onFinish fires first.
+function applyActionOverride(host, ctx) {
+  if (host._gwOverrideActive) return; // another in-flight message already owns this host's override window
+  if (!host.actionOverrides) return;
+
+  let merged = null;
+  for (const name of ctx.actionNames) {
+    const fields = host.actionOverrides[name];
+    if (!fields) continue;
+    merged = merged ? { ...fields, ...merged } : { ...fields }; // nearest-first: earlier actionNames win
+  }
+  if (!merged) return;
+
+  for (const key of Object.keys(host.directiveConfig)) delete merged[key]; // directive always outranks method-level
+  if (Object.keys(merged).length === 0) return;
+
+  host._gwOverrideActive = true;
+  ctx._gwBases = ctx._gwBases || new Map();
+  ctx._gwBases.set(host, host.config);
+  host.config = { ...host.config, ...merged };
+}
+
+function restoreActionOverride(host, ctx) {
+  if (ctx._gwBases?.has(host)) {
+    host.config = ctx._gwBases.get(host);
+    ctx._gwBases.delete(host);
+    host._gwOverrideActive = false;
+  }
 }
 
 function pickOverrides(config) {
