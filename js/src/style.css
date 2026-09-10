@@ -3,6 +3,7 @@
   --ghostwire-bone-color: oklch(0.92 0.005 250);
   --ghostwire-bone-color-dark: oklch(0.28 0.01 250);
   --ghostwire-bone-highlight: oklch(0.97 0.005 250);
+  --ghostwire-bone-highlight-dark: oklch(0.38 0.01 250);
   --ghostwire-bone-radius: 0.375rem;
   --ghostwire-bone-gap: 0.5rem;
   --ghostwire-animation: shimmer;
@@ -10,10 +11,17 @@
   --ghostwire-fade-duration: 150ms;
 }
 
-/* FR-51: automatic dark mode — no manual toggle class, OS/browser preference only. */
+/* FR-51: automatic dark mode — no manual toggle class, OS/browser preference only.
+   The highlight must swap alongside the base color: the sheen is a *live,
+   animated* element (`.gw-bone::after` peaks at opacity: 1 every
+   --ghostwire-animation-speed), so leaving it at the light near-white
+   (oklch 0.97) over a dark bone (oklch 0.28) flashes the user every 1.4s —
+   the opposite of what an accessibility theme should ship. 0.38 is a modest
+   lightening step off the dark bone: visibly present, not a strobe. */
 @media (prefers-color-scheme: dark) {
   :root {
     --ghostwire-bone-color: var(--ghostwire-bone-color-dark);
+    --ghostwire-bone-highlight: var(--ghostwire-bone-highlight-dark);
   }
 }
 
