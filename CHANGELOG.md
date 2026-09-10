@@ -51,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **[Issue #4](https://github.com/matheusmarnt/ghostwire/issues/4) closed:** Laravel 11 support dropped. Dropped support for Laravel 11.x (12.x/13.x only going forward). Every Laravel 11.x release is covered by an active Composer security advisory; supporting Laravel 11 contradicts SPEC-SEC (FR-90 to FR-93), the security domain established in the PRD.
 - Skeleton memoization was dead on arrival for any host with padding/border: the cache compared a border-box measurement against the `ResizeObserver`'s default content-box delivery, invalidating itself the instant it was set. The observer now requests `{ box: 'border-box' }` and reads the matching `borderBoxSize` field.
 - `isAvatar()` misread a percentage `border-radius` (e.g. `"50%"`) as a pixel value, so any circular avatar larger than 100px rendered as a rounded rectangle instead of a circle.
 - `repositionLayer()` re-read and re-applied the host's border-radius/overflow via `getComputedStyle` on every morph, even though neither can change between mount and unmount — this forced-style-recalc now happens once, in `mountLayer()`.

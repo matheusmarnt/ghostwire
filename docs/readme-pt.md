@@ -27,7 +27,7 @@ Adicione `wire:ghost` a qualquer elemento (ou `#[Ghost]` a uma classe de compone
 | | Suportado |
 |---|---|
 | PHP | 8.2, 8.3, 8.4 |
-| Laravel | 11.x, 12.x, 13.x |
+| Laravel | 12.x, 13.x |
 | Livewire | 3.6+, 4.x |
 
 ### Matriz de tiers (FR-81)

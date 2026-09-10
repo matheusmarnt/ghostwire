@@ -7,7 +7,7 @@
   <a href="https://github.com/matheusmarnt/ghostwire/actions?query=workflow%3Atests+branch%3Amain"><img src="https://img.shields.io/github/actions/workflow/status/matheusmarnt/ghostwire/tests.yml?branch=main&label=tests&style=flat-square" alt="Tests" /></a>
   <a href="https://packagist.org/packages/matheusmarnt/ghostwire"><img src="https://img.shields.io/packagist/dt/matheusmarnt/ghostwire.svg?style=flat-square" alt="Total Downloads" /></a>
   <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-MIT-brightgreen?style=flat-square" alt="License" /></a>
-  <a href="https://laravel.com"><img src="https://img.shields.io/badge/Laravel-11%7C12%7C13-FF2D20?style=flat-square&logo=laravel&logoColor=white" alt="Laravel" /></a>
+  <a href="https://laravel.com"><img src="https://img.shields.io/badge/Laravel-12%7C13-FF2D20?style=flat-square&logo=laravel&logoColor=white" alt="Laravel" /></a>
   <a href="https://livewire.laravel.com"><img src="https://img.shields.io/badge/Livewire-3.6%2B%7C4-FB70A9?style=flat-square" alt="Livewire" /></a>
   <a href="https://matheusmarnt.github.io/ghostwire/"><img src="https://img.shields.io/badge/docs-online-7c3aed?style=flat-square" alt="Docs" /></a>
 </p>
@@ -39,7 +39,7 @@ Add `wire:ghost` to any element (or `#[Ghost]` to a component class, with zero v
 | | Supported |
 |---|---|
 | PHP | 8.2, 8.3, 8.4 |
-| Laravel | 11.x, 12.x, 13.x |
+| Laravel | 12.x, 13.x |
 | Livewire | 3.6+, 4.x |
 
 ### Tier matrix (FR-81)
