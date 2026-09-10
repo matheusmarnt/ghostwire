@@ -121,7 +121,7 @@ class GhostComponentHook extends ComponentHook
 
     /**
      * @param  array<string, array<string, mixed>>  $methodOverrides  from ConfigResolver::methodOverrides()
-     * @return array<string, array<string, mixed>>  action name => compact-key partial config
+     * @return array<string, array<string, mixed>> action name => compact-key partial config
      */
     private function compactMethodOverrides(array $methodOverrides): array
     {
