@@ -81,7 +81,16 @@ jobs:
         # ourselves so that fragile auto-injection never triggers.
         run: |
           if [ "${{ matrix.php }}" = "8.2" ]; then
-            vendor/bin/pest tests/Unit tests/Feature tests/Contract --cache-directory=/tmp/pest-cache
+            # tests/Contract is excluded too, not just tests/Browser: its
+            # BridgeSurfaceTest.php calls Pest core's bare visit() helper
+            # (vendor/pestphp/pest/src/Functions.php), which — when
+            # Pest\Browser\Configuration doesn't exist, exactly the state
+            # this cell is in since pest-plugin-browser was removed above —
+            # runs the plugin-browser installer prompt and then exit(0)s the
+            # whole process with a SUCCESS code before any assertions run,
+            # silently short-circuiting the rest of the suite too. Confirmed
+            # no other file under tests/Unit or tests/Feature calls visit().
+            vendor/bin/pest tests/Unit tests/Feature --cache-directory=/tmp/pest-cache
           else
             vendor/bin/pest --cache-directory=/tmp/pest-cache
           fi
