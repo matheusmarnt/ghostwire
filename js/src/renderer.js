@@ -89,14 +89,31 @@ export function createRenderer() {
   // reach onShow/onHide (js/src/index.js), so all of them get aria-busy.
   // Only mode: 'off' hosts never call this at all (onStart skips
   // scheduler.messageStart for them).
+  //
+  // Both are idempotent, split into two independent halves:
+  //   - the DOM attribute is ALWAYS written, on every call, because Livewire's
+  //     morph attribute diffing (patchAttributes) strips aria-busy off the live
+  //     node the moment a morph touches the host — index.js's `morphed` hook
+  //     reapplies it by calling markBusy() again mid-busy-period, so a guarded
+  //     setAttribute would never restore it.
+  //   - the busyCount/announcement bookkeeping happens at most once per busy
+  //     period, gated on host.busy, so those repeat calls can't double-count
+  //     (which would strand busyCount above 0 forever and kill every future
+  //     announcement) or re-announce "Loading". The same flag makes clearBusy
+  //     safe to call unconditionally from teardown, whether or not the host was
+  //     ever busy (SPEC-A11Y-04).
   function markBusy(host) {
     host.el.setAttribute('aria-busy', 'true');
+    if (host.busy) return;
+    host.busy = true;
     busyCount += 1;
     if (busyCount === 1) announce(window.Ghostwire?.messages?.busy ?? 'Loading');
   }
 
   function clearBusy(host) {
     host.el.removeAttribute('aria-busy');
+    if (!host.busy) return;
+    host.busy = false;
     busyCount = Math.max(0, busyCount - 1);
     if (busyCount === 0) announce(window.Ghostwire?.messages?.idle ?? 'Content updated');
   }
@@ -113,10 +130,18 @@ export function createRenderer() {
     }
   }
 
+  // Only restores focus that the ghosting itself took away. If anything else
+  // holds focus by now — the user tabbed into a .gw-kept region, clicked
+  // another component, anything — that's a deliberate move and stealing it
+  // back on hide would be a worse regression than not restoring at all. Focus
+  // genuinely lost to the forced blur lands on <body> (or nowhere), so that's
+  // the only state we act on.
   function restoreFocus(host) {
     const el = host.savedFocus;
     host.savedFocus = null;
-    if (el && document.body.contains(el) && typeof el.focus === 'function') {
+    if (!el) return;
+    const focusWasLost = !document.activeElement || document.activeElement === document.body;
+    if (focusWasLost && document.body.contains(el) && typeof el.focus === 'function') {
       el.focus();
     }
   }

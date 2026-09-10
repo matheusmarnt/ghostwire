@@ -134,6 +134,7 @@ export function boot() {
       synthesizer.forget(host);
       renderer.removeLayer(host);
       renderer.unfreeze(host);
+      renderer.clearBusy(host); // SPEC-A11Y-04: a host torn down mid-visible would otherwise leak busyCount forever, silencing every later announcement page-wide
       host.el.classList.remove('gw-concealed');
       el.classList.remove('gw-kept');
       registry.detach(host);
@@ -188,6 +189,7 @@ export function boot() {
       synthesizer.forget(host);
       renderer.removeLayer(host);
       renderer.unfreeze(host);
+      renderer.clearBusy(host); // SPEC-A11Y-04: same busyCount leak as the directive cleanup above
       host.el.classList.remove('gw-concealed');
       registry.detach(host);
     });
@@ -206,14 +208,26 @@ export function boot() {
     if (el.classList?.contains('gw-layer')) skip();
   });
 
-  // A morph re-renders the host's own attributes from server HTML, which has
-  // no gw-frozen class — Livewire's attribute diffing strips it immediately
-  // regardless of the scheduler's hold timer. Reapply it (idempotent) right
-  // after any morph, for any host still supposed to be visibly frozen; the
-  // scheduler still owns *when* freeze actually ends.
+  // A morph re-renders the host's own attributes from the server HTML, and
+  // Livewire's patchAttributes diff removes ANY attribute present on the live
+  // node but absent from the server node — a generic loop, not limited to
+  // class. So every client-applied marker on a host is stripped the instant a
+  // morph touches it, regardless of the scheduler's hold timer. Reapply them
+  // all here (each call idempotent); the scheduler still owns *when* the
+  // visible window actually ends.
   window.Livewire.hook('morphed', ({ component }) => {
     for (const host of registry.hostsFor(component.id)) {
-      if (host.state === 'visible' && host.config.mode === 'freeze') renderer.freeze(host);
+      if (host.state !== 'visible') continue;
+      renderer.markBusy(host); // SPEC-A11Y-01
+      if (host.config.mode === 'freeze') {
+        renderer.freeze(host);
+      } else if (host.layer) {
+        // SPEC-MORPH-03: truthy host.layer means mountLayer() ran and
+        // removeLayer() hasn't — i.e. this host really is on the concealed
+        // synthesize path right now, and its bones are covering content that
+        // would otherwise be live and clickable underneath them.
+        host.el.classList.add('gw-concealed');
+      }
     }
   });
 

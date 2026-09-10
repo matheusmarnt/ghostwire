@@ -250,11 +250,15 @@
     }
     function markBusy(host) {
       host.el.setAttribute("aria-busy", "true");
+      if (host.busy) return;
+      host.busy = true;
       busyCount += 1;
       if (busyCount === 1) announce(window.Ghostwire?.messages?.busy ?? "Loading");
     }
     function clearBusy(host) {
       host.el.removeAttribute("aria-busy");
+      if (!host.busy) return;
+      host.busy = false;
       busyCount = Math.max(0, busyCount - 1);
       if (busyCount === 0) announce(window.Ghostwire?.messages?.idle ?? "Content updated");
     }
@@ -266,7 +270,9 @@
     function restoreFocus(host) {
       const el = host.savedFocus;
       host.savedFocus = null;
-      if (el && document.body.contains(el) && typeof el.focus === "function") {
+      if (!el) return;
+      const focusWasLost = !document.activeElement || document.activeElement === document.body;
+      if (focusWasLost && document.body.contains(el) && typeof el.focus === "function") {
         el.focus();
       }
     }
@@ -860,6 +866,7 @@
         synthesizer.forget(host);
         renderer.removeLayer(host);
         renderer.unfreeze(host);
+        renderer.clearBusy(host);
         host.el.classList.remove("gw-concealed");
         el.classList.remove("gw-kept");
         registry.detach(host);
@@ -876,6 +883,7 @@
         synthesizer.forget(host);
         renderer.removeLayer(host);
         renderer.unfreeze(host);
+        renderer.clearBusy(host);
         host.el.classList.remove("gw-concealed");
         registry.detach(host);
       });
@@ -888,7 +896,13 @@
     });
     window.Livewire.hook("morphed", ({ component }) => {
       for (const host of registry.hostsFor(component.id)) {
-        if (host.state === "visible" && host.config.mode === "freeze") renderer.freeze(host);
+        if (host.state !== "visible") continue;
+        renderer.markBusy(host);
+        if (host.config.mode === "freeze") {
+          renderer.freeze(host);
+        } else if (host.layer) {
+          host.el.classList.add("gw-concealed");
+        }
       }
     });
     bridge.subscribe({
