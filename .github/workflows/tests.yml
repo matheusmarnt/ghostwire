@@ -68,6 +68,21 @@ jobs:
       - name: Install Playwright browser for Pest
         if: matrix.php != '8.2'
         run: npx playwright install --with-deps chromium
+      - name: DIAGNOSTIC issue #2 (temporary, remove after root cause found)
+        run: |
+          set +e
+          php -v
+          composer show sebastian/cli-parser
+          echo "--- both flags together (mimics real failure) ---"
+          vendor/bin/pest --cache-directory=/tmp/pest-diag1 --cache-result --version
+          echo "EXIT: $?"
+          echo "--- cache-result alone ---"
+          vendor/bin/pest --cache-result --version
+          echo "EXIT: $?"
+          echo "--- cache-directory alone ---"
+          vendor/bin/pest --cache-directory=/tmp/pest-diag2 --version
+          echo "EXIT: $?"
+          set -e
       - name: Run tests
         # Explicit --cache-directory: Pest's own auto-detection
         # (Plugins/Cache.php) resolves vendor/pestphp/pest/.temp via
