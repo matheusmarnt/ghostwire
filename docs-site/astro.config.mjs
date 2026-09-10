@@ -4,7 +4,7 @@ import starlight from '@astrojs/starlight';
 
 export default defineConfig({
   site: 'https://matheusmarnt.github.io',
-  base: '/ghostwire',
+  base: '/ghostwire/',
   integrations: [
     starlight({
       title: 'Ghostwire',
