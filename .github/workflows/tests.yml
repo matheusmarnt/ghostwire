@@ -68,16 +68,15 @@ jobs:
       - name: Install Playwright browser for Pest
         if: matrix.php != '8.2'
         run: npx playwright install --with-deps chromium
-      - name: EXPERIMENT issue #2 (temporary): --parallel suppresses the auto-injected --cache-result
+      - name: EXPERIMENT issue #2 (temporary): --parallel with space-separated --cache-directory (paratest may not accept --flag=value form)
         run: |
           set +e
-          echo "--- full invocation with --parallel (should skip Cache::handleArguments' bare --cache-result push) ---"
-          if [ "${{ matrix.php }}" = "8.2" ]; then
-            vendor/bin/pest tests/Unit tests/Feature --parallel --cache-directory=/tmp/pest-exp
-          else
-            vendor/bin/pest --parallel --cache-directory=/tmp/pest-exp
-          fi
-          echo "EXPERIMENT EXIT: $?"
+          echo "--- --parallel, space-separated --cache-directory ---"
+          vendor/bin/pest tests/Unit --parallel --cache-directory /tmp/pest-exp1
+          echo "EXPERIMENT A EXIT: $?"
+          echo "--- --parallel, no --cache-directory at all ---"
+          vendor/bin/pest tests/Unit --parallel
+          echo "EXPERIMENT B EXIT: $?"
           set -e
       - name: Run tests
         # Explicit --cache-directory: Pest's own auto-detection
