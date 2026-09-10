@@ -49,6 +49,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README fully rewritten (was still the M0 stub through M1-M5): real feature list, the Tier A/B/C compatibility matrix (FR-81/GOV-07), requirements table, GOV-05 badge block, and the official logo. Portuguese and Spanish translations added at `docs/readme-pt.md`/`docs/readme-es.md` (PRD §5.4).
 - Public documentation/marketing site (`docs-site/`, Astro + Starlight, deployed to GitHub Pages via `.github/workflows/deploy-docs.yml`): a landing page with an interactive latency-comparison slider, an `/about` page, a `/gallery` page and a `/playground` page that both run Ghostwire's real, unmodified `js/src/synthesizer`/`renderer`/`registry` modules live in the browser against real DOM content (not a simulation), and ten `/docs/*` content pages (install, wire-ghost, ghost-attribute, choosing, compat, theming, how-it-works, security, testing, interop) including the FR-81 tier matrix and the FR-90..93 security/CSP/supply-chain/privacy posture, all reachable via Starlight's sidebar navigation.
 
+### Changed
+
+- Official logo artwork updated (`art/ghostwire.png`, README; `docs-site/src/assets/ghostwire.png`, the docs site's Starlight nav logo).
+
 ### Fixed
 
 - Skeleton memoization was dead on arrival for any host with padding/border: the cache compared a border-box measurement against the `ResizeObserver`'s default content-box delivery, invalidating itself the instant it was set. The observer now requests `{ box: 'border-box' }` and reads the matching `borderBoxSize` field.
