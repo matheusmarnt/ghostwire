@@ -991,7 +991,7 @@
       onPostPaint(ctx) {
         const hosts = [];
         for (const host of registry.hostsFor(ctx.component.id)) {
-          if (ctx._gwSkippedRenderless || ctx.isSync && !host.config.sync || ctx.isPoll && !host.config.poll) continue;
+          if (ctx._gwSkippedRenderless || host.config.mode === "off" || ctx.isSync && !host.config.sync || ctx.isPoll && !host.config.poll) continue;
           if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
           if (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name))) continue;
           if (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name))) continue;
@@ -1003,11 +1003,8 @@
       },
       onFinish(ctx) {
         for (const host of registry.hostsFor(ctx.component.id)) {
-          if (ctx._gwSkippedRenderless || ctx.isSync && !host.config.sync || ctx.isPoll && !host.config.poll) continue;
-          if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
-          if (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name))) continue;
-          if (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name))) continue;
-          scheduler.messageFinish(host);
+          const skip = ctx._gwSkippedRenderless || host.config.mode === "off" || ctx.isSync && !host.config.sync || ctx.isPoll && !host.config.poll || host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name)) || host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name)) || host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name));
+          if (!skip) scheduler.messageFinish(host);
           restoreActionOverride(host);
         }
       }

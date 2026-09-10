@@ -277,11 +277,22 @@ export function boot() {
   // filtering) and PHP-side validation guarantees they never coexist, but
   // the two checks are independent and correct regardless.
   //
-  // host.config.mode === 'off' does NOT need mirroring here: both the
-  // directive and the attribute-only auto-attach path already refuse to
-  // ever call registry.attach() for a mode:'off' host, so the registry can
-  // never contain one -- onStart's check is defensive/unreachable, not a
-  // live desync risk.
+  // host.config.mode === 'off' DOES need mirroring here (Task 2, SPEC-API-10
+  // runtime transport, #9). It didn't used to: the directive and the
+  // attribute-only auto-attach path both refuse to ever call
+  // registry.attach() for a statically mode:'off' host, so at attach time
+  // the registry can never contain one. But applyActionOverride() (called
+  // once, at the top of onStart's loop) can now flip an already-attached,
+  // non-off host's host.config.mode to 'off' for the duration of a single
+  // message, via a per-action method-level #[Ghost(mode: 'off')] override —
+  // and that mutation persists unchanged through onPostPaint/onFinish until
+  // restoreActionOverride() runs at the very end of onFinish. So exactly
+  // like targetActions/only/except below, mode is fixed for the whole
+  // onStart..onFinish window and safe to re-check live in all three
+  // handlers with no snapshot needed: onStart already skips
+  // scheduler.messageStart for a dynamically-off host, so onPostPaint/
+  // onFinish must skip their balancing messagePostPaint/messageFinish calls
+  // for that same host too, or those calls fire with no matching start.
   bridge.subscribe({
     onStart(ctx) {
       // Frozen at the exact moment the messageStart decisions below are
@@ -310,7 +321,7 @@ export function boot() {
       // race with a synchronous layer teardown.
       const hosts = [];
       for (const host of registry.hostsFor(ctx.component.id)) {
-        if (ctx._gwSkippedRenderless || (ctx.isSync && !host.config.sync) || (ctx.isPoll && !host.config.poll)) continue;
+        if (ctx._gwSkippedRenderless || host.config.mode === 'off' || (ctx.isSync && !host.config.sync) || (ctx.isPoll && !host.config.poll)) continue;
         if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
         if (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name))) continue;
         if (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name))) continue;
@@ -322,11 +333,25 @@ export function boot() {
     },
     onFinish(ctx) {
       for (const host of registry.hostsFor(ctx.component.id)) {
-        if (ctx._gwSkippedRenderless || (ctx.isSync && !host.config.sync) || (ctx.isPoll && !host.config.poll)) continue;
-        if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
-        if (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name))) continue;
-        if (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name))) continue;
-        scheduler.messageFinish(host);
+        // restoreActionOverride() must run for every host regardless of the
+        // skip decision below (unlike messageStart/messagePostPaint/
+        // messageFinish's balancing, which only need to agree with onStart
+        // when they're SKIPPED). A host that never got scheduler.messageStart
+        // this message (e.g. because a method-level override just flipped
+        // its mode to 'off') still had applyActionOverride() mutate its
+        // host.config in onStart -- if the override is not restored here
+        // too, it leaks permanently into host.config, since a later message
+        // with no matching actionOverrides entry has nothing to restore it
+        // from (applyActionOverride() only sets up a NEW override or clears
+        // its own _gwBaseConfig bookkeeping; it never undoes a stale one).
+        const skip = ctx._gwSkippedRenderless
+          || host.config.mode === 'off'
+          || (ctx.isSync && !host.config.sync)
+          || (ctx.isPoll && !host.config.poll)
+          || (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name)))
+          || (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name)))
+          || (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name)));
+        if (!skip) scheduler.messageFinish(host);
         restoreActionOverride(host);
       }
     },

@@ -453,6 +453,49 @@ describe('directive registration and modifier parsing', () => {
       finishCb();
       expect(host.config.mode).toBe('freeze');
     });
+
+    // Fix-round regression (coordinator-reported): a method-level override
+    // can dynamically flip an already-attached, non-off host's
+    // host.config.mode to 'off' for one commit. onStart already skips
+    // scheduler.messageStart for that host (mode === 'off' gate), but
+    // onPostPaint/onFinish did not check mode at all -- a stale assumption
+    // from when mode:'off' hosts could never exist in the registry (true
+    // only for the STATIC attach-time case). This must skip all three
+    // scheduler calls, exactly as if the host had genuinely never started,
+    // AND the override must still be restored afterward (not leaked
+    // permanently into host.config just because scheduler bookkeeping was
+    // skipped).
+    it('skips messageStart, messagePostPaint, AND messageFinish when a method-level override dynamically sets mode to off for the triggering action', () => {
+      boot();
+      const el = document.createElement('div');
+      el.setAttribute('data-ghost', '{"a":{"archive":{"m":"off"}}}');
+      document.body.appendChild(el);
+      registeredCallback({
+        el,
+        directive: { modifiers: [], expression: '' },
+        component: { id: 'c1', el },
+        cleanup: () => {},
+      });
+
+      const scheduler = schedulerInstances.at(-1);
+      const registry = registryInstances.at(-1);
+      const host = [...registry.hostsFor('c1')][0];
+      expect(host.config.mode).toBe('synthesize'); // statically attached, non-off
+
+      interceptedCallback({
+        message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'archive' }] },
+        onSuccess: (cb) => cb({ payload: { effects: { html: '<div></div>' } }, onRender: (fn) => fn() }),
+        onError: () => {},
+        onFailure: () => {},
+        onCancel: () => {},
+        onFinish: (cb) => cb(),
+      });
+
+      expect(scheduler.messageStart).not.toHaveBeenCalled();
+      expect(scheduler.messagePostPaint).not.toHaveBeenCalled();
+      expect(scheduler.messageFinish).not.toHaveBeenCalled();
+      expect(host.config.mode).toBe('synthesize'); // override restored, not leaked permanently
+    });
   });
 
   describe('data-ghost attribute merge and auto-attach (component.init)', () => {
