@@ -68,16 +68,6 @@ jobs:
       - name: Install Playwright browser for Pest
         if: matrix.php != '8.2'
         run: npx playwright install --with-deps chromium
-      - name: EXPERIMENT issue #2 (temporary): --parallel with space-separated --cache-directory (paratest may not accept --flag=value form)
-        run: |
-          set +e
-          echo "--- --parallel, space-separated --cache-directory ---"
-          vendor/bin/pest tests/Unit --parallel --cache-directory /tmp/pest-exp1
-          echo "EXPERIMENT A EXIT: $?"
-          echo "--- --parallel, no --cache-directory at all ---"
-          vendor/bin/pest tests/Unit --parallel
-          echo "EXPERIMENT B EXIT: $?"
-          set -e
       - name: Run tests
         # Explicit --cache-directory: Pest's own auto-detection
         # (Plugins/Cache.php) resolves vendor/pestphp/pest/.temp via
