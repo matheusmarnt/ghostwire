@@ -7,14 +7,12 @@ description: CSP, supply chain, data-surface hardening, and privacy (FR-90..93).
 
 Ghostwire runs under a strict CSP — no inline `<script>`, no `eval`, no `new Function`. The compiled `resources/dist/ghostwire.js` bundle never uses either. The `@ghostwireStyles`/`@ghostwireScripts` Blade directives both accept an optional nonce argument for apps that thread a per-request CSP nonce through their asset pipeline.
 
-Verified in CI: the gallery runs against a real, enforced `script-src 'self' 'nonce-…'; style-src 'self' 'nonce-…'` policy — not just a documented claim.
+Verified in CI: the package's own test gallery runs against a real, enforced `script-src 'self' 'nonce-…'; style-src 'self' 'nonce-…'` policy — not just a documented claim.
 
 ## Supply chain
 
 - **Dependency auditing** — `composer audit` runs in CI on every PR (`.github/workflows/security.yml`)
-- **Secret scanning** — part of the same security workflow
 - **Reproducible `dist/` build** — the committed `resources/dist/ghostwire.js`/`.css` are verified in CI to match a fresh `js/build.mjs` (esbuild) run from source, so what ships is provably what's in the repo, not something hand-edited post-build
-- **Release provenance** — GitHub Actions attestation on tagged releases
 
 ## Data-surface hardening
 

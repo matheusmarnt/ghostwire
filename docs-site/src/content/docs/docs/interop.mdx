@@ -13,8 +13,8 @@ Flux components render standard DOM elements under the hood, so `wire:ghost` cla
 
 ## livecharts
 
-The [gallery](/ghostwire/gallery/) includes a `livecharts`-rendered chart as one of its "difficult layouts" — demonstrating that synthesis handles a canvas/SVG-based component correctly (classified as `icon`/`media`, not walked into).
+`livecharts` renders canvas/SVG-based charts, which `wire:ghost` classifies the same as any other non-text component (`icon`/`media`, not walked into) rather than trying to synthesize their internal structure. The two packages coexist on the same page without interference.
 
 ## scoutify
 
-The gallery also includes a `scoutify` ⌘K search modal — showing the two packages coexisting on the same page without interference.
+`scoutify`'s ⌘K search modal is a standard Livewire component like any other, so it works alongside `wire:ghost` without special handling — Ghostwire and `scoutify` don't interfere with each other on the same page.

@@ -26,7 +26,7 @@ Add `wire:ghost` to any element (or `#[Ghost]` to a component class, with zero v
 - **Dual Livewire bridge** — Livewire 3.6+ and 4.x supported from the same package, selected by runtime feature detection (never a version-string check)
 - **Morph-safe** — the Ghost Layer mounts outside Livewire's reconciled tree; concealment uses only `visibility`/`opacity`/`pointer-events`, never a structural DOM change
 - **`freeze` mode** — dims and disables the live host in place, for layouts synthesis can't safely cover
-- **`#[Ghost]` attribute** — class- or method-level, a 7-level precedence cascade (method → class → inherited → directive → config → package default), zero view changes required
+- **`#[Ghost]` attribute** — class- or method-level, a 7-level precedence cascade (directive modifier → directive expression → method → class → inherited → config → package default), zero view changes required
 - **Silence by default** — sync-only and polling messages never trigger a ghost, so background updates stay invisible
 - **Repeat-sibling sampling, scrollable clipping, sticky/fixed geometry** — real layouts (paginated tables, kanban boards, scrollable panels) synthesize correctly, not just simple cards
 - **Theming** — shimmer/pulse/wave animations, automatic dark mode, `prefers-reduced-motion` support, all pure CSS behind data/CSS-variable tokens

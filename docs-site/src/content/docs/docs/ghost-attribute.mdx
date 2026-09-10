@@ -31,7 +31,17 @@ class ProductTable extends Component
 
 ## Precedence cascade
 
-Seven levels, most to least specific: **method-level `#[Ghost]`** → **class-level `#[Ghost]`** → **inherited class `#[Ghost]`** → **`wire:ghost` directive on the element** → **`config/ghostwire.php`** → **package default**. Any field a given level doesn't declare falls through to the next. Inspect exactly which level decided a component's live configuration with:
+Seven levels, most to least specific:
+
+1. **Directive modifier on the element** — e.g. `wire:ghost.freeze`
+2. **Directive expression / action targeting** — e.g. `wire:ghost="applyFilters"`
+3. **`#[Ghost]` on the executing action's method**
+4. **`#[Ghost]` on the component class**
+5. **`#[Ghost]` inherited from a base class or trait**
+6. **`config/ghostwire.php`**
+7. **Package defaults**
+
+The `wire:ghost` directive on the element outranks the `#[Ghost]` attribute: a directive-level setting overrides whatever the attribute levels declare, field by field. Any field a given level doesn't declare falls through to the next. Inspect exactly which level decided a component's live configuration with:
 
 ```bash
 php artisan ghost:inspect

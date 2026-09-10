@@ -14,7 +14,7 @@ Adicione `wire:ghost` a qualquer elemento (ou `#[Ghost]` a uma classe de compone
 - **Bridge dual para Livewire** — Livewire 3.6+ e 4.x suportados a partir do mesmo pacote, selecionados por detecção de recursos em runtime (nunca por verificação de string de versão)
 - **Seguro para morph** — a Ghost Layer é montada fora da árvore reconciliada pelo Livewire; o ocultamento usa apenas `visibility`/`opacity`/`pointer-events`, nunca uma alteração estrutural do DOM
 - **Modo `freeze`** — escurece e desabilita o host ao vivo no lugar, para layouts que a síntese não consegue cobrir com segurança
-- **Atributo `#[Ghost]`** — em nível de classe ou método, com uma cascata de precedência de 7 níveis (método → classe → herdado → diretiva → config → padrão do pacote), sem nenhuma alteração na view
+- **Atributo `#[Ghost]`** — em nível de classe ou método, com uma cascata de precedência de 7 níveis (modificador de diretiva → expressão de diretiva → método → classe → herdado → config → padrão do pacote), sem nenhuma alteração na view
 - **Silêncio por padrão** — mensagens somente de sync e de polling nunca disparam um ghost, então atualizações em segundo plano permanecem invisíveis
 - **Amostragem de irmãos repetidos, recorte de áreas roláveis, geometria sticky/fixed** — layouts reais (tabelas paginadas, quadros kanban, painéis roláveis) são sintetizados corretamente, não apenas cards simples
 - **Temas** — animações shimmer/pulse/wave, dark mode automático, suporte a `prefers-reduced-motion`, tudo em CSS puro por trás de tokens de dados/variáveis CSS
