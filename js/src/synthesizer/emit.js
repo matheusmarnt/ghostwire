@@ -21,12 +21,27 @@ export function emit(host, measured, rowsHint) {
       produced.push(toBone(type, entry.rect, measured.hostRect));
     }
 
-    bones.push(...produced);
     if (entry.repeatGroup) {
       const key = `${entry.repeatGroup.id}:${entry.repeatGroup.index}`;
       if (!templatesByGroup.has(key)) templatesByGroup.set(key, []);
-      templatesByGroup.get(key).push(...produced);
+      templatesByGroup.get(key).push(...produced); // unfiltered: each clone re-checks its own translated position against clip in the second pass below, regardless of whether this template instance was itself clipped
     }
+
+    // SPEC-SYN-14: an ancestor clip (e.g. a scrollable container between this
+    // candidate and the host) has no CSS analog on the ghost layer — SPEC-RND-02
+    // only replicates the HOST's own overflow — so, unlike the host's own
+    // boundary, it isn't caught by rendering alone and must be enforced here
+    // per bone (a multi-line text entry can straddle it), exactly like the
+    // repeat-extra clone pass below already does. A candidate clipped only by
+    // the host's own bounds needs no extra check here: whatever the host's own
+    // overflow is, the render layer already mirrors it for every bone.
+    const effectiveClip = entry.clipRect || measured.hostRect;
+    let visible = produced;
+    if (!isHostRect(effectiveClip, measured.hostRect)) {
+      const clip = relativeClip(effectiveClip, measured.hostRect);
+      visible = produced.filter((bone) => relativeRectIntersects(bone, clip));
+    }
+    bones.push(...visible);
   }
 
   // SPEC-SYN-11: clone the sampled template's bones for every unsampled
@@ -92,6 +107,14 @@ function relativeClip(clipRect, hostRect) {
 function relativeRectIntersects(bone, clip) {
   return bone.x + bone.width > clip.left && bone.x < clip.right &&
     bone.y + bone.height > clip.top && bone.y < clip.bottom;
+}
+
+// Distinguishes "clipped only by the host's own bounds" (clipRect defaults to
+// hostRect itself — see measure.js's computeClipRect) from a real ancestor
+// clip narrower than the host — see the SPEC-SYN-14 comment above.
+function isHostRect(rect, hostRect) {
+  return rect.left === hostRect.left && rect.top === hostRect.top &&
+    rect.right === hostRect.right && rect.bottom === hostRect.bottom;
 }
 
 function isVisible(entry) {

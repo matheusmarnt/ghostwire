@@ -493,12 +493,18 @@
         const type = entry.type === "media" && isAvatar(entry) ? "avatar" : entry.type;
         produced.push(toBone(type, entry.rect, measured.hostRect));
       }
-      bones.push(...produced);
       if (entry.repeatGroup) {
         const key = `${entry.repeatGroup.id}:${entry.repeatGroup.index}`;
         if (!templatesByGroup.has(key)) templatesByGroup.set(key, []);
         templatesByGroup.get(key).push(...produced);
       }
+      const effectiveClip = entry.clipRect || measured.hostRect;
+      let visible = produced;
+      if (!isHostRect(effectiveClip, measured.hostRect)) {
+        const clip = relativeClip(effectiveClip, measured.hostRect);
+        visible = produced.filter((bone) => relativeRectIntersects(bone, clip));
+      }
+      bones.push(...visible);
     }
     for (const entry of measured.results) {
       if (entry.type !== "repeat-extra") continue;
@@ -539,6 +545,9 @@
   }
   function relativeRectIntersects(bone, clip) {
     return bone.x + bone.width > clip.left && bone.x < clip.right && bone.y + bone.height > clip.top && bone.y < clip.bottom;
+  }
+  function isHostRect(rect, hostRect) {
+    return rect.left === hostRect.left && rect.top === hostRect.top && rect.right === hostRect.right && rect.bottom === hostRect.bottom;
   }
   function isVisible(entry) {
     return entry.visibility !== "hidden" && entry.rect.width > 0 && entry.rect.height > 0;
