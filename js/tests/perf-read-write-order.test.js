@@ -82,3 +82,93 @@ describe('SPEC-PERF-01/02: read-before-write ordering', () => {
     expect(readsAfterFirstWrite).toHaveLength(0); // SPEC-PERF-01/02: no read after the first write
   });
 });
+
+// Regression test for the GH-#6 multi-host reflow: js/src/index.js's
+// onPostPaint used to call renderer.repositionLayer(host) per host inside a
+// single loop, so host N+1's getBoundingClientRect() read landed immediately
+// after host N's style write — a forced synchronous reflow per host after
+// the first. The fix batches the whole component's hosts: measure every
+// host first (map), then write every host (forEach). onPostPaint itself
+// lives inside boot(), which needs a real window.Livewire bridge and isn't
+// unit-tested directly anywhere in this suite (no index.test.js exists), so
+// this proves the same batching PATTERN — map-then-forEach over
+// measureHostRect/applyLayerRect — that onPostPaint now uses. The true
+// end-to-end proof is tests/Browser/{SmokeTest,Timing,Morph} against
+// tests/Browser/Fixtures/views/demo-table.blade.php, which has 2 hosts
+// (#summary/#list) reacting to the same click.
+describe('SPEC-PERF-01/02: onPostPaint-style batching across multiple hosts on one component', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('measures every host before applying any host\'s layer rect, across 2+ hosts', () => {
+    const renderer = createRenderer();
+
+    function makeHost() {
+      const el = document.createElement('div');
+      document.body.appendChild(el);
+      return { el, component: { id: 'c1' }, config: {}, state: 'idle', pending: 0, layer: null };
+    }
+
+    const hostA = makeHost();
+    const hostB = makeHost();
+    // Real layers, mounted before any event recording starts below — this
+    // test is only about the reposition batch, not mountLayer's own
+    // read-before-write order (already covered above).
+    renderer.mountLayer(hostA);
+    renderer.mountLayer(hostB);
+
+    const events = [];
+    const origGetBCR = Element.prototype.getBoundingClientRect;
+    // .style's accessor properties (top/left/width/height) live on a shared
+    // internal prototype (not the globally-named CSSStyleDeclaration, which
+    // jsdom does not put them on) — read it off a real style instance, like
+    // the getBoundingClientRect patch above, so every host's layer (they all
+    // share this one prototype) is covered without per-element shadowing.
+    const styleProto = Object.getPrototypeOf(hostA.layer.style);
+    const styleProps = ['top', 'left', 'width', 'height'];
+    const origStyleDescs = {};
+
+    Element.prototype.getBoundingClientRect = function (...args) {
+      events.push({ type: 'read', source: 'getBoundingClientRect' });
+      return { top: 0, left: 0, right: 100, bottom: 20, width: 100, height: 20 };
+    };
+    for (const prop of styleProps) {
+      const desc = Object.getOwnPropertyDescriptor(styleProto, prop);
+      origStyleDescs[prop] = desc;
+      Object.defineProperty(styleProto, prop, {
+        configurable: true,
+        enumerable: desc.enumerable,
+        get: desc.get,
+        set(value) {
+          events.push({ type: 'write', source: `style.${prop}` });
+          desc.set.call(this, value);
+        },
+      });
+    }
+
+    try {
+      // The exact batching pattern js/src/index.js's onPostPaint now uses.
+      const hosts = [hostA, hostB];
+      const rects = hosts.map((host) => renderer.measureHostRect(host));
+      hosts.forEach((host, i) => renderer.applyLayerRect(host, rects[i]));
+    } finally {
+      Element.prototype.getBoundingClientRect = origGetBCR;
+      for (const prop of styleProps) {
+        Object.defineProperty(styleProto, prop, origStyleDescs[prop]);
+      }
+    }
+
+    const readIndices = events.map((e, i) => (e.type === 'read' ? i : -1)).filter((i) => i !== -1);
+    const writeIndices = events.map((e, i) => (e.type === 'write' ? i : -1)).filter((i) => i !== -1);
+
+    expect(readIndices).toHaveLength(2); // one getBoundingClientRect per host
+    expect(writeIndices).toHaveLength(8); // 4 style props x 2 hosts
+    // SPEC-PERF-01/02: every read strictly before every write — proves the
+    // batching, not merely that both functions exist/work in isolation.
+    expect(Math.max(...readIndices)).toBeLessThan(Math.min(...writeIndices));
+
+    expect(hostA.layer.style.top).toBe('0px');
+    expect(hostB.layer.style.width).toBe('100px');
+  });
+});

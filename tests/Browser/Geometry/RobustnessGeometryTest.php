@@ -57,14 +57,41 @@ test('SPEC-SYN-14: scrollable containers limit synthesis to the visible area', f
     $page->script(<<<'JS'
         window.__gwScroll = { actualBones: null, expectedBones: null };
 
-        function gwVisibleCardCount() {
+        // Re-derived independently of the runtime (never importing its modules —
+        // same philosophy as this test file's sibling GalleryGeometryTest.php's
+        // own gwLineRects() helper, copied verbatim below). A .kanban-card is
+        // plain text with no nested elements, so the synthesizer classifies it
+        // as a 'text' candidate and emits one bone per real text LINE rect
+        // (js/src/synthesizer/emit.js), not one bone for the card's own outer
+        // box. Checking the card's own bounding rect against the column's clip
+        // (the old approach) only coincidentally agrees with the runtime: a
+        // card whose own box straddles the clip boundary can have its actual
+        // text line sitting entirely on one side of it. Counting visibility at
+        // the same per-line granularity the runtime actually uses closes that
+        // gap instead of relying on this fixture's specific dimensions.
+        function gwLineRects(el) {
+            const rects = [];
+            for (const node of el.childNodes) {
+                if (node.nodeType === Node.TEXT_NODE && node.textContent.trim() !== '') {
+                    const range = document.createRange();
+                    range.selectNodeContents(node);
+                    rects.push(...range.getClientRects());
+                }
+            }
+            return rects;
+        }
+
+        function gwVisibleCardLineCount() {
             const column = document.querySelector('#kanban-column');
             const columnRect = column.getBoundingClientRect();
             const cards = Array.from(document.querySelectorAll('.kanban-card'));
-            return cards.filter((c) => {
-                const r = c.getBoundingClientRect();
-                return r.bottom > columnRect.top && r.top < columnRect.bottom;
-            }).length;
+            let count = 0;
+            for (const card of cards) {
+                for (const r of gwLineRects(card)) {
+                    if (r.width > 0 && r.height > 0 && r.bottom > columnRect.top && r.top < columnRect.bottom) count++;
+                }
+            }
+            return count;
         }
 
         new MutationObserver(() => {
@@ -74,7 +101,7 @@ test('SPEC-SYN-14: scrollable containers limit synthesis to the visible area', f
             const bones = layer.querySelectorAll('.gw-bone');
             if (bones.length === 0) return;
             window.__gwScroll.actualBones = bones.length;
-            window.__gwScroll.expectedBones = gwVisibleCardCount() + 2; // sticky header bone + refresh-button bone
+            window.__gwScroll.expectedBones = gwVisibleCardLineCount() + 2; // sticky header bone + refresh-button bone
         }).observe(document.body, { childList: true, subtree: true });
         true;
     JS);

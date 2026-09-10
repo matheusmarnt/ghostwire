@@ -185,6 +185,21 @@
 
   // js/src/renderer.js
   function createRenderer() {
+    let liveRegion = null;
+    let busyCount = 0;
+    function ensureLiveRegion() {
+      if (liveRegion) return liveRegion;
+      liveRegion = document.createElement("div");
+      liveRegion.setAttribute("aria-live", "polite");
+      liveRegion.setAttribute("role", "status");
+      liveRegion.className = "gw-sr-only";
+      document.body.appendChild(liveRegion);
+      return liveRegion;
+    }
+    function announce(message) {
+      if (window.Ghostwire?.announcements === false) return;
+      ensureLiveRegion().textContent = message;
+    }
     function mountLayer(host) {
       const layer = document.createElement("div");
       layer.className = "gw-layer";
@@ -201,13 +216,19 @@
       host.layer = layer;
       return layer;
     }
-    function repositionLayer(host) {
-      if (!host.layer) return;
-      const rect = host.el.getBoundingClientRect();
+    function measureHostRect(host) {
+      if (!host.layer) return null;
+      return host.el.getBoundingClientRect();
+    }
+    function applyLayerRect(host, rect) {
+      if (!host.layer || !rect) return;
       host.layer.style.top = `${rect.top}px`;
       host.layer.style.left = `${rect.left}px`;
       host.layer.style.width = `${rect.width}px`;
       host.layer.style.height = `${rect.height}px`;
+    }
+    function repositionLayer(host) {
+      applyLayerRect(host, measureHostRect(host));
     }
     function renderBones(host, boneTree) {
       if (!host.layer) return;
@@ -233,7 +254,35 @@
     function unfreeze(host) {
       host.el.classList.remove("gw-frozen");
     }
-    return { mountLayer, repositionLayer, renderBones, removeLayer, freeze, unfreeze };
+    function markBusy(host) {
+      host.el.setAttribute("aria-busy", "true");
+      if (host.busy) return;
+      host.busy = true;
+      busyCount += 1;
+      if (busyCount === 1) announce(window.Ghostwire?.messages?.busy ?? "Loading");
+    }
+    function clearBusy(host) {
+      host.el.removeAttribute("aria-busy");
+      if (!host.busy) return;
+      host.busy = false;
+      busyCount = Math.max(0, busyCount - 1);
+      if (busyCount === 0) announce(window.Ghostwire?.messages?.idle ?? "Content updated");
+    }
+    function captureFocus(host) {
+      if (host.el.contains(document.activeElement)) {
+        host.savedFocus = document.activeElement;
+      }
+    }
+    function restoreFocus(host) {
+      const el = host.savedFocus;
+      host.savedFocus = null;
+      if (!el) return;
+      const focusWasLost = !document.activeElement || document.activeElement === document.body;
+      if (focusWasLost && document.body.contains(el) && typeof el.focus === "function") {
+        el.focus();
+      }
+    }
+    return { mountLayer, repositionLayer, measureHostRect, applyLayerRect, renderBones, removeLayer, freeze, unfreeze, markBusy, clearBusy, captureFocus, restoreFocus };
   }
 
   // js/src/synthesizer/walk.js
@@ -444,12 +493,18 @@
         const type = entry.type === "media" && isAvatar(entry) ? "avatar" : entry.type;
         produced.push(toBone(type, entry.rect, measured.hostRect));
       }
-      bones.push(...produced);
       if (entry.repeatGroup) {
         const key = `${entry.repeatGroup.id}:${entry.repeatGroup.index}`;
         if (!templatesByGroup.has(key)) templatesByGroup.set(key, []);
         templatesByGroup.get(key).push(...produced);
       }
+      const effectiveClip = entry.clipRect || measured.hostRect;
+      let visible = produced;
+      if (!isHostRect(effectiveClip, measured.hostRect)) {
+        const clip = relativeClip(effectiveClip, measured.hostRect);
+        visible = produced.filter((bone) => relativeRectIntersects(bone, clip));
+      }
+      bones.push(...visible);
     }
     for (const entry of measured.results) {
       if (entry.type !== "repeat-extra") continue;
@@ -490,6 +545,9 @@
   }
   function relativeRectIntersects(bone, clip) {
     return bone.x + bone.width > clip.left && bone.x < clip.right && bone.y + bone.height > clip.top && bone.y < clip.bottom;
+  }
+  function isHostRect(rect, hostRect) {
+    return rect.left === hostRect.left && rect.top === hostRect.top && rect.right === hostRect.right && rect.bottom === hostRect.bottom;
   }
   function isVisible(entry) {
     return entry.visibility !== "hidden" && entry.rect.width > 0 && entry.rect.height > 0;
@@ -768,12 +826,14 @@
       } else {
         renderer.removeLayer(host);
         host.el.classList.remove("gw-concealed");
+        renderer.restoreFocus(host);
         renderer.freeze(host);
         host.degraded = true;
       }
     });
     const scheduler = createScheduler({
       onShow(host) {
+        renderer.markBusy(host);
         if (host.config.mode === "off" || host.config.ignore || host.config.keep) return;
         if (host.config.mode === "freeze") {
           renderer.freeze(host);
@@ -785,11 +845,13 @@
           host.degraded = true;
           return;
         }
+        renderer.captureFocus(host);
         renderer.mountLayer(host);
         renderer.renderBones(host, boneTree);
         host.el.classList.add("gw-concealed");
       },
       onHide(host) {
+        renderer.clearBusy(host);
         if (host.config.mode === "off" || host.config.ignore || host.config.keep) return;
         if (host.config.mode === "freeze" || host.degraded) {
           renderer.unfreeze(host);
@@ -798,6 +860,7 @@
         }
         renderer.removeLayer(host);
         host.el.classList.remove("gw-concealed");
+        renderer.restoreFocus(host);
       }
     });
     window.Livewire.directive("ghost", ({ el, directive, component, cleanup }) => {
@@ -818,6 +881,7 @@
         synthesizer.forget(host);
         renderer.removeLayer(host);
         renderer.unfreeze(host);
+        renderer.clearBusy(host);
         host.el.classList.remove("gw-concealed");
         el.classList.remove("gw-kept");
         registry.detach(host);
@@ -834,6 +898,7 @@
         synthesizer.forget(host);
         renderer.removeLayer(host);
         renderer.unfreeze(host);
+        renderer.clearBusy(host);
         host.el.classList.remove("gw-concealed");
         registry.detach(host);
       });
@@ -846,7 +911,13 @@
     });
     window.Livewire.hook("morphed", ({ component }) => {
       for (const host of registry.hostsFor(component.id)) {
-        if (host.state === "visible" && host.config.mode === "freeze") renderer.freeze(host);
+        if (host.state !== "visible") continue;
+        renderer.markBusy(host);
+        if (host.config.mode === "freeze") {
+          renderer.freeze(host);
+        } else if (host.layer) {
+          host.el.classList.add("gw-concealed");
+        }
       }
     });
     bridge.subscribe({
@@ -864,14 +935,17 @@
         }
       },
       onPostPaint(ctx) {
+        const hosts = [];
         for (const host of registry.hostsFor(ctx.component.id)) {
           if (ctx._gwSkippedRenderless || ctx.isSync && !host.config.sync || ctx.isPoll && !host.config.poll) continue;
           if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
           if (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name))) continue;
           if (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name))) continue;
-          renderer.repositionLayer(host);
+          hosts.push(host);
           scheduler.messagePostPaint(host);
         }
+        const rects = hosts.map((host) => renderer.measureHostRect(host));
+        hosts.forEach((host, i) => renderer.applyLayerRect(host, rects[i]));
       },
       onFinish(ctx) {
         for (const host of registry.hostsFor(ctx.component.id)) {

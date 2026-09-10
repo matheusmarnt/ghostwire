@@ -55,9 +55,32 @@ jobs:
           php-version: ${{ matrix.php }}
       - name: Require matrix versions
         run: |
+          # illuminate/support, not laravel/framework: tried pinning
+          # laravel/framework directly for issue #4 (pestphp/pest-plugin-laravel
+          # requires it, and it replaces illuminate/support in Composer's
+          # model) — reverted after real CI logs on this exact PR showed it
+          # trades #4's conflict for a worse one: orchestra/testbench's own
+          # Laravel-11-compatible branch (v9.x) only resolves to
+          # laravel/framework versions Composer's security-advisory policy
+          # blocks wholesale (every 11.x release up to and including the
+          # newest, v11.56.1, is covered by at least one active advisory),
+          # so pinning laravel/framework directly makes EVERY Laravel 11.*
+          # cell fail at composer update regardless of PHP version — strictly
+          # worse than #4's original, narrower failure. issue #4 is reopened
+          # as still genuinely unresolved (same category as #2: real,
+          # upstream, not fixable by a CI config change alone).
           composer require "illuminate/support:${{ matrix.laravel }}" "livewire/livewire:${{ matrix.livewire }}" --no-interaction --no-update
+          if [ "${{ matrix.php }}" = "8.2" ]; then
+            # pestphp/pest-plugin-browser has no PHP-8.2-compatible release
+            # (floor raised to ^8.3 as of 4.0.2; confirmed against the full
+            # version history, nothing 4.x or 5.x supports 8.2 — issue #11).
+            # Drop it for this cell only so composer update can still resolve;
+            # the Browser suite is skipped for PHP 8.2 in the test-run step below.
+            composer remove pestphp/pest-plugin-browser --dev --no-update
+          fi
           composer update --prefer-dist --no-interaction --no-progress
       - name: Install Playwright browser for Pest
+        if: matrix.php != '8.2'
         run: npx playwright install --with-deps chromium
       - name: Run tests
         # Explicit --cache-directory: Pest's own auto-detection
@@ -66,4 +89,18 @@ jobs:
         # injected CLI argument) whenever that directory doesn't survive
         # a --prefer-dist install — pass a guaranteed-writable path
         # ourselves so that fragile auto-injection never triggers.
-        run: vendor/bin/pest --cache-directory=/tmp/pest-cache
+        run: |
+          if [ "${{ matrix.php }}" = "8.2" ]; then
+            # tests/Contract is excluded too, not just tests/Browser: its
+            # BridgeSurfaceTest.php calls Pest core's bare visit() helper
+            # (vendor/pestphp/pest/src/Functions.php), which — when
+            # Pest\Browser\Configuration doesn't exist, exactly the state
+            # this cell is in since pest-plugin-browser was removed above —
+            # runs the plugin-browser installer prompt and then exit(0)s the
+            # whole process with a SUCCESS code before any assertions run,
+            # silently short-circuiting the rest of the suite too. Confirmed
+            # no other file under tests/Unit or tests/Feature calls visit().
+            vendor/bin/pest tests/Unit tests/Feature --cache-directory=/tmp/pest-cache
+          else
+            vendor/bin/pest --cache-directory=/tmp/pest-cache
+          fi

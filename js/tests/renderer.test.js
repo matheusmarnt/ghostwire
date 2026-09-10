@@ -152,4 +152,137 @@ describe('renderer', () => {
     expect(host.layer.querySelectorAll('.gw-bone')).toHaveLength(1);
     expect(host.layer.querySelector('.gw-bone--text')).toBeNull();
   });
+
+  it('markBusy sets aria-busy on the host; clearBusy removes it', () => {
+    const renderer = createRenderer();
+    const host = makeHost();
+
+    renderer.markBusy(host);
+    expect(host.el.getAttribute('aria-busy')).toBe('true');
+
+    renderer.clearBusy(host);
+    expect(host.el.getAttribute('aria-busy')).toBeNull();
+  });
+
+  it('markBusy announces once via a single shared polite live region, even for multiple hosts', () => {
+    const renderer = createRenderer();
+    const hostA = makeHost();
+    const hostB = makeHost();
+
+    renderer.markBusy(hostA);
+    renderer.markBusy(hostB);
+
+    const regions = document.body.querySelectorAll('[aria-live="polite"]');
+    expect(regions.length).toBe(1);
+    expect(regions[0].textContent).toBe('Loading');
+
+    renderer.clearBusy(hostA);
+    expect(regions[0].textContent).toBe('Loading'); // one host still busy — no "idle" announcement yet
+
+    renderer.clearBusy(hostB);
+    expect(regions[0].textContent).toBe('Content updated');
+  });
+
+  // Guards the morph-reapply path (js/src/index.js's `morphed` hook calls
+  // markBusy again on an already-busy host): the attribute must come back, but
+  // the counter must not double-count — a leaked count can never return to 0,
+  // permanently silencing the live region for the rest of the page's life.
+  it('markBusy is idempotent — repeat calls reapply aria-busy but never double-count or re-announce', () => {
+    const renderer = createRenderer();
+    const host = makeHost();
+
+    renderer.markBusy(host);
+    host.el.removeAttribute('aria-busy'); // simulate Livewire's patchAttributes stripping it mid-morph
+    renderer.markBusy(host); // what the `morphed` hook does
+    renderer.markBusy(host);
+
+    expect(host.el.getAttribute('aria-busy')).toBe('true'); // reapplied despite the guard
+    const region = document.body.querySelector('[aria-live="polite"]');
+    expect(region.textContent).toBe('Loading');
+
+    // A single clearBusy must still bring the count back to 0 — if the two
+    // extra markBusy calls had counted, this would stay stuck on "Loading".
+    renderer.clearBusy(host);
+    expect(region.textContent).toBe('Content updated');
+  });
+
+  it('clearBusy on a never-busy host is a safe no-op and does not drive the count negative', () => {
+    const renderer = createRenderer();
+    const neverBusy = makeHost();
+    const real = makeHost();
+
+    expect(() => renderer.clearBusy(neverBusy)).not.toThrow();
+    expect(() => renderer.clearBusy(neverBusy)).not.toThrow();
+    expect(document.body.querySelector('[aria-live="polite"]')).toBeNull(); // nothing announced — there was no busy period
+
+    // The stray clears must not have pushed the counter below 0, or this real
+    // busy period would announce idle one clear too early / never at all.
+    renderer.markBusy(real);
+    const region = document.body.querySelector('[aria-live="polite"]');
+    expect(region.textContent).toBe('Loading');
+    renderer.clearBusy(real);
+    expect(region.textContent).toBe('Content updated');
+  });
+
+  it('markBusy/clearBusy respect window.Ghostwire.announcements === false', () => {
+    window.Ghostwire = { announcements: false };
+    const renderer = createRenderer();
+    const host = makeHost();
+
+    renderer.markBusy(host);
+
+    expect(document.body.querySelector('[aria-live="polite"]')).toBeNull();
+
+    delete window.Ghostwire;
+  });
+
+  it('captureFocus/restoreFocus preserve and restore focus that was inside the host', () => {
+    const renderer = createRenderer();
+    const host = makeHost();
+    const input = document.createElement('input');
+    host.el.appendChild(input);
+    input.focus();
+    expect(document.activeElement).toBe(input);
+
+    renderer.captureFocus(host);
+    input.remove(); // simulate the browser dropping focus once the host is hidden
+    expect(document.activeElement).not.toBe(input);
+
+    host.el.appendChild(input); // simulate the host becoming visible again
+    renderer.restoreFocus(host);
+
+    expect(document.activeElement).toBe(input);
+    expect(host.savedFocus).toBeNull();
+  });
+
+  it('restoreFocus does not steal focus back when something else claimed it during the ghost window', () => {
+    const renderer = createRenderer();
+    const host = makeHost();
+    const input = document.createElement('input');
+    host.el.appendChild(input);
+    input.focus();
+    renderer.captureFocus(host);
+
+    const elsewhere = document.createElement('input'); // e.g. a .gw-kept region, or another component
+    document.body.appendChild(elsewhere);
+    elsewhere.focus();
+    expect(document.activeElement).toBe(elsewhere);
+
+    renderer.restoreFocus(host);
+
+    expect(document.activeElement).toBe(elsewhere); // the user's own move wins
+    expect(host.savedFocus).toBeNull(); // still cleared — no stale reference held across cycles
+  });
+
+  it('captureFocus is a no-op when focus is outside the host', () => {
+    const renderer = createRenderer();
+    const host = makeHost();
+    const outside = document.createElement('input');
+    document.body.appendChild(outside);
+    outside.focus();
+
+    renderer.captureFocus(host);
+
+    expect(host.savedFocus).toBeUndefined();
+  });
 });

@@ -76,27 +76,34 @@ export function boot() {
     } else {
       renderer.removeLayer(host);
       host.el.classList.remove('gw-concealed');
+      renderer.restoreFocus(host); // SPEC-A11Y-03: leaving .gw-concealed here too (mid-cycle degrade to freeze)
       renderer.freeze(host);
       host.degraded = true;
     }
   });
   const scheduler = createScheduler({
     onShow(host) {
+      renderer.markBusy(host); // SPEC-A11Y-01: busy regardless of render mode
+
       if (host.config.mode === 'off' || host.config.ignore || host.config.keep) return;
       if (host.config.mode === 'freeze') { renderer.freeze(host); return; }
 
       const boneTree = synthesizer.synthesize(host);
       if (!boneTree) { renderer.freeze(host); host.degraded = true; return; } // SPEC-SYN-16/17 degrade
 
+      renderer.captureFocus(host); // SPEC-A11Y-03: before visibility: hidden forces a blur
       renderer.mountLayer(host);
       renderer.renderBones(host, boneTree);
       host.el.classList.add('gw-concealed');
     },
     onHide(host) {
+      renderer.clearBusy(host); // SPEC-A11Y-01
+
       if (host.config.mode === 'off' || host.config.ignore || host.config.keep) return;
       if (host.config.mode === 'freeze' || host.degraded) { renderer.unfreeze(host); host.degraded = false; return; }
       renderer.removeLayer(host);
       host.el.classList.remove('gw-concealed');
+      renderer.restoreFocus(host); // SPEC-A11Y-03
     },
   });
 
@@ -127,6 +134,7 @@ export function boot() {
       synthesizer.forget(host);
       renderer.removeLayer(host);
       renderer.unfreeze(host);
+      renderer.clearBusy(host); // SPEC-A11Y-04: a host torn down mid-visible would otherwise leak busyCount forever, silencing every later announcement page-wide
       host.el.classList.remove('gw-concealed');
       el.classList.remove('gw-kept');
       registry.detach(host);
@@ -181,6 +189,7 @@ export function boot() {
       synthesizer.forget(host);
       renderer.removeLayer(host);
       renderer.unfreeze(host);
+      renderer.clearBusy(host); // SPEC-A11Y-04: same busyCount leak as the directive cleanup above
       host.el.classList.remove('gw-concealed');
       registry.detach(host);
     });
@@ -199,14 +208,26 @@ export function boot() {
     if (el.classList?.contains('gw-layer')) skip();
   });
 
-  // A morph re-renders the host's own attributes from server HTML, which has
-  // no gw-frozen class — Livewire's attribute diffing strips it immediately
-  // regardless of the scheduler's hold timer. Reapply it (idempotent) right
-  // after any morph, for any host still supposed to be visibly frozen; the
-  // scheduler still owns *when* freeze actually ends.
+  // A morph re-renders the host's own attributes from the server HTML, and
+  // Livewire's patchAttributes diff removes ANY attribute present on the live
+  // node but absent from the server node — a generic loop, not limited to
+  // class. So every client-applied marker on a host is stripped the instant a
+  // morph touches it, regardless of the scheduler's hold timer. Reapply them
+  // all here (each call idempotent); the scheduler still owns *when* the
+  // visible window actually ends.
   window.Livewire.hook('morphed', ({ component }) => {
     for (const host of registry.hostsFor(component.id)) {
-      if (host.state === 'visible' && host.config.mode === 'freeze') renderer.freeze(host);
+      if (host.state !== 'visible') continue;
+      renderer.markBusy(host); // SPEC-A11Y-01
+      if (host.config.mode === 'freeze') {
+        renderer.freeze(host);
+      } else if (host.layer) {
+        // SPEC-MORPH-03: truthy host.layer means mountLayer() ran and
+        // removeLayer() hasn't — i.e. this host really is on the concealed
+        // synthesize path right now, and its bones are covering content that
+        // would otherwise be live and clickable underneath them.
+        host.el.classList.add('gw-concealed');
+      }
     }
   });
 
@@ -275,14 +296,24 @@ export function boot() {
       }
     },
     onPostPaint(ctx) {
+      // SPEC-PERF-01/02: collect every eligible host first, then measure all
+      // of them before writing any of them — a component with 2+ hosts must
+      // not have host N+1's read land right after host N's write in the same
+      // cycle (forced synchronous reflow). messagePostPaint only flips a flag
+      // and arms an async setTimeout (scheduler.js), so calling it here for
+      // every host up front, before the measure/apply batch below, cannot
+      // race with a synchronous layer teardown.
+      const hosts = [];
       for (const host of registry.hostsFor(ctx.component.id)) {
         if (ctx._gwSkippedRenderless || (ctx.isSync && !host.config.sync) || (ctx.isPoll && !host.config.poll)) continue;
         if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
         if (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name))) continue;
         if (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name))) continue;
-        renderer.repositionLayer(host);
+        hosts.push(host);
         scheduler.messagePostPaint(host);
       }
+      const rects = hosts.map((host) => renderer.measureHostRect(host));
+      hosts.forEach((host, i) => renderer.applyLayerRect(host, rects[i]));
     },
     onFinish(ctx) {
       for (const host of registry.hostsFor(ctx.component.id)) {
