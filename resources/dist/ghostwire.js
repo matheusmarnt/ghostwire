@@ -1071,7 +1071,10 @@
       void 0,
       (host, signature, boneTree, hostRect) => {
         if (!host.config.learning || !host.config.name) return;
-        learningStore.put(host.config.name, signature, bandFor(window.innerWidth), hostRect, boneTree);
+        const persisted = learningStore.put(host.config.name, signature, bandFor(window.innerWidth), hostRect, boneTree);
+        if (!persisted && false) {
+          console.warn(`[ghostwire] learning: could not persist "${host.config.name}" \u2014 ${boneTree.length} bones exceeds the ${MAX_BONES}-bone cap, or the storage quota was refused`);
+        }
       }
     );
     const scheduler = createScheduler({
@@ -1117,7 +1120,7 @@
         document.body.appendChild(anchor);
         anchor.click();
         anchor.remove();
-        URL.revokeObjectURL(url);
+        setTimeout(() => URL.revokeObjectURL(url), 0);
       } catch {
       }
       return json;

@@ -4,7 +4,7 @@ import { createScheduler } from './scheduler.js';
 import { createRenderer } from './renderer.js';
 import { createSynthesizer } from './synthesizer/index.js';
 import { parseAttributeConfig, resolveHostConfig } from './attributeConfig.js';
-import { createLearningStore } from './learning/store.js';
+import { createLearningStore, MAX_BONES } from './learning/store.js';
 import { bandFor } from './learning/bands.js';
 
 const TIMED_MODIFIER_PATTERN = /^(delay|hold)\.(\d+)ms$/;
@@ -103,7 +103,15 @@ export function boot() {
     (host, signature, boneTree, hostRect) => {
       if (!host.config.learning || !host.config.name) return;
 
-      learningStore.put(host.config.name, signature, bandFor(window.innerWidth), hostRect, boneTree);
+      const persisted = learningStore.put(host.config.name, signature, bandFor(window.innerWidth), hostRect, boneTree);
+      // put() fails silently by design (Task 2, SPEC-SEC-04) on any validation
+      // path — the most likely one in practice is a component's real bone count
+      // exceeding MAX_BONES (emit.js fans out per text line and per repeated
+      // row, well past walk.js's MAX_CANDIDATES cap). A dev-only warning here
+      // costs nothing and is the only signal a developer would otherwise get.
+      if (!persisted && process.env.NODE_ENV !== 'production') {
+        console.warn(`[ghostwire] learning: could not persist "${host.config.name}" — ${boneTree.length} bones exceeds the ${MAX_BONES}-bone cap, or the storage quota was refused`);
+      }
     },
   );
   const scheduler = createScheduler({
@@ -147,7 +155,10 @@ export function boot() {
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
-      URL.revokeObjectURL(url);
+      // Deferred: revoking synchronously right after click() aborts the
+      // download in some browsers, which start reading the blob URL
+      // asynchronously (Finding 5, FR-43's one real data-exit path).
+      setTimeout(() => URL.revokeObjectURL(url), 0);
     } catch {
       // Download unavailable (sandboxed frame, headless context). The caller
       // still gets the JSON back, which is what the browser test relies on.

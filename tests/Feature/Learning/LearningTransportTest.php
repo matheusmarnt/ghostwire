@@ -14,7 +14,14 @@ function ghostPayload(string $component): array
 it('does not transport learning when the config flag is off (SPEC-LRN-04 default)', function () {
     config(['ghostwire.learning.enabled' => false]);
 
-    expect(ghostPayload(GhostAttributeProbe::class))->not->toHaveKey('g');
+    $payload = ghostPayload(GhostAttributeProbe::class);
+
+    // Pins the negative: without this, a data-ghost attribute that vanished
+    // entirely (regex miss falling back to '{}') would also read as a
+    // passing refusal. Mode is always emitted, so this proves the attribute
+    // genuinely rendered and was genuinely inspected.
+    expect($payload)->toHaveKey('m')
+        ->and($payload)->not->toHaveKey('g');
 });
 
 it('transports the learning flag and component name when enabled outside production', function () {
@@ -31,12 +38,18 @@ it('refuses to transport learning in production, whatever the config says (SPEC-
     config(['ghostwire.learning.enabled' => true]);
     app()->detectEnvironment(fn () => 'production');
 
-    expect(ghostPayload(GhostAttributeProbe::class))->not->toHaveKey('g');
+    $payload = ghostPayload(GhostAttributeProbe::class);
+
+    expect($payload)->toHaveKey('m')
+        ->and($payload)->not->toHaveKey('g');
 });
 
 it('refuses to transport learning for a store driver it does not implement', function () {
     config(['ghostwire.learning.enabled' => true, 'ghostwire.learning.store' => 'redis']);
     app()->detectEnvironment(fn () => 'local');
 
-    expect(ghostPayload(GhostAttributeProbe::class))->not->toHaveKey('g');
+    $payload = ghostPayload(GhostAttributeProbe::class);
+
+    expect($payload)->toHaveKey('m')
+        ->and($payload)->not->toHaveKey('g');
 });
