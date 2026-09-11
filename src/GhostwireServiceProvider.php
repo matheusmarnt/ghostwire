@@ -2,6 +2,7 @@
 
 namespace Ghostwire;
 
+use Ghostwire\Commands\ExportCommand;
 use Ghostwire\Commands\InspectCommand;
 use Ghostwire\Livewire\GhostComponentHook;
 use Ghostwire\Support\ConfigResolver;
@@ -63,6 +64,7 @@ class GhostwireServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 InspectCommand::class,
+                ExportCommand::class,
             ]);
         }
     }

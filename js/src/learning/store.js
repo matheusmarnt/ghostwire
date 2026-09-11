@@ -5,6 +5,13 @@
 // whole envelope, drop whatever fails, and clamp every number that survives.
 // The module returns plain data and nothing else - no HTML, no selectors, no
 // callables - so nothing persisted can reach eval, Function or innerHTML.
+//
+// validBone/validEntry/validEnvelope below are mirrored independently in PHP by
+// src/Support/LearnedTree.php, which re-validates the same envelope once it has
+// left the browser (`ghost:export` reads a file from a developer's download
+// directory, where none of this module's guarantees still hold). The two
+// implementations cannot share code across the language boundary - when you
+// change a rule or a constant here, change it there too.
 
 import { bandFor, BAND_NAMES } from './bands.js';
 
