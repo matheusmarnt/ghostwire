@@ -7,7 +7,9 @@ description: CSP, supply chain, data-surface hardening, and privacy (FR-90..93).
 
 Ghostwire runs under a strict CSP — no inline `<script>`, no `eval`, no `new Function`. The compiled `resources/dist/ghostwire.js` bundle never uses either. The `@ghostwireStyles`/`@ghostwireScripts` Blade directives both accept an optional nonce argument for apps that thread a per-request CSP nonce through their asset pipeline.
 
-Verified in CI: the package's own test gallery runs against a real, enforced `script-src 'self' 'nonce-…'; style-src 'self' 'nonce-…'` policy — not just a documented claim.
+Verified in CI: the package's own test gallery runs under the strictest CSP each Livewire line actually supports — no `'unsafe-eval'` at all on Livewire 4 with `csp_safe` enabled, and `'unsafe-eval'` granted only on Livewire 3, whose Alpine can't evaluate `wire:*` expressions without it — not just a documented claim.
+
+Livewire 4 offers a CSP-safe Alpine build, but it's opt-in: set `'csp_safe' => true` in your `config/livewire.php` (it defaults to `false`). With it enabled, your policy needs no `'unsafe-eval'`. Left at the default, a Livewire 4 app's policy still needs `'unsafe-eval'` — same as Livewire 3, where that same flag has no effect and the violation is still recorded regardless. Either way, this is a Livewire/Alpine requirement, not Ghostwire's: Ghostwire's own bundle needs no `eval` on either line.
 
 ## Supply chain
 

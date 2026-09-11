@@ -69,12 +69,6 @@ jobs:
         if: matrix.php != '8.2'
         run: npx playwright install --with-deps chromium
       - name: Run tests
-        # Explicit --cache-directory: Pest's own auto-detection
-        # (Plugins/Cache.php) resolves vendor/pestphp/pest/.temp via
-        # realpath(), which returns false (and silently corrupts the
-        # injected CLI argument) whenever that directory doesn't survive
-        # a --prefer-dist install — pass a guaranteed-writable path
-        # ourselves so that fragile auto-injection never triggers.
         run: |
           if [ "${{ matrix.php }}" = "8.2" ]; then
             # tests/Contract is excluded too, not just tests/Browser: its
@@ -86,7 +80,7 @@ jobs:
             # whole process with a SUCCESS code before any assertions run,
             # silently short-circuiting the rest of the suite too. Confirmed
             # no other file under tests/Unit or tests/Feature calls visit().
-            vendor/bin/pest tests/Unit tests/Feature --cache-directory=/tmp/pest-cache
+            vendor/bin/pest tests/Unit tests/Feature
           else
-            vendor/bin/pest --cache-directory=/tmp/pest-cache
+            vendor/bin/pest
           fi

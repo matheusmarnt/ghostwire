@@ -9,6 +9,16 @@
 // every fixture; per-layout geometry is already covered elsewhere
 // (tests/Browser/Geometry/GalleryGeometryTest.php). A deliberate scope call,
 // documented here rather than left implicit.
+//
+// The fixture route (tests/Browser/Fixtures/routes.php) enforces the
+// strictest policy each Livewire line actually supports: no 'unsafe-eval'
+// at all on Livewire 4 (via its opt-in csp_safe config flag), and
+// 'unsafe-eval' granted on Livewire 3, whose stock Alpine evaluator cannot
+// evaluate wire:* expressions without it. This test asserts zero
+// violations under that policy on both lines; Ghostwire's own package-
+// level guarantee — no eval, no new Function in the compiled bundle — is
+// asserted statically and line-independently in
+// tests/Feature/CspNonceTest.php.
 
 test('the gallery still functions under a strict CSP (self + nonce, no unsafe-inline)', function () {
     $page = visit('/gallery/card-grid-strict-csp');

@@ -31,3 +31,11 @@ it('ghostwireScripts includes a nonce attribute when given one', function () {
         ->and($html)->toContain('nonce="abc123"')
         ->and($html)->toContain('defer></script>');
 });
+
+it('ships a compiled bundle with no eval and no new Function (SPEC-SEC-06)', function () {
+    $bundle = file_get_contents(__DIR__.'/../../resources/dist/ghostwire.js');
+
+    expect($bundle)->not->toMatch('/\beval\s*\(/')
+        ->and($bundle)->not->toMatch('/\bnew\s+Function\s*\(/')
+        ->and($bundle)->not->toMatch('/\bFunction\s*\(\s*[\'"]/');
+});
