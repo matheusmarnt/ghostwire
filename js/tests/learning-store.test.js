@@ -131,15 +131,37 @@ describe('learning store', () => {
     expect(tiny.get('first', 'lg')).toBeNull();
   });
 
+  // Finding 3: this test's name promises "so a hot entry survives eviction",
+  // but nothing here ever evicted anything, and the quota test above holds
+  // only one entry - {third} is the survivor under LRU *and* under plain
+  // insertion-order (FIFO) eviction, so LRU was never actually distinguished
+  // from "evict whatever was put first". This version is the one scenario
+  // where the two diverge: `hot` is put before `cold` but read again
+  // afterwards, so correct LRU keeps `hot` and drops `cold` - the reverse of
+  // what insertion-order eviction would do.
   it('refreshes the LRU timestamp on read so a hot entry survives eviction', () => {
+    const probeStorage = fakeStorage();
+    const probe = createLearningStore({ storage: probeStorage, now: () => 1000 });
+    probe.put('hot', 1, 'lg', { width: 10, height: 10 }, TREE);
+    probe.put('cold', 2, 'lg', { width: 10, height: 10 }, TREE);
+    const quotaBytes = probeStorage.raw.length + 50; // room for two entries, not three
+
     let clock = 1000;
-    const s = createLearningStore({ storage, quotaBytes: 256 * 1024, now: () => clock });
+    const s = createLearningStore({ storage, quotaBytes, now: () => clock });
 
     s.put('hot', 1, 'lg', { width: 10, height: 10 }, TREE);
-    clock = 5000;
-    s.get('hot', 'lg');
+    clock = 2000;
+    s.put('cold', 2, 'lg', { width: 10, height: 10 }, TREE);
+    clock = 3000;
+    s.get('hot', 'lg'); // touch hot - cold, not hot, is now the coldest entry
+    expect(JSON.parse(storage.raw).e['1|lg'].t).toBe(3000);
 
-    expect(JSON.parse(storage.raw).e['1|lg'].t).toBe(5000);
+    clock = 4000;
+    s.put('fresh', 3, 'lg', { width: 10, height: 10 }, TREE); // now over quota: forces exactly one eviction
+
+    expect(s.get('hot', 'lg')).not.toBeNull(); // survives: touched more recently than cold
+    expect(s.get('cold', 'lg')).toBeNull(); // evicted: least-recently-used, despite being newer than hot by insertion order
+    expect(s.get('fresh', 'lg')).not.toBeNull();
   });
 
   it('replaces a component-and-band entry rather than accumulating stale signatures', () => {
@@ -174,43 +196,91 @@ describe('learning store', () => {
     expect(STORAGE_KEY).toBe('ghostwire.learned.v1');
   });
 
-  // Ruling A (F2): store.put() rejects an entry outright when any bone's type
-  // falls outside BONE_TYPES, so if the synthesizer ever grows a new bone type
-  // that whitelist doesn't know about, learning silently goes dark for every
-  // component that produces it - no error, no signal. This test is the alarm:
-  // it derives the real emittable vocabulary mechanically from walk.js/emit.js
-  // source (never hand-copied) and fails the moment BONE_TYPES falls behind.
+  // Ruling A (F2) / Finding 1: store.put() rejects an entry outright when any
+  // bone's type falls outside BONE_TYPES, so if the synthesizer ever grows a
+  // new bone type that whitelist doesn't know about, learning silently goes
+  // dark for every component that produces it - no error, no signal. This
+  // test is the alarm: it derives the real emittable vocabulary mechanically
+  // from BOTH walk.js and emit.js source (never hand-copied - no hardcoded
+  // "remaps" list, no matter which file introduces a new type or what shape
+  // it takes) and fails the moment BONE_TYPES falls behind.
   //
-  // What it deliberately excludes, and why: `container` and `repeat-extra` are
-  // internal-only walk entry types that never reach emit.js as a bone's own
-  // `type` - `container` is converted to `{type:'block'}` or recursed into
-  // (walk.js:93-97, SPEC-SYN-13), and `repeat-extra` entries are skipped by
-  // emit.js (emit.js:8) and expanded into bones carrying the sampled
-  // template's own already-whitelisted type. `repeat-extra` never shows up in
-  // this test's extraction anyway, because it is assigned as a literal inside
-  // `visit()`, not returned by `classify()` - it is named here only so the
-  // next person to touch this vocabulary understands why it isn't checked.
+  // What it deliberately excludes, and why: `container` and `repeat-extra`
+  // are internal-only walk entry types that never reach emit.js as a bone's
+  // own `type` - `container` is converted to `{type:'block'}` or recursed
+  // into (walk.js:93-97, SPEC-SYN-13), and `repeat-extra` entries are
+  // skipped by emit.js (emit.js:8) and expanded into bones carrying the
+  // sampled template's own already-whitelisted type. Both are named here so
+  // the next person to touch this vocabulary understands what the alarm
+  // watches, and why these two specifically don't count as bone types.
   it('keeps BONE_TYPES a superset of what the synthesizer can actually emit', () => {
     const walkSrc = readFileSync(path.join(dir, '../src/synthesizer/walk.js'), 'utf8');
+    const emitSrc = readFileSync(path.join(dir, '../src/synthesizer/emit.js'), 'utf8');
 
-    // Scope the extraction to classify()'s own body (up to the next exported
-    // function) so unrelated literals elsewhere in walk.js - e.g. 'block' and
-    // 'repeat-extra', assigned directly in visit()/processChild(), never
-    // classify() return values - can't leak into the derived vocabulary.
-    const classifyBody = walkSrc.slice(
-      walkSrc.indexOf('export function classify'),
-      walkSrc.indexOf('export function hasDirectText'),
-    );
-    const classifiedTypes = [...classifyBody.matchAll(/return '([a-z]+)';/g)].map((m) => m[1]);
-    expect(classifiedTypes).toEqual(['icon', 'media', 'control', 'heading', 'text', 'container']);
+    // Every syntactic shape this codebase actually uses to name a bone's
+    // type: classify()'s bare `return 'x';`, an object literal's `type: 'x'`,
+    // a `type === 'x'` / `type !== 'x'` comparison, and a `cond ? 'x' : y`
+    // remap (the exact shape emit.js's media->avatar remap uses). `[a-z-]+`
+    // so a hyphenated type name - this codebase already has one,
+    // `repeat-extra` - is never silently missed.
+    const TYPE_LITERAL_PATTERNS = [
+      /return\s+'([a-z-]+)';/g,
+      /\btype:\s*'([a-z-]+)'/g,
+      /\btype\s*[!=]==\s*'([a-z-]+)'/g,
+      /\?\s*'([a-z-]+)'\s*:/g,
+    ];
 
-    const INTERNAL_ONLY = new Set(['container', 'repeat-extra']);
-    const REMAPS = ['block', 'avatar']; // walk.js's block aggregation + emit.js's media->avatar remap
+    function typeLiteralsIn(src) {
+      const found = new Set();
+      for (const pattern of TYPE_LITERAL_PATTERNS) {
+        for (const match of src.matchAll(pattern)) found.add(match[1]);
+      }
+      return found;
+    }
 
-    const emittable = classifiedTypes.filter((type) => !INTERNAL_ONLY.has(type)).concat(REMAPS);
+    const found = new Set([...typeLiteralsIn(walkSrc), ...typeLiteralsIn(emitSrc)]);
+
+    const INTERNAL_ONLY = new Set([
+      'container', // walk.js:93-97 (SPEC-SYN-13): converted to {type:'block'} or recursed into - never itself a bone type
+      'repeat-extra', // walk.js:71, skipped by emit.js:8 and expanded into bones carrying the sampled template's own type
+    ]);
+
+    const emittable = [...found].filter((type) => !INTERNAL_ONLY.has(type));
+
+    // Guards against the alarm going silently vacuous (e.g. a source reformat
+    // that breaks every pattern above) rather than pinning its exact
+    // contents - a content/order pin is exactly what made the previous
+    // version of this test brittle.
+    expect(emittable.length).toBeGreaterThan(0);
 
     for (const type of emittable) {
       expect(BONE_TYPES.has(type)).toBe(true);
     }
+  });
+
+  // Finding 2: store.js's BONE_KEYS hand-copies emit.js's toBone() shape, and
+  // validBone() *rejects* a bone carrying any key toBone() doesn't produce
+  // (store.js:31-32) - so a 6th field added to toBone() tomorrow would fail
+  // every single put(), the identical silent-blackout failure mode Finding 1
+  // guards against for bone *types*, left uncovered for bone *keys*. Reads
+  // both sides from source rather than importing BONE_KEYS (which store.js
+  // doesn't export) so this stays a source-level invariant, not a hand-copy.
+  it("keeps store.js's bone key set in sync with emit.js's toBone() shape (SPEC-SEC-04)", () => {
+    const storeSrc = readFileSync(path.join(dir, '../src/learning/store.js'), 'utf8');
+    const emitSrc = readFileSync(path.join(dir, '../src/synthesizer/emit.js'), 'utf8');
+
+    const boneKeysMatch = storeSrc.match(/BONE_KEYS = \[([^\]]+)\]/);
+    expect(boneKeysMatch).not.toBeNull();
+    const boneKeys = [...boneKeysMatch[1].matchAll(/'([a-z]+)'/g)].map((m) => m[1]);
+
+    const toBoneMatch = emitSrc.match(/export function toBone\([^)]*\)\s*\{\s*return \{([^}]+)\}/);
+    expect(toBoneMatch).not.toBeNull();
+    const toBoneKeys = toBoneMatch[1]
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => part.split(':')[0].trim());
+
+    expect(boneKeys.sort()).toEqual(toBoneKeys.sort());
   });
 });
