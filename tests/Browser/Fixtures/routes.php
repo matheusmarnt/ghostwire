@@ -50,3 +50,6 @@ Route::view('/legacy/legacy-widget-two', 'ghostwire-fixtures::page', ['component
 Route::view('/legacy/legacy-widget-three', 'ghostwire-fixtures::page', ['component' => 'legacy-widget-three']);
 Route::view('/legacy/legacy-widget-four', 'ghostwire-fixtures::page', ['component' => 'legacy-widget-four']);
 Route::view('/legacy/legacy-widget-five', 'ghostwire-fixtures::page', ['component' => 'legacy-widget-five']);
+
+Route::view('/ghostwire-lazy-orders-table', 'ghostwire-fixtures::page', ['component' => 'lazy-orders-table']);
+Route::view('/ghostwire-lazy-declared-placeholder', 'ghostwire-fixtures::page', ['component' => 'lazy-declared-placeholder']);
