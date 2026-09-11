@@ -55,6 +55,13 @@
   z-index: 2147483000;
 }
 
+/* SPEC-LRN-02: the lazy placeholder root itself — bones inside it are
+   position: absolute (see .gw-bone), so this only needs a positioning
+   context, not any of .gw-layer's fixed/viewport-relative behaviour. */
+.gw-lazy {
+  position: relative;
+}
+
 .gw-frozen {
   opacity: 0.6;
   pointer-events: none;

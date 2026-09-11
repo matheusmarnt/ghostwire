@@ -83,6 +83,36 @@ export function boot() {
 
   const learningStore = createLearningStore({ storage, quotaBytes: 256 * 1024 });
 
+  const LAZY_NAME_PATTERN = /^[a-z0-9\-.]{1,64}$/;
+
+  // SPEC-LRN-02: paints a persisted skeleton into a lazy placeholder root
+  // BEFORE Livewire ever renders real content into it (Task 1's
+  // 'render.placeholder' listener is what tags the root with
+  // data-ghost-lazy in the first place — never present when the developer
+  // declared their own placeholder, SPEC-LRN-05). data-ghost-lazy-painted
+  // makes this idempotent per element, since it runs again on every morph
+  // (a lazy component can be inserted anywhere by another component's
+  // morph) and must not re-touch a root it already resolved.
+  function paintLazyPlaceholders() {
+    const band = bandFor(window.innerWidth);
+
+    for (const el of document.querySelectorAll('[data-ghost-lazy]')) {
+      if (el.dataset.ghostLazyPainted === '1') continue;
+
+      const name = el.getAttribute('data-ghost-lazy');
+      if (!LAZY_NAME_PATTERN.test(name || '')) continue;
+
+      const learned = learningStore.get(name, band);
+      if (!learned) continue; // nothing learned at this width yet: no skeleton, per SDD §15
+
+      el.classList.add('gw-lazy');
+      el.style.width = `${learned.width}px`;
+      el.style.height = `${learned.height}px`;
+      renderer.paintBones(el, learned.bones);
+      el.dataset.ghostLazyPainted = '1';
+    }
+  }
+
   const synthesizer = createSynthesizer(
     registry,
     undefined,
@@ -297,6 +327,7 @@ export function boot() {
         host.el.classList.add('gw-concealed');
       }
     }
+    paintLazyPlaceholders(); // a lazy component can be inserted by another component's morph
   });
 
   // SPEC-API-20/21/22: the bridges (js/src/bridge/v3.js, v4.js) now only
@@ -420,6 +451,8 @@ export function boot() {
       }
     },
   });
+
+  paintLazyPlaceholders();
 }
 
 // Per-message action-scoped override (SPEC-API-10 method-level #[Ghost]).

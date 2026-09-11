@@ -230,9 +230,9 @@
     function repositionLayer(host) {
       applyLayerRect(host, measureHostRect(host));
     }
-    function renderBones(host, boneTree) {
-      if (!host.layer) return;
-      host.layer.textContent = "";
+    function paintBones(container, boneTree) {
+      if (!container) return;
+      container.textContent = "";
       for (const bone of boneTree) {
         const el = document.createElement("div");
         el.className = `gw-bone gw-bone--${bone.type}`;
@@ -240,8 +240,11 @@
         el.style.top = `${bone.y}px`;
         el.style.width = `${bone.width}px`;
         el.style.height = `${bone.height}px`;
-        host.layer.appendChild(el);
+        container.appendChild(el);
       }
+    }
+    function renderBones(host, boneTree) {
+      paintBones(host.layer, boneTree);
     }
     function removeLayer(host) {
       if (!host.layer) return;
@@ -282,7 +285,7 @@
         el.focus();
       }
     }
-    return { mountLayer, repositionLayer, measureHostRect, applyLayerRect, renderBones, removeLayer, freeze, unfreeze, markBusy, clearBusy, captureFocus, restoreFocus };
+    return { mountLayer, repositionLayer, measureHostRect, applyLayerRect, renderBones, paintBones, removeLayer, freeze, unfreeze, markBusy, clearBusy, captureFocus, restoreFocus };
   }
 
   // js/src/synthesizer/walk.js
@@ -1052,6 +1055,22 @@
       storage = null;
     }
     const learningStore = createLearningStore({ storage, quotaBytes: 256 * 1024 });
+    const LAZY_NAME_PATTERN = /^[a-z0-9\-.]{1,64}$/;
+    function paintLazyPlaceholders() {
+      const band = bandFor(window.innerWidth);
+      for (const el of document.querySelectorAll("[data-ghost-lazy]")) {
+        if (el.dataset.ghostLazyPainted === "1") continue;
+        const name = el.getAttribute("data-ghost-lazy");
+        if (!LAZY_NAME_PATTERN.test(name || "")) continue;
+        const learned = learningStore.get(name, band);
+        if (!learned) continue;
+        el.classList.add("gw-lazy");
+        el.style.width = `${learned.width}px`;
+        el.style.height = `${learned.height}px`;
+        renderer.paintBones(el, learned.bones);
+        el.dataset.ghostLazyPainted = "1";
+      }
+    }
     const synthesizer = createSynthesizer(
       registry,
       void 0,
@@ -1188,6 +1207,7 @@
           host.el.classList.add("gw-concealed");
         }
       }
+      paintLazyPlaceholders();
     });
     bridge.subscribe({
       onStart(ctx) {
@@ -1225,6 +1245,7 @@
         }
       }
     });
+    paintLazyPlaceholders();
   }
   function applyActionOverride(host, ctx) {
     if (host._gwOverrideActive) return;
