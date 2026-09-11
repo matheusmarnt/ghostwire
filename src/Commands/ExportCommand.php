@@ -59,26 +59,69 @@ class ExportCommand extends Command
             return self::FAILURE;
         }
 
+        // Finding 2: never write through the target itself if it's a symlink -
+        // live or dangling, and regardless of --force, since --force means
+        // "overwrite a plain file this command wrote before", not "follow a
+        // link to wherever it points". Finding 1: never write onto an existing
+        // directory either (e.g. --output=livewire resolving onto the
+        // directory most Livewire apps already have at that path) - is_file()
+        // is false for both a directory and a dangling symlink, so neither
+        // would otherwise trip the --force gate below at all.
+        if (is_link($target) || is_dir($target)) {
+            $this->error("[{$target}] is a symlink or a directory. Refusing to write through or over it.");
+
+            return self::FAILURE;
+        }
+
         if (is_file($target) && ! $this->option('force')) {
             $this->error("[{$target}] already exists. Pass --force to overwrite it.");
 
             return self::FAILURE;
         }
 
-        file_put_contents($target, LearnedTree::toBlade($entry));
+        // Finding 1: an unwritable directory or a full disk fails the same way
+        // a pre-existing directory target does - file_put_contents() returns
+        // false and emits its own E_WARNING rather than throwing, so the
+        // return value is the only signal available.
+        if (file_put_contents($target, LearnedTree::toBlade($entry)) === false) {
+            $this->error("Could not write [{$target}].");
+
+            return self::FAILURE;
+        }
 
         $this->info("Wrote {$target}");
         $this->line('Bones: '.count($entry['bones']));
         $this->line('Use it from your component:');
-        $this->line("    public function placeholder() { return view('livewire.{$component}-placeholder'); }");
+        $this->line("    public function placeholder() { return view('{$this->viewNameFor($target)}'); }");
 
         return self::SUCCESS;
     }
 
     /**
-     * SPEC-SEC-05: refuse any write outside resources/views. Checked twice —
-     * lexically first, so nothing outside the root is ever even created, and
-     * again by canonical path once the parent directory exists.
+     * Finding 9: the dot-separated view name Laravel's view() resolves from a
+     * path under resources/views. Must be derived from where --output actually
+     * placed the file, not hardcoded to the livewire/ default.
+     */
+    private function viewNameFor(string $target): string
+    {
+        $root = (string) realpath(resource_path('views'));
+        $relative = substr($target, strlen($root) + 1);
+        $relative = preg_replace('/\.blade\.php$/', '', $relative) ?? $relative;
+
+        return str_replace(['/', '\\'], '.', $relative);
+    }
+
+    /**
+     * SPEC-SEC-05: refuse any write outside resources/views. The lexical check
+     * below (before any path is built) refuses ".." segments and absolute
+     * paths outright; the canonical check after it (once the parent directory
+     * exists) refuses anything where a symlinked parent segment resolves
+     * outside the root. Between those two, mkdir() can still create a
+     * directory through a symlinked parent before the canonical check catches
+     * it - the WRITE itself is always refused either way, but this method does
+     * not guarantee zero filesystem side effects before that refusal. handle()
+     * separately refuses the resolved target itself when it is a symlink or an
+     * existing directory, before ever attempting the write (Findings 1 and 2).
      */
     private function resolveTarget(string $component): ?string
     {

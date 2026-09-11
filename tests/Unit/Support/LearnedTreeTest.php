@@ -47,9 +47,25 @@ it("keeps LearnedTree's numeric limits in sync with store.js (Ruling A)", functi
     preg_match('/MAX_COORD = (\d+)/', $src, $maxCoord);
     preg_match('/MAX_BONES = (\d+)/', $src, $maxBones);
 
+    // Finding 7: without this, a renamed JS constant surfaces as "Undefined
+    // array key 1" instead of a clean, legible assertion failure - exactly the
+    // wrong failure mode for a test whose whole job is reporting drift clearly.
+    expect($version)->not->toBeEmpty()
+        ->and($maxCoord)->not->toBeEmpty()
+        ->and($maxBones)->not->toBeEmpty();
+
     expect((int) $version[1])->toBe(LearnedTree::SCHEMA_VERSION)
         ->and((int) $maxCoord[1])->toBe(LearnedTree::MAX_COORD)
         ->and((int) $maxBones[1])->toBe(LearnedTree::MAX_BONES);
+});
+
+it("keeps LearnedTree::MAX_TIMESTAMP in sync with store.js's clamp ceiling (Ruling A / Finding 5)", function () {
+    // Number.MAX_SAFE_INTEGER is a JS language builtin, not a store.js-defined
+    // constant, so there's no "NAME = number" line to extract - pin the call
+    // site instead, and check the PHP constant against the exact mathematical
+    // value (2**53 - 1) that builtin equals.
+    expect(jsLearningSource('store.js'))->toContain('clamp(entry.t, 0, Number.MAX_SAFE_INTEGER)');
+    expect(LearnedTree::MAX_TIMESTAMP)->toBe(2 ** 53 - 1);
 });
 
 it("keeps LearnedTree::BONE_TYPES in sync with store.js's whitelist (Ruling A)", function () {
@@ -66,7 +82,23 @@ it("keeps LearnedTree::BONE_TYPES in sync with store.js's whitelist (Ruling A)",
 });
 
 it('keeps LearnedTree::NAME_PATTERN in sync with store.js (Ruling A)', function () {
-    expect(jsLearningSource('store.js'))->toContain('NAME_PATTERN = '.LearnedTree::NAME_PATTERN);
+    // Finding 3: LearnedTree::NAME_PATTERN carries a trailing D modifier that
+    // store.js's regex literal has no equivalent syntax for - compare the
+    // pattern body only, so a real body drift can't hide behind an unrelated
+    // modifier-length mismatch (and the modifier's absence can't fake a pass).
+    $body = substr(LearnedTree::NAME_PATTERN, 0, strrpos(LearnedTree::NAME_PATTERN, '/') + 1);
+
+    expect(jsLearningSource('store.js'))->toContain('NAME_PATTERN = '.$body);
+});
+
+it('rejects a name with a trailing newline (Finding 3: PCRE $ needs /D for JS parity)', function () {
+    // Without PCRE's D (PCRE_DOLLAR_ENDONLY) modifier, $ also matches
+    // immediately before a trailing "\n" - so "orders-table\n" would pass
+    // PHP's gate while JS's identically-written /^[a-z0-9\-.]{1,64}$/ (whose $
+    // has no such leniency without the unset `m` flag) rejects it. Exactly the
+    // kind of divergence a text-only parity comparison cannot catch, which is
+    // why it's asserted here as actual behavior instead.
+    expect(preg_match(LearnedTree::NAME_PATTERN, "orders-table\n"))->toBe(0);
 });
 
 it('accepts a component name at exactly 64 characters and rejects 65 (Ruling C)', function () {
@@ -139,6 +171,47 @@ it('rejects an entry whose name does not match the requested component', functio
     expect(LearnedTree::fromJson($json, 'orders-table', 'lg'))->toBeNull();
 });
 
+it('rejects an entry whose t is not a finite number (Ruling A / Finding 5)', function () {
+    // store.js's validEntry() clamps t and discards the whole entry when that
+    // clamp fails (Number.isFinite(t) === false) - fromJson() previously never
+    // looked at t at all, so a non-numeric one slipped straight through.
+    $json = treeEnvelope([['type' => 'text', 'x' => 0, 'y' => 0, 'width' => 10, 'height' => 10]], ['t' => 'NOPE']);
+
+    expect(LearnedTree::fromJson($json, 'orders-table', 'lg'))->toBeNull();
+});
+
+it('rejects a c-pointer signature that is not 1-10 decimal digits (Ruling A / Finding 5)', function () {
+    // store.js's ENTRY_KEY_PATTERN (\d{1,10}) gates every key of `e` as it
+    // rebuilds `c` from scratch, so a signature outside that shape can never
+    // exist in a `c` store.js itself produced. fromJson() trusts a raw `c`
+    // instead (Ruling A, row 12), so it must enforce the same shape by hand.
+    // The entry below is otherwise completely valid and sits at exactly the
+    // key this 11-digit signature points to, so this fails for the RIGHT
+    // reason only if the shape check itself rejects it - not because the
+    // lookup simply misses.
+    $json = json_encode([
+        'v' => 1,
+        'e' => ['12345678901|lg' => ['t' => 1, 'n' => 'orders-table', 'w' => 10, 'h' => 10, 'b' => [
+            ['type' => 'text', 'x' => 0, 'y' => 0, 'width' => 1, 'height' => 1],
+        ]]],
+        'c' => ['orders-table|lg' => '12345678901'],
+    ]);
+
+    expect(LearnedTree::fromJson($json, 'orders-table', 'lg'))->toBeNull();
+});
+
+it("discards unparseable JSON without throwing (mirrors learning-store.test.js's \"discards unparseable JSON silently\", Finding 8)", function () {
+    expect(fn () => LearnedTree::fromJson('}{ not json', 'orders-table', 'lg'))->not->toThrow(Throwable::class);
+    expect(LearnedTree::fromJson('}{ not json', 'orders-table', 'lg'))->toBeNull();
+});
+
+it('discards a JSON root that decodes to something other than an object (Finding 8)', function () {
+    expect(LearnedTree::fromJson('[1,2,3]', 'orders-table', 'lg'))->toBeNull()
+        ->and(LearnedTree::fromJson('"hello"', 'orders-table', 'lg'))->toBeNull()
+        ->and(LearnedTree::fromJson('42', 'orders-table', 'lg'))->toBeNull()
+        ->and(LearnedTree::fromJson('null', 'orders-table', 'lg'))->toBeNull();
+});
+
 it('emits fully static markup with no Blade echo and no PHP tag (SPEC-SEC-05)', function () {
     $blade = LearnedTree::toBlade([
         'width' => 100.0,
@@ -146,8 +219,30 @@ it('emits fully static markup with no Blade echo and no PHP tag (SPEC-SEC-05)', 
         'bones' => [['type' => 'text', 'x' => 1.0, 'y' => 2.0, 'width' => 3.0, 'height' => 4.0]],
     ]);
 
+    // Finding 6: '<?' alone subsumes '<?php' and '<?=', and a bare '@'
+    // subsumes every Blade directive, present or future.
     expect($blade)->not->toContain('{{')
-        ->and($blade)->not->toContain('<?php')
-        ->and($blade)->not->toContain('@php')
+        ->and($blade)->not->toContain('{!!')
+        ->and($blade)->not->toContain('<?')
+        ->and($blade)->not->toContain('@')
         ->and($blade)->toContain('gw-bone gw-bone--text');
+});
+
+it('formats geometry with a locale-independent decimal point (Finding 4)', function () {
+    $original = setlocale(LC_NUMERIC, '0');
+    $applied = setlocale(LC_NUMERIC, 'de_DE.UTF-8', 'de_DE', 'de_DE.utf8');
+
+    try {
+        // If this sandbox has no comma-decimal locale installed, the test
+        // below would trivially pass without ever exercising the bug - fail
+        // loudly instead of silently proving nothing.
+        expect($applied)->not->toBeFalse();
+
+        $blade = LearnedTree::toBlade(['width' => 12.0, 'height' => 5.0, 'bones' => []]);
+
+        expect($blade)->toContain('width:12.00px')
+            ->and($blade)->not->toContain('width:12,00px');
+    } finally {
+        setlocale(LC_NUMERIC, $original);
+    }
 });

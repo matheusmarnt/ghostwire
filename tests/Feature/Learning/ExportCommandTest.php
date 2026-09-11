@@ -51,9 +51,14 @@ it('emits nothing dynamic - no Blade echo, no PHP tag (SPEC-SEC-05)', function (
 
     $written = File::get(resource_path('views/livewire/orders-table-placeholder.blade.php'));
 
+    // Finding 6: '<?' alone subsumes '<?php' and '<?=' (both start with it), and
+    // a bare '@' subsumes every Blade directive by construction, present or
+    // future - this is provably stronger than the original three-token list,
+    // not just a different one.
     expect($written)->not->toContain('{{')
-        ->and($written)->not->toContain('<?php')
-        ->and($written)->not->toContain('@php');
+        ->and($written)->not->toContain('{!!')
+        ->and($written)->not->toContain('<?')
+        ->and($written)->not->toContain('@');
 });
 
 it('fails when the component is absent from the learned data', function () {
@@ -104,6 +109,21 @@ it('clamps absurd geometry rather than writing it out verbatim (SPEC-SEC-05)', f
 
     expect(File::get(resource_path('views/livewire/orders-table-placeholder.blade.php')))
         ->toContain('left:20000.00px');
+});
+
+it('prints a view() hint matching the actual --output destination (Finding 9)', function () {
+    // try/finally: an assertion failing mid-chain must not skip cleanup and
+    // leave a file behind for the next run to trip over.
+    try {
+        $this->artisan('ghost:export', [
+            '--component' => 'orders-table', '--breakpoint' => 'lg',
+            '--from' => $this->source, '--output' => 'custom/spot.blade.php',
+        ])
+            ->expectsOutputToContain("view('custom.spot')")
+            ->assertSuccessful();
+    } finally {
+        File::deleteDirectory(resource_path('views/custom'));
+    }
 });
 
 it('drops a tree containing a bone type outside the whitelist (SPEC-SEC-05)', function () {

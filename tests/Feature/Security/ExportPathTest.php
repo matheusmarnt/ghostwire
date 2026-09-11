@@ -33,6 +33,7 @@ it('rejects a component name outside [a-z0-9.-] (SPEC-SEC-05)', function (string
     'orders/table',
     'orders;rm -rf',
     '',
+    "orders-table\n", // Finding 3: PCRE $ without /D matches before a trailing "\n"
 ]);
 
 it('refuses any --output that escapes resources/views (SPEC-SEC-05)', function (string $output) {
@@ -77,4 +78,84 @@ it('overwrites an existing view when --force is given (SPEC-SEC-05)', function (
     ])->assertSuccessful();
 
     expect(File::get($target))->not->toBe('ORIGINAL');
+});
+
+it('fails, not succeeds, when the resolved target is an existing directory (Finding 1)', function () {
+    // A real-world trap: resources/views/livewire already exists on almost any
+    // Livewire app, so `--output=livewire` (missing the filename) resolves onto
+    // that directory. Without a guard, is_file() is false (a directory isn't a
+    // "file"), the --force gate never trips, and file_put_contents() fails with
+    // an unsuppressed E_WARNING while the command still reports success.
+    File::ensureDirectoryExists(resource_path('views/livewire'));
+
+    $this->artisan('ghost:export', [
+        '--component' => 'orders-table', '--breakpoint' => 'lg',
+        '--from' => $this->source, '--output' => 'livewire',
+    ])
+        ->expectsOutputToContain('directory')
+        ->assertFailed();
+});
+
+it('refuses to write through a dangling symlink at the target path (Finding 2)', function () {
+    // The most severe shape: is_file() on a dangling symlink is false (nothing
+    // exists at the far end yet), so the --force gate never trips either - and
+    // file_put_contents() follows the link, creating a file wherever it points,
+    // with no --force needed at all.
+    $target = resource_path('views/livewire/orders-table-placeholder.blade.php');
+    File::ensureDirectoryExists(dirname($target));
+    $danglingAt = sys_get_temp_dir().'/ghostwire-dangling-'.bin2hex(random_bytes(6));
+    symlink($danglingAt, $target);
+
+    $this->artisan('ghost:export', ['--component' => 'orders-table', '--breakpoint' => 'lg', '--from' => $this->source])
+        ->expectsOutputToContain('symlink')
+        ->assertFailed();
+
+    expect(File::exists($danglingAt))->toBeFalse();
+});
+
+it('refuses to overwrite through a live symlink even with --force (Finding 2)', function () {
+    $target = resource_path('views/livewire/orders-table-placeholder.blade.php');
+    File::ensureDirectoryExists(dirname($target));
+    $outsideFile = sys_get_temp_dir().'/ghostwire-outside-'.bin2hex(random_bytes(6)).'.blade.php';
+    File::put($outsideFile, 'OUTSIDE');
+    symlink($outsideFile, $target);
+
+    $this->artisan('ghost:export', [
+        '--component' => 'orders-table', '--breakpoint' => 'lg',
+        '--from' => $this->source, '--force' => true,
+    ])
+        ->expectsOutputToContain('symlink')
+        ->assertFailed();
+
+    expect(File::get($outsideFile))->toBe('OUTSIDE');
+    File::delete($outsideFile);
+});
+
+it('refuses an --output containing a null byte (Finding 8: previously-unreachable branch)', function () {
+    $this->artisan('ghost:export', [
+        '--component' => 'orders-table', '--breakpoint' => 'lg',
+        '--from' => $this->source, '--output' => "evil\0.blade.php",
+    ])
+        ->expectsOutputToContain('illegal character')
+        ->assertFailed();
+});
+
+it('refuses when a parent segment is a symlink resolving outside resources/views (Finding 8: previously-unreachable branch)', function () {
+    // Every --output dataset row above escapes via the LEXICAL check (a literal
+    // ".."), so the separate canonical-containment refusal a few lines later in
+    // resolveTarget() - reached only once realpath() resolves a symlinked
+    // parent segment outside the root - had no test landing on it at all.
+    $outsideDir = sys_get_temp_dir().'/ghostwire-outside-dir-'.bin2hex(random_bytes(6));
+    File::ensureDirectoryExists($outsideDir);
+    symlink($outsideDir, resource_path('views/escape'));
+
+    $this->artisan('ghost:export', [
+        '--component' => 'orders-table', '--breakpoint' => 'lg',
+        '--from' => $this->source, '--output' => 'escape/name.blade.php',
+    ])
+        ->expectsOutputToContain('Refusing to write outside resources/views')
+        ->assertFailed();
+
+    File::delete(resource_path('views/escape'));
+    File::deleteDirectory($outsideDir);
 });
