@@ -8,7 +8,7 @@ use Livewire\Livewire;
 it('tags the lazy placeholder root with data-ghost-lazy (SPEC-LRN-02)', function () {
     $html = Livewire::test(LazyOrdersTable::class, ['lazy' => true])->html();
 
-    expect($html)->toContain('data-ghost-lazy="ghostwire.tests.browser.fixtures.lazy-orders-table"');
+    expect($html)->toContain('data-ghost-lazy="lazy-orders-table"');
 });
 
 it('leaves a developer-declared placeholder completely alone (SPEC-LRN-05, FR-56)', function () {
