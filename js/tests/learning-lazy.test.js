@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { createRenderer } from '../src/renderer.js';
 import { createRegistry } from '../src/registry.js';
 import { createSynthesizer } from '../src/synthesizer/index.js';
-import { createLearningStore } from '../src/learning/store.js';
+import { createLearningStore, NAME_PATTERN } from '../src/learning/store.js';
 import { bandFor } from '../src/learning/bands.js';
 import { boot } from '../src/index.js';
 
@@ -93,8 +93,9 @@ describe('paintLazyPlaceholders (SPEC-LRN-02)', () => {
   }
 
   // Real, measurable DOM content so synthesizer.synthesize() computes a
-  // genuine Bone Tree — mirrors apiSurface.test.js's onSynthesized wiring
-  // helper exactly.
+  // genuine Bone Tree — mirrors the same fixture pattern already used in
+  // learning-wiring.test.js, synthesizer-index.test.js and
+  // perf-read-write-order.test.js.
   function synthesizableHost(config) {
     const el = document.createElement('div');
     el.getBoundingClientRect = () => ({ top: 0, left: 0, right: 200, bottom: 100, width: 200, height: 100 });
@@ -106,10 +107,23 @@ describe('paintLazyPlaceholders (SPEC-LRN-02)', () => {
     return { el, component: { id: 'c1' }, config, state: 'idle', pending: 0, layer: null };
   }
 
+  // Finding 4: global.ResizeObserver and the Range.prototype.getClientRects
+  // patch are real, capture-and-restore globals, not vi.stubGlobal calls —
+  // vi.unstubAllGlobals() below does not touch either of them on its own.
+  // ResizeObserver is restored by routing it through vi.stubGlobal instead
+  // (so the existing vi.unstubAllGlobals() call restores it for free); the
+  // prototype patch has no vi.stubGlobal equivalent, so it's captured and
+  // restored by hand, deleting it again if this suite is what added it.
+  let hadGetClientRects;
+  let originalGetClientRects;
+
   beforeEach(() => {
     document.body.innerHTML = '';
     window.innerWidth = 700; // band 'sm' throughout — held fixed so every put()/get() in these tests agrees on band
-    global.ResizeObserver = FakeResizeObserver;
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+
+    hadGetClientRects = Object.prototype.hasOwnProperty.call(Range.prototype, 'getClientRects');
+    originalGetClientRects = Range.prototype.getClientRects;
     if (!Range.prototype.getClientRects) {
       Range.prototype.getClientRects = () => [{ top: 10, left: 10, right: 90, bottom: 30, width: 80, height: 20 }];
     }
@@ -119,7 +133,13 @@ describe('paintLazyPlaceholders (SPEC-LRN-02)', () => {
     delete window.Livewire;
     delete window.Ghostwire;
     document.body.innerHTML = '';
-    vi.unstubAllGlobals();
+    vi.unstubAllGlobals(); // restores ResizeObserver
+
+    if (hadGetClientRects) {
+      Range.prototype.getClientRects = originalGetClientRects;
+    } else {
+      delete Range.prototype.getClientRects;
+    }
   });
 
   // Ruling B: proves the full cycle end to end, not against a hand-seeded
@@ -142,7 +162,7 @@ describe('paintLazyPlaceholders (SPEC-LRN-02)', () => {
     });
 
     const realBoneTree = synthesizer.synthesize(host);
-    expect(realBoneTree).not.toBeNull(); // sanity: there is really something to persist
+    expect(realBoneTree.length).toBeGreaterThan(0); // sanity: there is really something to persist, not just a non-null empty tree
 
     document.body.innerHTML = '';
     const placeholder = document.createElement('div');
@@ -163,9 +183,20 @@ describe('paintLazyPlaceholders (SPEC-LRN-02)', () => {
     expect(placeholder.dataset.ghostLazyPainted).toBe('1');
   });
 
+  // Finding 1: a pure "nothing painted" assertion can't tell "correctly
+  // found nothing learned" apart from "the harness never ran at all" (e.g.
+  // detectBridge() failing to recognise fakeLivewire() and boot() returning
+  // early). Asserting the precondition through the same store-reading code
+  // paintLazyPlaceholders itself uses pins down which of those it actually
+  // was, so a broken precondition fails loudly at that line instead of
+  // reading as a correct skip two lines later.
   it('leaves a placeholder unpainted when nothing has been learned for it', () => {
+    const storage = fakeStorage();
+    const band = bandFor(window.innerWidth);
+    expect(createLearningStore({ storage }).get('never-learned', band)).toBeNull(); // precondition: genuinely nothing learned for this key
+
     window.Livewire = fakeLivewire();
-    vi.stubGlobal('localStorage', fakeStorage());
+    vi.stubGlobal('localStorage', storage);
     const placeholder = document.createElement('div');
     placeholder.setAttribute('data-ghost-lazy', 'never-learned');
     document.body.appendChild(placeholder);
@@ -179,9 +210,12 @@ describe('paintLazyPlaceholders (SPEC-LRN-02)', () => {
 
   it('leaves a placeholder unpainted when the only learned tree is for a different viewport band', () => {
     const storage = fakeStorage();
-    createLearningStore({ storage }).put('orders-table', 42, 'xl', { width: 300, height: 150 }, [
+    const store = createLearningStore({ storage });
+    store.put('orders-table', 42, 'xl', { width: 300, height: 150 }, [
       { type: 'text', x: 0, y: 0, width: 100, height: 20 },
     ]);
+    expect(store.get('orders-table', 'xl')).not.toBeNull(); // precondition: the seed actually landed, at band 'xl'
+
     window.innerWidth = 320; // band 'xs' — the only stored entry is band 'xl'
     window.Livewire = fakeLivewire();
     vi.stubGlobal('localStorage', storage);
@@ -195,6 +229,8 @@ describe('paintLazyPlaceholders (SPEC-LRN-02)', () => {
   });
 
   it('ignores a data-ghost-lazy value that fails the component-name charset, without throwing (SPEC-SEC-04)', () => {
+    expect(NAME_PATTERN.test('<script>alert(1)</script>')).toBe(false); // precondition: this value genuinely fails the charset, not just "happens not to be learned"
+
     window.Livewire = fakeLivewire();
     vi.stubGlobal('localStorage', fakeStorage());
     const placeholder = document.createElement('div');
