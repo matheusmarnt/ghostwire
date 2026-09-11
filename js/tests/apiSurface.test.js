@@ -29,8 +29,8 @@ describe('API surface freeze', () => {
     expect(match).not.toBeNull();
     const pairs = match[1].split(',').map((s) => s.trim()).sort();
     expect(pairs).toEqual([
-      'd: \'delay\'', 'h: \'hold\'', 'l: \'lazy\'', 'm: \'mode\'', 'o: \'only\'',
-      'p: \'poll\'', 'r: \'rows\'', 's: \'sync\'', 'x: \'except\'',
+      'd: \'delay\'', 'g: \'learning\'', 'h: \'hold\'', 'l: \'lazy\'', 'm: \'mode\'',
+      'n: \'name\'', 'o: \'only\'', 'p: \'poll\'', 'r: \'rows\'', 's: \'sync\'', 'x: \'except\'',
     ].sort());
   });
 });

@@ -17,6 +17,7 @@ describe('parseAttributeConfig', () => {
     expect(config).toEqual({
       mode: 'synthesize', only: null, except: null,
       delay: 120, hold: 300, rows: null, poll: false, sync: false, lazy: false,
+      learning: false, name: null,
     });
   });
 

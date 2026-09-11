@@ -4,6 +4,8 @@ import { createScheduler } from './scheduler.js';
 import { createRenderer } from './renderer.js';
 import { createSynthesizer } from './synthesizer/index.js';
 import { parseAttributeConfig, resolveHostConfig } from './attributeConfig.js';
+import { createLearningStore } from './learning/store.js';
+import { bandFor } from './learning/bands.js';
 
 const TIMED_MODIFIER_PATTERN = /^(delay|hold)\.(\d+)ms$/;
 
@@ -68,19 +70,42 @@ export function boot() {
 
   const registry = createRegistry();
   const renderer = createRenderer();
-  const synthesizer = createSynthesizer(registry, undefined, (host) => {
-    if (host.state !== 'visible' || host.config.mode === 'freeze') return; // only re-render an already-showing, non-frozen skeleton
-    const boneTree = synthesizer.synthesize(host);
-    if (boneTree) {
-      renderer.renderBones(host, boneTree);
-    } else {
-      renderer.removeLayer(host);
-      host.el.classList.remove('gw-concealed');
-      renderer.restoreFocus(host); // SPEC-A11Y-03: leaving .gw-concealed here too (mid-cycle degrade to freeze)
-      renderer.freeze(host);
-      host.degraded = true;
-    }
-  });
+
+  // A storage object that throws on every call is handled inside the store; this
+  // only guards the property read itself, which throws outright in some
+  // embedded or blocked-cookie contexts.
+  let storage = null;
+  try {
+    storage = window.localStorage;
+  } catch {
+    storage = null;
+  }
+
+  const learningStore = createLearningStore({ storage, quotaBytes: 256 * 1024 });
+
+  const synthesizer = createSynthesizer(
+    registry,
+    undefined,
+    (host) => {
+      if (host.state !== 'visible' || host.config.mode === 'freeze') return; // only re-render an already-showing, non-frozen skeleton
+      const boneTree = synthesizer.synthesize(host);
+      if (boneTree) {
+        renderer.renderBones(host, boneTree);
+      } else {
+        renderer.removeLayer(host);
+        host.el.classList.remove('gw-concealed');
+        renderer.restoreFocus(host); // SPEC-A11Y-03: leaving .gw-concealed here too (mid-cycle degrade to freeze)
+        renderer.freeze(host);
+        host.degraded = true;
+      }
+    },
+    undefined,
+    (host, signature, boneTree, hostRect) => {
+      if (!host.config.learning || !host.config.name) return;
+
+      learningStore.put(host.config.name, signature, bandFor(window.innerWidth), hostRect, boneTree);
+    },
+  );
   const scheduler = createScheduler({
     onShow(host) {
       renderer.markBusy(host); // SPEC-A11Y-01: busy regardless of render mode
@@ -106,6 +131,34 @@ export function boot() {
       renderer.restoreFocus(host); // SPEC-A11Y-03
     },
   });
+
+  window.Ghostwire = window.Ghostwire || {};
+
+  // SPEC-SEC-09 / FR-43: the only way learned data leaves the browser is this
+  // user-initiated file download. No network call exists anywhere in this path.
+  window.Ghostwire.exportLearned = function exportLearned() {
+    const json = JSON.stringify(learningStore.all(), null, 2);
+
+    try {
+      const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = 'ghostwire-learned.json';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      // Download unavailable (sandboxed frame, headless context). The caller
+      // still gets the JSON back, which is what the browser test relies on.
+    }
+
+    return json;
+  };
+
+  window.Ghostwire.clearLearned = function clearLearned() {
+    learningStore.clear();
+  };
 
   window.Livewire.directive('ghost', ({ el, directive, component, cleanup }) => {
     const directiveConfig = parseModifiers(directive.modifiers);
