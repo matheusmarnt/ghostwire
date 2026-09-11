@@ -14,6 +14,8 @@ class LazyOrdersTable extends Component
 
     public function render()
     {
+        usleep(600_000); // 600ms — a wide, deliberate window for the DoD gate to observe the skeleton
+
         return view('ghostwire-fixtures::lazy-orders-table');
     }
 }
