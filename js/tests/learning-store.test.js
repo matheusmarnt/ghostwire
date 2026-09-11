@@ -200,10 +200,13 @@ describe('learning store', () => {
   // bone's type falls outside BONE_TYPES, so if the synthesizer ever grows a
   // new bone type that whitelist doesn't know about, learning silently goes
   // dark for every component that produces it - no error, no signal. This
-  // test is the alarm: it derives the real emittable vocabulary mechanically
-  // from BOTH walk.js and emit.js source (never hand-copied - no hardcoded
-  // "remaps" list, no matter which file introduces a new type or what shape
-  // it takes) and fails the moment BONE_TYPES falls behind.
+  // test is the alarm: it scans BOTH walk.js and emit.js source for every
+  // occurrence of the four concrete syntactic shapes this codebase actually
+  // uses to name a bone's type (see TYPE_LITERAL_PATTERNS below), never
+  // hand-copying the result into a fixed list, and fails the moment
+  // BONE_TYPES falls behind. Its boundary is exactly those four shapes - a
+  // type introduced some other way (built from a variable, concatenated, or
+  // read off an unrelated property) would not be seen.
   //
   // What it deliberately excludes, and why: `container` and `repeat-extra`
   // are internal-only walk entry types that never reach emit.js as a bone's
@@ -217,17 +220,19 @@ describe('learning store', () => {
     const walkSrc = readFileSync(path.join(dir, '../src/synthesizer/walk.js'), 'utf8');
     const emitSrc = readFileSync(path.join(dir, '../src/synthesizer/emit.js'), 'utf8');
 
-    // Every syntactic shape this codebase actually uses to name a bone's
-    // type: classify()'s bare `return 'x';`, an object literal's `type: 'x'`,
-    // a `type === 'x'` / `type !== 'x'` comparison, and a `cond ? 'x' : y`
-    // remap (the exact shape emit.js's media->avatar remap uses). `[a-z-]+`
-    // so a hyphenated type name - this codebase already has one,
-    // `repeat-extra` - is never silently missed.
+    // The four concrete syntactic shapes this codebase actually uses to name
+    // a bone's type: classify()'s bare `return 'x';`, an object literal's
+    // `type: 'x'`, a `type === 'x'` / `type !== 'x'` comparison, and a
+    // `cond ? 'x' : y` remap (the exact shape emit.js's media->avatar remap
+    // uses). `[a-z0-9-]+` so a type name containing a digit or a hyphen -
+    // this codebase already has a hyphenated one, `repeat-extra` - is never
+    // silently missed. These four shapes are the mechanism's real boundary:
+    // a type spelled out any other way in source would not be caught.
     const TYPE_LITERAL_PATTERNS = [
-      /return\s+'([a-z-]+)';/g,
-      /\btype:\s*'([a-z-]+)'/g,
-      /\btype\s*[!=]==\s*'([a-z-]+)'/g,
-      /\?\s*'([a-z-]+)'\s*:/g,
+      /return\s+'([a-z0-9-]+)';/g,
+      /\btype:\s*'([a-z0-9-]+)'/g,
+      /\btype\s*[!=]==\s*'([a-z0-9-]+)'/g,
+      /\?\s*'([a-z0-9-]+)'\s*:/g,
     ];
 
     function typeLiteralsIn(src) {
