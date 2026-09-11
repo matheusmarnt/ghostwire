@@ -39,6 +39,7 @@ export default defineConfig({
           items: [
             { label: 'wire:ghost directive', slug: 'docs/wire-ghost' },
             { label: '#[Ghost] attribute', slug: 'docs/ghost-attribute' },
+            { label: 'Learning', slug: 'docs/learning' },
             { label: 'Theming', slug: 'docs/theming' },
           ],
         },

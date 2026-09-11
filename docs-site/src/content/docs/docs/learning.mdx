@@ -1,0 +1,94 @@
+---
+title: Learning
+description: Local Bone Tree persistence, lazy-placeholder skeletons, and `php artisan ghost:export`.
+---
+
+Ghostwire normally synthesizes a skeleton by walking the *current* DOM the instant a Livewire request starts — so a lazy-loaded component's very first paint, on a visitor's first-ever visit, has nothing to walk yet. Learning closes that gap: it remembers each component's Bone Tree locally, in the browser, and repaints it the next time that component is about to lazy-load, before any real content exists.
+
+## Turning it on
+
+Learning is off by default. Enable it with an environment variable, or the equivalent config key:
+
+```bash
+GHOSTWIRE_LEARNING=true
+```
+
+```php
+// config/ghostwire.php
+'learning' => [
+    'enabled' => true,
+],
+```
+
+Whatever the flag says, Ghostwire also refuses to collect anything while `app()->isProduction()` is true — both checks run server-side, per request, so a client can never turn learning on for itself. Learning also only runs against the `local` store (`learning.store` in `config/ghostwire.php`); any other value refuses it outright.
+
+## What is stored, and where
+
+Learned trees live in `localStorage`, under the key `ghostwire.learned.v1` — one tree per component per [breakpoint band](#breakpoints). Each entry is the host's width/height plus a flat list of bones (`type`, `x`, `y`, `width`, `height`): geometry and a bone type from a fixed enum, never text, never DOM content, never anything else about the page.
+
+Nothing here is ever sent anywhere — no network request exists on this path. The only way learned data leaves the browser is the user-initiated download described under Exporting, below. You can clear a browser's learned data at any time with `Ghostwire.clearLearned()`.
+
+The store is re-validated on every read. Anything that doesn't match the expected shape — a corrupted value, a schema version from an older or newer build — is discarded silently, and the affected component simply learns again on its next visit. Storage is capped at a fixed 256 KB budget, with the least-recently-used entries evicted first once it's full.
+
+## `#[Ghost(lazy: true)]`
+
+```php
+use Ghostwire\Attributes\Ghost;
+
+#[Ghost(lazy: true)]
+class OrdersTable extends Component
+{
+    // ...
+}
+```
+
+For a component using Livewire's own lazy loading, `lazy: true` tells Ghostwire to paint the learned skeleton into the placeholder Livewire renders, before the component's real content ever loads.
+
+This never applies if the component already has a placeholder of its own: a `placeholder()` method, a Livewire 4 `@placeholder` block, or a global default placeholder your app has configured (`livewire.component_placeholder` on Livewire 4, `livewire.lazy_placeholder` on Livewire 3). Any of those wins outright — Ghostwire only ever fills a placeholder that would otherwise be blank.
+
+## Exporting a learned tree
+
+Turn what learning collected into a real, static Blade placeholder — no headless browser involved at any point:
+
+```
+// In the browser, on a page where learning has run:
+Ghostwire.exportLearned()      // downloads ghostwire-learned.json
+```
+
+```bash
+php artisan ghost:export --component=orders-table --breakpoint=lg \
+    --from=~/Downloads/ghostwire-learned.json
+```
+
+`ghost:export` re-validates the downloaded file independently of anything the browser already checked — by the time it reaches this command, it's a file that passed through a developer's download directory. It writes one static Blade partial per `--component`/`--breakpoint` pair under `resources/views` (`--output` to choose where; `--force` to overwrite one it already wrote) and prints the view name to use:
+
+```php
+public function placeholder()
+{
+    return view('livewire.orders-table-placeholder');
+}
+```
+
+## Breakpoints
+
+A learned tree is keyed to one of six width bands, matching the component's width at the moment it was learned:
+
+| Band | Minimum width |
+|---|---|
+| `xs` | 0 |
+| `sm` | 640 |
+| `md` | 768 |
+| `lg` | 1024 |
+| `xl` | 1280 |
+| `2xl` | 1536 |
+
+A component keeps one learned tree per band — resize the window, or view it on a different device, and a different tree applies once one has been learned at that width.
+
+## Security posture
+
+Learning follows the same hardening as the rest of Ghostwire's transport — see [Security](/ghostwire/docs/security/) for the full picture. Specific to this feature:
+
+- A component's name is validated against `[a-z0-9.-]` (1–64 characters) before it's ever used to look up or store a tree, both in the browser and by `ghost:export`.
+- `ghost:export`'s destination is resolved canonically and refused outright if it would land outside `resources/views` — including through a symlinked parent directory.
+- The destination itself is refused if it's a symlink (live or dangling) or an existing directory, regardless of `--force`; overwriting an existing plain file it wrote before still requires `--force`.
+- The Blade partial `ghost:export` writes is fully static: every learned number is clamped and printed as a plain pixel value, and the bone type comes from a closed enum. No learned value is ever interpolated as markup, and nothing read back from the store can reach `eval` or `innerHTML`.
