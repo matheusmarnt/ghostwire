@@ -17,6 +17,8 @@ class LazyDeclaredPlaceholder extends Component
 
     public function render()
     {
+        usleep(1_200_000); // 1.2s — same DoD-gate observation window as LazyOrdersTable (review Finding 1)
+
         return view('ghostwire-fixtures::lazy-declared-placeholder');
     }
 }

@@ -52,12 +52,17 @@ Route::view('/legacy/legacy-widget-four', 'ghostwire-fixtures::page', ['componen
 Route::view('/legacy/legacy-widget-five', 'ghostwire-fixtures::page', ['component' => 'legacy-widget-five']);
 
 Route::view('/ghostwire-lazy-orders-table', 'ghostwire-fixtures::page', ['component' => 'lazy-orders-table']);
-Route::view('/ghostwire-lazy-declared-placeholder', 'ghostwire-fixtures::page', ['component' => 'lazy-declared-placeholder']);
 
 // M7 DoD gate (tests/Browser/Learning/LazySkeletonTest.php): learning is off by
-// default (config/ghostwire.php), so these two routes turn it on for just their
-// own request. Setting config inside the closure works because the component
+// default (config/ghostwire.php), so these routes turn it on for just their own
+// request. Setting config inside the closure works because the component
 // renders during the view render, after the closure body has already run.
+Route::get('/ghostwire-lazy-declared-placeholder', function () {
+    config(['ghostwire.learning.enabled' => true]);
+
+    return view('ghostwire-fixtures::page', ['component' => 'lazy-declared-placeholder']);
+});
+
 Route::get('/ghostwire-learn-demo', function () {
     config(['ghostwire.learning.enabled' => true]);
 

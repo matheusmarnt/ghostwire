@@ -14,7 +14,7 @@ class LazyOrdersTable extends Component
 
     public function render()
     {
-        usleep(600_000); // 600ms — a wide, deliberate window for the DoD gate to observe the skeleton
+        usleep(1_200_000); // 1.2s — widened per review Finding 4: 600ms left only ~200ms of margin around the gate's 0.4s check, the likeliest source of CI flake
 
         return view('ghostwire-fixtures::lazy-orders-table');
     }
