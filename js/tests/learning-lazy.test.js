@@ -186,23 +186,37 @@ describe('paintLazyPlaceholders (SPEC-LRN-02)', () => {
   // Finding 1: a pure "nothing painted" assertion can't tell "correctly
   // found nothing learned" apart from "the harness never ran at all" (e.g.
   // detectBridge() failing to recognise fakeLivewire() and boot() returning
-  // early). Asserting the precondition through the same store-reading code
-  // paintLazyPlaceholders itself uses pins down which of those it actually
-  // was, so a broken precondition fails loudly at that line instead of
-  // reading as a correct skip two lines later.
+  // early at js/src/index.js:69, before paintLazyPlaceholders() ever runs).
+  // The preconditions above rule out "the seed silently stored nothing", but
+  // an absence-only postcondition still can't rule out "nothing ran at all"
+  // — a no-op boot() produces the exact same absence as a correct skip. Each
+  // of the three tests below also seeds and asserts a sibling placeholder
+  // ("control-painted") whose learned data IS valid for the current band, so
+  // presence is proven in the same boot() call: the subject's absence means
+  // something specific only because the control's presence shows
+  // paintLazyPlaceholders() genuinely executed.
   it('leaves a placeholder unpainted when nothing has been learned for it', () => {
     const storage = fakeStorage();
+    const store = createLearningStore({ storage });
     const band = bandFor(window.innerWidth);
-    expect(createLearningStore({ storage }).get('never-learned', band)).toBeNull(); // precondition: genuinely nothing learned for this key
+    expect(store.get('never-learned', band)).toBeNull(); // precondition: genuinely nothing learned for this key
+
+    store.put('control-painted', 1, band, { width: 120, height: 60 }, [
+      { type: 'text', x: 0, y: 0, width: 50, height: 12 },
+    ]);
 
     window.Livewire = fakeLivewire();
     vi.stubGlobal('localStorage', storage);
     const placeholder = document.createElement('div');
     placeholder.setAttribute('data-ghost-lazy', 'never-learned');
     document.body.appendChild(placeholder);
+    const control = document.createElement('div');
+    control.setAttribute('data-ghost-lazy', 'control-painted');
+    document.body.appendChild(control);
 
     boot();
 
+    expect(control.classList.contains('gw-lazy')).toBe(true); // positive control: proves paintLazyPlaceholders() really ran this boot()
     expect(placeholder.classList.contains('gw-lazy')).toBe(false);
     expect(placeholder.querySelectorAll('.gw-bone')).toHaveLength(0);
     expect(placeholder.dataset.ghostLazyPainted).toBeUndefined();
@@ -217,27 +231,45 @@ describe('paintLazyPlaceholders (SPEC-LRN-02)', () => {
     expect(store.get('orders-table', 'xl')).not.toBeNull(); // precondition: the seed actually landed, at band 'xl'
 
     window.innerWidth = 320; // band 'xs' — the only stored entry is band 'xl'
+    store.put('control-painted', 2, 'xs', { width: 150, height: 80 }, [
+      { type: 'text', x: 0, y: 0, width: 60, height: 10 },
+    ]); // valid at the band that will actually be current during boot()
+
     window.Livewire = fakeLivewire();
     vi.stubGlobal('localStorage', storage);
     const placeholder = document.createElement('div');
     placeholder.setAttribute('data-ghost-lazy', 'orders-table');
     document.body.appendChild(placeholder);
+    const control = document.createElement('div');
+    control.setAttribute('data-ghost-lazy', 'control-painted');
+    document.body.appendChild(control);
 
     boot();
 
+    expect(control.classList.contains('gw-lazy')).toBe(true); // positive control: proves paintLazyPlaceholders() really ran this boot()
     expect(placeholder.classList.contains('gw-lazy')).toBe(false);
   });
 
   it('ignores a data-ghost-lazy value that fails the component-name charset, without throwing (SPEC-SEC-04)', () => {
     expect(NAME_PATTERN.test('<script>alert(1)</script>')).toBe(false); // precondition: this value genuinely fails the charset, not just "happens not to be learned"
 
+    const storage = fakeStorage();
+    const band = bandFor(window.innerWidth);
+    createLearningStore({ storage }).put('control-painted', 3, band, { width: 120, height: 60 }, [
+      { type: 'text', x: 0, y: 0, width: 50, height: 12 },
+    ]);
+
     window.Livewire = fakeLivewire();
-    vi.stubGlobal('localStorage', fakeStorage());
+    vi.stubGlobal('localStorage', storage);
     const placeholder = document.createElement('div');
     placeholder.setAttribute('data-ghost-lazy', '<script>alert(1)</script>');
     document.body.appendChild(placeholder);
+    const control = document.createElement('div');
+    control.setAttribute('data-ghost-lazy', 'control-painted');
+    document.body.appendChild(control);
 
     expect(() => boot()).not.toThrow();
+    expect(control.classList.contains('gw-lazy')).toBe(true); // positive control: proves paintLazyPlaceholders() really ran this boot()
     expect(placeholder.classList.contains('gw-lazy')).toBe(false);
     expect(placeholder.querySelector('script')).toBeNull();
   });
