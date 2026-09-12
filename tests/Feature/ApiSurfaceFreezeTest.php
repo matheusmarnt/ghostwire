@@ -37,7 +37,7 @@ it('freezes config/ghostwire.php\'s public key set', function () {
         ->and(array_keys($config['timing']))->toBe(['delay', 'hold', 'timeout'])
         ->and(array_keys($config['silence']))->toBe(['poll', 'sync'])
         ->and(array_keys($config['synthesis']))->toBe(['max_depth', 'max_bones', 'repeat_sample_size'])
-        ->and(array_keys($config['learning']))->toBe(['enabled', 'store', 'quota_kb']);
+        ->and(array_keys($config['learning']))->toBe(['enabled', 'store']);
 });
 
 it('freezes the CSS custom-property token set', function () {

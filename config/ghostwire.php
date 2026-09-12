@@ -29,6 +29,5 @@ return [
     'learning' => [
         'enabled' => env('GHOSTWIRE_LEARNING', false),
         'store' => 'local',
-        'quota_kb' => 256,
     ],
 ];
