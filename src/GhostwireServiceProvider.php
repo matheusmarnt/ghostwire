@@ -26,7 +26,15 @@ class GhostwireServiceProvider extends ServiceProvider
         // (LivewireServiceProvider.php:217). A componentHook() call made from our own
         // boot() is silently dropped whenever Livewire's provider boots first, which
         // package auto-discovery order does not guarantee.
-        Livewire::componentHook(GhostComponentHook::class);
+        //
+        // `enabled` is a real kill switch (not a fourth spelling of mode: off):
+        // false means the hook is never registered, so no component ever pays the
+        // reflection or the root-HTML re-parse. mergeConfigFrom() above has already
+        // run, so config() is readable here. Read once at boot — with a cached
+        // config, changing GHOSTWIRE_ENABLED needs `php artisan config:clear`.
+        if (config('ghostwire.enabled', true)) {
+            Livewire::componentHook(GhostComponentHook::class);
+        }
     }
 
     public function boot(): void
@@ -53,13 +61,13 @@ class GhostwireServiceProvider extends ServiceProvider
         Blade::directive('ghostwireStyles', function ($expression) {
             $nonceExpr = trim($expression) !== '' ? $expression : 'null';
 
-            return '<?php $__ghostwireNonce = '.$nonceExpr.'; echo \'<link rel="stylesheet" href="\'.asset(\'vendor/ghostwire/ghostwire.css\').\'"\'.($__ghostwireNonce !== null ? \' nonce="\'.e($__ghostwireNonce).\'"\' : \'\').\'>\'; ?>';
+            return '<?php if (config(\'ghostwire.enabled\', true)) { $__ghostwireNonce = '.$nonceExpr.'; echo \'<link rel="stylesheet" href="\'.asset(\'vendor/ghostwire/ghostwire.css\').\'"\'.($__ghostwireNonce !== null ? \' nonce="\'.e($__ghostwireNonce).\'"\' : \'\').\'>\'; } ?>';
         });
 
         Blade::directive('ghostwireScripts', function ($expression) {
             $nonceExpr = trim($expression) !== '' ? $expression : 'null';
 
-            return '<?php $__ghostwireNonce = '.$nonceExpr.'; echo \'<script src="\'.asset(\'vendor/ghostwire/ghostwire.js\').\'"\'.($__ghostwireNonce !== null ? \' nonce="\'.e($__ghostwireNonce).\'"\' : \'\').\' defer></script>\'; ?>';
+            return '<?php if (config(\'ghostwire.enabled\', true)) { $__ghostwireNonce = '.$nonceExpr.'; echo \'<script src="\'.asset(\'vendor/ghostwire/ghostwire.js\').\'"\'.($__ghostwireNonce !== null ? \' nonce="\'.e($__ghostwireNonce).\'"\' : \'\').\' defer></script>\'; } ?>';
         });
 
         if ($this->app->runningInConsole()) {
@@ -100,6 +108,10 @@ class GhostwireServiceProvider extends ServiceProvider
 
     private function shouldTagLazyPlaceholder(object $component): bool
     {
+        if (! config('ghostwire.enabled', true)) {
+            return false;
+        }
+
         if (! app(ConfigResolver::class)->resolve(get_class($component))['lazy']) {
             return false;
         }

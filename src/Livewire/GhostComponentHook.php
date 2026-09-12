@@ -56,6 +56,13 @@ class GhostComponentHook extends ComponentHook
     public function render($view, $data)
     {
         return function ($html, $replaceHtml) {
+            // Second gate, deliberately redundant with the provider's registration
+            // guard: config can change after boot (tests, runtime toggles), and a
+            // registered hook must still emit nothing when the package is off.
+            if (! config('ghostwire.enabled', true)) {
+                return;
+            }
+
             // $this->component is set by ComponentHookRegistry::initializeHook()
             // (vendor/livewire/livewire/src/ComponentHookRegistry.php) to the
             // concrete Livewire component instance this hook run is scoped
