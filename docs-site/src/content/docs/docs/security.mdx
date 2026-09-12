@@ -18,7 +18,7 @@ Livewire 4 offers a CSP-safe Alpine build, but it's opt-in: set `'csp_safe' => t
 
 ## Data-surface hardening
 
-- **Server→client transport** — the `data-ghost` payload (compact keys `m`/`o`/`x`/`d`/`h`/`r`/`p`/`s`/`l`) is schema-validated on the client: an unknown key discards the *whole* payload rather than partially trusting it, and a malformed value falls back to the package default for that field, never to an unvalidated pass-through
+- **Server→client transport** — the `data-ghost` payload (compact keys `m`/`o`/`x`/`d`/`h`/`r`/`p`/`s`/`l`/`g`/`n`) is schema-validated on the client: an unknown key discards the *whole* payload rather than partially trusting it, and a malformed value falls back to the package default for that field, never to an unvalidated pass-through
 - **Learning store** — validated on every read, capped at a fixed 256 KB with least-recently-used eviction, and holds structural bone-tree shape only — never textual DOM content
 - **`ghost:export`** — path-traversal-hardened: component names are charset-validated, the destination is resolved canonically and refused outside `resources/views`, and a symlinked or directory target is refused regardless of `--force`. See [Learning](/ghostwire/docs/learning/) for the full flow.
 

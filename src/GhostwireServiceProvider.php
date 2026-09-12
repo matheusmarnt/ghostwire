@@ -6,6 +6,7 @@ use Ghostwire\Commands\ExportCommand;
 use Ghostwire\Commands\InspectCommand;
 use Ghostwire\Livewire\GhostComponentHook;
 use Ghostwire\Support\ConfigResolver;
+use Ghostwire\Support\LearnedTree;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Drawer\Utils;
@@ -116,6 +117,6 @@ class GhostwireServiceProvider extends ServiceProvider
             return false;
         }
 
-        return (bool) preg_match('/^[a-z0-9\-.]{1,64}$/', (string) $component->getName());
+        return (bool) preg_match(LearnedTree::NAME_PATTERN, (string) $component->getName());
     }
 }

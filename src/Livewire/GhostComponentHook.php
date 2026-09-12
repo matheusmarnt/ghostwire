@@ -3,6 +3,7 @@
 namespace Ghostwire\Livewire;
 
 use Ghostwire\Support\ConfigResolver;
+use Ghostwire\Support\LearnedTree;
 use Livewire\ComponentHook;
 use Livewire\Drawer\Utils;
 
@@ -168,6 +169,6 @@ class GhostComponentHook extends ComponentHook
             return false;
         }
 
-        return (bool) preg_match('/^[a-z0-9\-.]{1,64}$/', (string) $this->component->getName());
+        return (bool) preg_match(LearnedTree::NAME_PATTERN, (string) $this->component->getName());
     }
 }

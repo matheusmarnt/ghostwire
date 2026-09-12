@@ -65,7 +65,15 @@ it('falls all the way through to package defaults when nothing declares anything
         ->and($resolved['rows'])->toBeNull()
         ->and($resolved['poll'])->toBe(! config('ghostwire.silence.poll'))
         ->and($resolved['sync'])->toBe(! config('ghostwire.silence.sync'))
-        ->and($resolved['lazy'])->toBe(config('ghostwire.learning.enabled'));
+        ->and($resolved['lazy'])->toBeFalse(); // F1: package default is hardcoded false, independent of learning.enabled
+});
+
+it('keeps the lazy package default false even when learning.enabled is on, so #[Ghost(lazy: true)] stays the sole opt-in (F1)', function () {
+    config(['ghostwire.learning.enabled' => true]);
+
+    $resolved = (new ConfigResolver)->resolve(GhostBaseComponent::class);
+
+    expect($resolved['lazy'])->toBeFalse();
 });
 
 it('inherits a base class attribute field by field (SPEC-API-11)', function () {
@@ -133,6 +141,6 @@ it('exposes the package defaults for the fields that have one, matching resolve(
         'hold' => config('ghostwire.timing.hold'),
         'poll' => ! config('ghostwire.silence.poll'),
         'sync' => ! config('ghostwire.silence.sync'),
-        'lazy' => config('ghostwire.learning.enabled'),
+        'lazy' => false,
     ]);
 });
