@@ -21,6 +21,9 @@ final class ConfigResolver
     /** @var array<class-string, array<string, mixed>> */
     private array $classChainCache = [];
 
+    /** @var array<class-string, bool> */
+    private array $hasDeclarationCache = [];
+
     /**
      * @return array{mode: string, only: ?array, except: ?array, delay: int, hold: int, rows: ?int, poll: bool, sync: bool, lazy: bool}
      */
@@ -115,6 +118,36 @@ final class ConfigResolver
         }
 
         return $overrides;
+    }
+
+    /**
+     * FR-04 / SPEC-API-12: is this component opted in at all? True when #[Ghost]
+     * is declared anywhere reachable from the class — on the class itself, on any
+     * ancestor, on any trait used anywhere in the chain, or on any public method.
+     *
+     * Deliberately cheaper than resolve(): it short-circuits on the first
+     * declaration found and merges nothing. GhostComponentHook calls it BEFORE
+     * resolve()/methodOverrides(), so a non-opted-in component pays one cached
+     * lookup per class instead of a full per-render reflection sweep of every
+     * public method (PR-7).
+     */
+    public function hasDeclaration(string $componentClass): bool
+    {
+        if (isset($this->hasDeclarationCache[$componentClass])) {
+            return $this->hasDeclarationCache[$componentClass];
+        }
+
+        if ($this->classChain($componentClass) !== []) {
+            return $this->hasDeclarationCache[$componentClass] = true;
+        }
+
+        foreach ((new ReflectionClass($componentClass))->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
+            if ($this->declaredArgsForMethod($componentClass, $method->getName()) !== []) {
+                return $this->hasDeclarationCache[$componentClass] = true;
+            }
+        }
+
+        return $this->hasDeclarationCache[$componentClass] = false;
     }
 
     /** @param array<int, array<string, mixed>> $levels */

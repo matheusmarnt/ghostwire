@@ -64,6 +64,14 @@ Route::get('/ghostwire-lazy-declared-placeholder', function () {
 Route::get('/ghostwire-learn-demo', function () {
     config(['ghostwire.learning.enabled' => true]);
 
+    // Task 2 (FR-04): demo-table carries no #[Ghost] anywhere, so under the
+    // default 'opt-in' strategy GhostComponentHook would gate off the whole
+    // data-ghost transport — including the 'g'/'n' learning keys this route
+    // exists to exercise (SPEC-LRN-01). Forced global for this route only,
+    // same reasoning as the learning.enabled override above: this test is
+    // about the learning subsystem, not about FR-04 activation itself.
+    config(['ghostwire.strategy' => 'global']);
+
     return view('ghostwire-fixtures::page', ['component' => 'demo-table']);
 });
 

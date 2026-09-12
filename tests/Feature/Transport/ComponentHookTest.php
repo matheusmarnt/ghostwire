@@ -9,6 +9,10 @@ it('injects a data-ghost attribute on the component root element (SPEC-API-31, p
     // env flag leaking in and adding g/n). Pinned off, matching LearningTransportTest.php's
     // established shape, so this stays the generic-transport baseline it's named for.
     config(['ghostwire.learning.enabled' => false]);
+    // Task 2 (FR-04): this test is about the payload's shape, not activation —
+    // the bare probe fixture carries no #[Ghost], so it needs 'global' to emit
+    // data-ghost at all under the opt-in default.
+    config(['ghostwire.strategy' => 'global']);
 
     $html = Livewire::test(GhostAttributeProbe::class)->html();
 
