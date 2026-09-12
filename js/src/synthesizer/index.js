@@ -6,7 +6,7 @@ import { createSignatureCache } from './signature.js';
 const LONG_SYNTHESIS_THRESHOLD_MS = 50; // SPEC-PERF-07: a synthesis that takes this long, twice in a row, is treated as structurally too expensive to repeat, and freezes instead
 const SLOW_STREAK_LIMIT = 2; // SPEC-PERF-07: two consecutive slow syntheses, not one — a lone sample can be dominated by GC/engine jitter rather than being genuinely structural (see ComplexityTest.php's own median-of-7 rationale)
 
-export function createSynthesizer(registry, defaults = { maxDepth: 12, repeatSampleSize: 3 }, onResize, now = () => performance.now()) {
+export function createSynthesizer(registry, defaults = { maxDepth: 12, repeatSampleSize: 3 }, onResize, now = () => performance.now(), onSynthesized) {
   const cache = createSignatureCache();
   const slowStreak = new WeakMap(); // host -> consecutive slow-synthesis count; SPEC-PERF-07 adaptive freeze trigger
 
@@ -26,8 +26,14 @@ export function createSynthesizer(registry, defaults = { maxDepth: 12, repeatSam
     const measured = measure(host, candidates);
     const boneTree = emit(host, measured, host.config.rows);
 
-    if (boneTree) cache.set(host, signature, boneTree, () => onResize?.(host));
-    else cache.invalidate(host);
+    if (boneTree) {
+      cache.set(host, signature, boneTree, () => onResize?.(host));
+      // SPEC-LRN-01: the single point at which a fresh Bone Tree exists. The cached
+      // path above returns early, so an unchanged tree is never re-persisted.
+      onSynthesized?.(host, signature, boneTree, measured.hostRect);
+    } else {
+      cache.invalidate(host);
+    }
 
     recordDuration(host, now() - startedAt);
     return boneTree;

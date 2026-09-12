@@ -21,6 +21,7 @@ Adicione `wire:ghost` a qualquer elemento (ou `#[Ghost]` a uma classe de compone
 - **Acessibilidade** — `aria-busy`, preservação de foco durante toda a janela do ghost, uma live region compartilhada anunciando o estado de carregamento/ocioso; limpo no axe-core no nível mais rigoroso
 - **Seguro para CSP** — funciona sob uma Content-Security-Policy estrita (sem scripts inline, sem `eval`); suporte a nonce de stylesheet embutido
 - **`php artisan ghost:inspect`** — veja exatamente qual nível de precedência decidiu a configuração de cada componente
+- **Aprendizado** — lembra o esqueleto sintetizado de um componente localmente (opt-in, recusado em produção), para que o primeiro paint lazy de um componente em uma visita posterior já tenha um placeholder correspondente — exporte-o com `php artisan ghost:export` como um `@placeholder` Blade estático
 
 ## Requisitos e compatibilidade
 
@@ -56,12 +57,36 @@ composer require matheusmarnt/ghostwire
 
 Veja [`/docs/install`](https://matheusmarnt.github.io/ghostwire/docs/install/) para o passo a passo completo do primeiro efeito, e [`/playground`](https://matheusmarnt.github.io/ghostwire/playground/) para testar a síntese no seu próprio markup sem instalar nada.
 
+## Aprendizado
+
+O Ghostwire pode lembrar o esqueleto sintetizado de um componente localmente no navegador e reutilizá-lo na próxima vez que esse componente estiver prestes a carregar de forma lazy — assim, o primeiro lazy paint de uma visita posterior já tem um esqueleto correspondente, em vez de um placeholder em branco. Desativado por padrão, e recusado no lado do servidor em produção independentemente da config.
+
+```bash
+GHOSTWIRE_LEARNING=true
+```
+
+```php
+#[Ghost(lazy: true)]
+class OrdersTable extends Component
+{
+    // ...
+}
+```
+
+```
+Ghostwire.exportLearned()      // no navegador: baixa ghostwire-learned.json
+php artisan ghost:export --component=orders-table --breakpoint=lg --from=~/Downloads/ghostwire-learned.json
+```
+
+Passo a passo completo, detalhes de armazenamento/privacidade, e a postura de segurança do comando de exportação: [`/docs/learning`](https://matheusmarnt.github.io/ghostwire/docs/learning/).
+
 ## Documentação
 
 Documentação completa, playground ao vivo e galeria: **<https://matheusmarnt.github.io/ghostwire/>**
 
 - [`/docs/wire-ghost`](https://matheusmarnt.github.io/ghostwire/docs/wire-ghost/) — diretiva e modificadores
 - [`/docs/ghost-attribute`](https://matheusmarnt.github.io/ghostwire/docs/ghost-attribute/) — atributo `#[Ghost]` e precedência
+- [`/docs/learning`](https://matheusmarnt.github.io/ghostwire/docs/learning/) — persistência local, esqueletos lazy, `ghost:export`
 - [`/docs/choosing`](https://matheusmarnt.github.io/ghostwire/docs/choosing/) — diretiva vs. atributo
 - [`/docs/compat`](https://matheusmarnt.github.io/ghostwire/docs/compat/) — matriz de tiers do Livewire 3/4
 - [`/docs/theming`](https://matheusmarnt.github.io/ghostwire/docs/theming/) — tokens, dark mode, animação

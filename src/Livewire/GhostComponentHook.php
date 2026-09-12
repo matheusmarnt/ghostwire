@@ -3,6 +3,7 @@
 namespace Ghostwire\Livewire;
 
 use Ghostwire\Support\ConfigResolver;
+use Ghostwire\Support\LearnedTree;
 use Livewire\ComponentHook;
 use Livewire\Drawer\Utils;
 
@@ -76,6 +77,11 @@ class GhostComponentHook extends ComponentHook
                 $payload['a'] = $methodOverrides;
             }
 
+            if ($this->learningEnabled()) {
+                $payload['g'] = true;
+                $payload['n'] = $this->component->getName();
+            }
+
             $replaceHtml(Utils::insertAttributesIntoHtmlRoot($html, [
                 'data-ghost' => $payload,
             ]));
@@ -141,5 +147,28 @@ class GhostComponentHook extends ComponentHook
         }
 
         return $compact;
+    }
+
+    /**
+     * SPEC-LRN-04: collection is opt-in and restricted to non-production
+     * environments. Both gates are evaluated server-side, so a client can never
+     * turn learning on for itself by editing the attribute — the runtime's own
+     * closed schema rejects anything the server did not send.
+     */
+    private function learningEnabled(): bool
+    {
+        if (! config('ghostwire.learning.enabled', false)) {
+            return false;
+        }
+
+        if (config('ghostwire.learning.store', 'local') !== 'local') {
+            return false;
+        }
+
+        if (app()->isProduction()) {
+            return false;
+        }
+
+        return (bool) preg_match(LearnedTree::NAME_PATTERN, (string) $this->component->getName());
     }
 }

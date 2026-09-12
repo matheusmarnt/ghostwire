@@ -71,9 +71,18 @@ export function createRenderer() {
     applyLayerRect(host, measureHostRect(host));
   }
 
-  function renderBones(host, boneTree) {
-    if (!host.layer) return;
-    host.layer.textContent = '';
+  // SPEC-SEC-04: the only path that turns a Bone Tree into DOM, for both the
+  // Ghost Layer (renderBones, live-synthesized) and a lazy placeholder root
+  // (js/src/index.js's paintLazyPlaceholders, painted from persisted data).
+  // Every write is createElement + a numeric style property — bone.type is
+  // drawn from the store's closed BONE_TYPES whitelist and every geometry
+  // value is a clamped number by the time it reaches here, so this can never
+  // become an HTML or selector sink regardless of which caller fed it.
+  function paintBones(container, boneTree) {
+    if (!container) return;
+
+    container.textContent = '';
+
     for (const bone of boneTree) {
       const el = document.createElement('div');
       el.className = `gw-bone gw-bone--${bone.type}`;
@@ -81,8 +90,12 @@ export function createRenderer() {
       el.style.top = `${bone.y}px`;
       el.style.width = `${bone.width}px`;
       el.style.height = `${bone.height}px`;
-      host.layer.appendChild(el);
+      container.appendChild(el);
     }
+  }
+
+  function renderBones(host, boneTree) {
+    paintBones(host.layer, boneTree);
   }
 
   function removeLayer(host) {
@@ -161,5 +174,5 @@ export function createRenderer() {
     }
   }
 
-  return { mountLayer, repositionLayer, measureHostRect, applyLayerRect, renderBones, removeLayer, freeze, unfreeze, markBusy, clearBusy, captureFocus, restoreFocus };
+  return { mountLayer, repositionLayer, measureHostRect, applyLayerRect, renderBones, paintBones, removeLayer, freeze, unfreeze, markBusy, clearBusy, captureFocus, restoreFocus };
 }

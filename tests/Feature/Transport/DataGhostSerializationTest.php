@@ -37,7 +37,12 @@ class MethodOverrideProbeComponent extends Component
     }
 }
 
+// F10 (fix round 2): none of this file's tests mention learning, so the whole file
+// silently broke under a whole-suite GHOSTWIRE_LEARNING=true run — only the exact-equality
+// assertion below was strict enough to notice, but every test here shares the same baseline
+// assumption. Pinned off in each, matching LearningTransportTest.php's established shape.
 it('serializes only non-default fields, plus mode always, as compact keys (SPEC-API-30)', function () {
+    config(['ghostwire.learning.enabled' => false]);
     Livewire::component('data-ghost-probe', DataGhostProbeComponent::class);
 
     $html = Livewire::test(DataGhostProbeComponent::class)->html();
@@ -51,6 +56,7 @@ it('serializes only non-default fields, plus mode always, as compact keys (SPEC-
 });
 
 it('never emits raw, unescaped quotes around the JSON payload (SPEC-SEC-01)', function () {
+    config(['ghostwire.learning.enabled' => false]);
     Livewire::component('data-ghost-probe', DataGhostProbeComponent::class);
 
     $html = Livewire::test(DataGhostProbeComponent::class)->html();
@@ -59,6 +65,7 @@ it('never emits raw, unescaped quotes around the JSON payload (SPEC-SEC-01)', fu
 });
 
 it('does not omit a field from data-ghost when it only matches config() overrides, not the literal package default (config-drift fix)', function () {
+    config(['ghostwire.learning.enabled' => false]);
     config()->set('ghostwire.timing.delay', 500);
     Livewire::component('config-drift-probe', ConfigDriftProbeComponent::class);
 
@@ -68,6 +75,7 @@ it('does not omit a field from data-ghost when it only matches config() override
 });
 
 it('carries a method-level #[Ghost] override in an "a" key, keyed by action name, compact-encoded (SPEC-API-10 runtime transport, #9)', function () {
+    config(['ghostwire.learning.enabled' => false]);
     Livewire::component('method-override-probe', MethodOverrideProbeComponent::class);
 
     $html = Livewire::test(MethodOverrideProbeComponent::class)->html();
@@ -86,6 +94,7 @@ it('carries a method-level #[Ghost] override in an "a" key, keyed by action name
 });
 
 it('omits the "a" key entirely when no action method declares its own #[Ghost] (regression, #9)', function () {
+    config(['ghostwire.learning.enabled' => false]);
     Livewire::component('data-ghost-probe-no-methods', DataGhostProbeComponent::class);
 
     $html = Livewire::test(DataGhostProbeComponent::class)->html();

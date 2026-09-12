@@ -11,6 +11,8 @@ use Ghostwire\Tests\Browser\Fixtures\Gallery\PaginatedTable;
 use Ghostwire\Tests\Browser\Fixtures\Gallery\RepeatList;
 use Ghostwire\Tests\Browser\Fixtures\Gallery\ScrollableKanban;
 use Ghostwire\Tests\Browser\Fixtures\GhostAttributeProbe;
+use Ghostwire\Tests\Browser\Fixtures\LazyDeclaredPlaceholder;
+use Ghostwire\Tests\Browser\Fixtures\LazyOrdersTable;
 use Ghostwire\Tests\Browser\Fixtures\Legacy\LegacyWidgetFive;
 use Ghostwire\Tests\Browser\Fixtures\Legacy\LegacyWidgetFour;
 use Ghostwire\Tests\Browser\Fixtures\Legacy\LegacyWidgetOne;
@@ -44,6 +46,8 @@ class TestCase extends Orchestra
         Livewire::component('legacy-widget-three', LegacyWidgetThree::class);
         Livewire::component('legacy-widget-four', LegacyWidgetFour::class);
         Livewire::component('legacy-widget-five', LegacyWidgetFive::class);
+        Livewire::component('lazy-orders-table', LazyOrdersTable::class);
+        Livewire::component('lazy-declared-placeholder', LazyDeclaredPlaceholder::class);
     }
 
     protected function defineRoutes($router): void

@@ -1,4 +1,4 @@
-const KEY_MAP = { m: 'mode', o: 'only', x: 'except', d: 'delay', h: 'hold', r: 'rows', p: 'poll', s: 'sync', l: 'lazy' };
+const KEY_MAP = { m: 'mode', o: 'only', x: 'except', d: 'delay', h: 'hold', r: 'rows', p: 'poll', s: 'sync', l: 'lazy', g: 'learning', n: 'name' };
 // 'a' (per-action method-level overrides, SPEC-API-10) is a top-level key
 // but not a compact-config field itself — it carries its own nested schema,
 // validated separately below. It must still be a recognized top-level key
@@ -8,6 +8,7 @@ const KEY_MAP = { m: 'mode', o: 'only', x: 'except', d: 'delay', h: 'hold', r: '
 const KNOWN_COMPACT_KEYS = new Set([...Object.keys(KEY_MAP), 'a']);
 const METHOD_OVERRIDE_KEYS = new Set(['m', 'd', 'h', 'r', 'p', 's', 'l']);
 const ACTION_NAME_PATTERN = /^[A-Za-z0-9_]{1,64}$/;
+const COMPONENT_NAME_PATTERN = /^[a-z0-9\-.]{1,64}$/;
 
 // Mirrors src/Support/ConfigResolver.php's literalDefaults() exactly — these
 // are fixed literals, not config()-driven values. GhostComponentHook's
@@ -15,7 +16,7 @@ const ACTION_NAME_PATTERN = /^[A-Za-z0-9_]{1,64}$/;
 // literalDefaults(), specifically so the browser's fallback here is always
 // correct even when a deployment customizes config/ghostwire.php. If either
 // side's numbers change, update the other too.
-const DEFAULTS = { mode: 'synthesize', only: null, except: null, delay: 120, hold: 300, rows: null, poll: false, sync: false, lazy: false };
+const DEFAULTS = { mode: 'synthesize', only: null, except: null, delay: 120, hold: 300, rows: null, poll: false, sync: false, lazy: false, learning: false, name: null };
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -105,6 +106,16 @@ export function parseAttributeConfig(el) {
     const sanitized = sanitizeActionList(parsed.x);
     if (sanitized === undefined) { warn('data-ghost "x" is not an array — whole payload discarded (SPEC-SEC-02)'); return null; }
     config.except = sanitized;
+  }
+
+  if ('g' in parsed) {
+    if (typeof parsed.g !== 'boolean') { warn('data-ghost "g" is not a boolean — whole payload discarded (SPEC-SEC-02)'); return null; }
+    config.learning = parsed.g;
+  }
+
+  if ('n' in parsed) {
+    if (typeof parsed.n !== 'string' || !COMPONENT_NAME_PATTERN.test(parsed.n)) { warn('data-ghost "n" is not a valid component name — whole payload discarded (SPEC-SEC-02)'); return null; }
+    config.name = parsed.n;
   }
 
   if ('a' in parsed) {

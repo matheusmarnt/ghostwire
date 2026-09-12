@@ -4,6 +4,8 @@ import { createScheduler } from './scheduler.js';
 import { createRenderer } from './renderer.js';
 import { createSynthesizer } from './synthesizer/index.js';
 import { parseAttributeConfig, resolveHostConfig } from './attributeConfig.js';
+import { createLearningStore, MAX_BONES } from './learning/store.js';
+import { bandFor } from './learning/bands.js';
 
 const TIMED_MODIFIER_PATTERN = /^(delay|hold)\.(\d+)ms$/;
 
@@ -68,19 +70,80 @@ export function boot() {
 
   const registry = createRegistry();
   const renderer = createRenderer();
-  const synthesizer = createSynthesizer(registry, undefined, (host) => {
-    if (host.state !== 'visible' || host.config.mode === 'freeze') return; // only re-render an already-showing, non-frozen skeleton
-    const boneTree = synthesizer.synthesize(host);
-    if (boneTree) {
-      renderer.renderBones(host, boneTree);
-    } else {
-      renderer.removeLayer(host);
-      host.el.classList.remove('gw-concealed');
-      renderer.restoreFocus(host); // SPEC-A11Y-03: leaving .gw-concealed here too (mid-cycle degrade to freeze)
-      renderer.freeze(host);
-      host.degraded = true;
+
+  // A storage object that throws on every call is handled inside the store; this
+  // only guards the property read itself, which throws outright in some
+  // embedded or blocked-cookie contexts.
+  let storage = null;
+  try {
+    storage = window.localStorage;
+  } catch {
+    storage = null;
+  }
+
+  const learningStore = createLearningStore({ storage, quotaBytes: 256 * 1024 });
+
+  const LAZY_NAME_PATTERN = /^[a-z0-9\-.]{1,64}$/;
+
+  // SPEC-LRN-02: paints a persisted skeleton into a lazy placeholder root
+  // BEFORE Livewire ever renders real content into it (Task 1's
+  // 'render.placeholder' listener is what tags the root with
+  // data-ghost-lazy in the first place — never present when the developer
+  // declared their own placeholder, SPEC-LRN-05). data-ghost-lazy-painted
+  // makes this idempotent per element, since it runs again on every morph
+  // (a lazy component can be inserted anywhere by another component's
+  // morph) and must not re-touch a root it already resolved.
+  function paintLazyPlaceholders() {
+    const band = bandFor(window.innerWidth);
+
+    for (const el of document.querySelectorAll('[data-ghost-lazy]')) {
+      if (el.dataset.ghostLazyPainted === '1') continue;
+
+      const name = el.getAttribute('data-ghost-lazy');
+      if (!LAZY_NAME_PATTERN.test(name || '')) continue;
+
+      const learned = learningStore.get(name, band);
+      if (!learned) continue; // nothing learned at this width yet: no skeleton, per SDD §15
+
+      el.classList.add('gw-lazy');
+      el.style.width = `${learned.width}px`;
+      el.style.height = `${learned.height}px`;
+      renderer.paintBones(el, learned.bones);
+      el.dataset.ghostLazyPainted = '1';
     }
-  });
+  }
+
+  const synthesizer = createSynthesizer(
+    registry,
+    undefined,
+    (host) => {
+      if (host.state !== 'visible' || host.config.mode === 'freeze') return; // only re-render an already-showing, non-frozen skeleton
+      const boneTree = synthesizer.synthesize(host);
+      if (boneTree) {
+        renderer.renderBones(host, boneTree);
+      } else {
+        renderer.removeLayer(host);
+        host.el.classList.remove('gw-concealed');
+        renderer.restoreFocus(host); // SPEC-A11Y-03: leaving .gw-concealed here too (mid-cycle degrade to freeze)
+        renderer.freeze(host);
+        host.degraded = true;
+      }
+    },
+    undefined,
+    (host, signature, boneTree, hostRect) => {
+      if (!host.config.learning || !host.config.name) return;
+
+      const persisted = learningStore.put(host.config.name, signature, bandFor(window.innerWidth), hostRect, boneTree);
+      // put() fails silently by design (Task 2, SPEC-SEC-04) on any validation
+      // path — the most likely one in practice is a component's real bone count
+      // exceeding MAX_BONES (emit.js fans out per text line and per repeated
+      // row, well past walk.js's MAX_CANDIDATES cap). A dev-only warning here
+      // costs nothing and is the only signal a developer would otherwise get.
+      if (!persisted && process.env.NODE_ENV !== 'production') {
+        console.warn(`[ghostwire] learning: could not persist "${host.config.name}" — ${boneTree.length} bones exceeds the ${MAX_BONES}-bone cap, or the storage quota was refused`);
+      }
+    },
+  );
   const scheduler = createScheduler({
     onShow(host) {
       renderer.markBusy(host); // SPEC-A11Y-01: busy regardless of render mode
@@ -106,6 +169,37 @@ export function boot() {
       renderer.restoreFocus(host); // SPEC-A11Y-03
     },
   });
+
+  window.Ghostwire = window.Ghostwire || {};
+
+  // SPEC-SEC-09 / FR-43: the only way learned data leaves the browser is this
+  // user-initiated file download. No network call exists anywhere in this path.
+  window.Ghostwire.exportLearned = function exportLearned() {
+    const json = JSON.stringify(learningStore.all(), null, 2);
+
+    try {
+      const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = 'ghostwire-learned.json';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      // Deferred: revoking synchronously right after click() aborts the
+      // download in some browsers, which start reading the blob URL
+      // asynchronously (Finding 5, FR-43's one real data-exit path).
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    } catch {
+      // Download unavailable (sandboxed frame, headless context). The caller
+      // still gets the JSON back, which is what the browser test relies on.
+    }
+
+    return json;
+  };
+
+  window.Ghostwire.clearLearned = function clearLearned() {
+    learningStore.clear();
+  };
 
   window.Livewire.directive('ghost', ({ el, directive, component, cleanup }) => {
     const directiveConfig = parseModifiers(directive.modifiers);
@@ -233,6 +327,7 @@ export function boot() {
         host.el.classList.add('gw-concealed');
       }
     }
+    paintLazyPlaceholders(); // a lazy component can be inserted by another component's morph
   });
 
   // SPEC-API-20/21/22: the bridges (js/src/bridge/v3.js, v4.js) now only
@@ -356,6 +451,8 @@ export function boot() {
       }
     },
   });
+
+  paintLazyPlaceholders();
 }
 
 // Per-message action-scoped override (SPEC-API-10 method-level #[Ghost]).

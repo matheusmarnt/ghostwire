@@ -17,12 +17,13 @@ describe('parseAttributeConfig', () => {
     expect(config).toEqual({
       mode: 'synthesize', only: null, except: null,
       delay: 120, hold: 300, rows: null, poll: false, sync: false, lazy: false,
+      learning: false, name: null,
     });
   });
 
   it('maps every compact key to its field name', () => {
-    const config = parseAttributeConfig(elWithDataGhost('{"m":"freeze","o":["a"],"d":200,"h":400,"r":5,"p":true,"s":true,"l":true}'));
-    expect(config).toMatchObject({ mode: 'freeze', only: ['a'], delay: 200, hold: 400, rows: 5, poll: true, sync: true, lazy: true });
+    const config = parseAttributeConfig(elWithDataGhost('{"m":"freeze","o":["a"],"d":200,"h":400,"r":5,"p":true,"s":true,"l":true,"g":true,"n":"orders-table"}'));
+    expect(config).toMatchObject({ mode: 'freeze', only: ['a'], delay: 200, hold: 400, rows: 5, poll: true, sync: true, lazy: true, learning: true, name: 'orders-table' });
   });
 
   it('discards the whole payload on invalid JSON (SPEC-SEC-02)', () => {

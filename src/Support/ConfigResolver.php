@@ -183,7 +183,12 @@ final class ConfigResolver
             // is "silence" (silence.poll: true = suppress by default). They are inverses.
             'poll' => ! config('ghostwire.silence.poll', true),
             'sync' => ! config('ghostwire.silence.sync', true),
-            'lazy' => (bool) config('ghostwire.learning.enabled', false),
+            // F1 (final review): this used to derive from learning.enabled, which made
+            // GHOSTWIRE_LEARNING=true opt every component in app-wide instead of leaving
+            // #[Ghost(lazy: true)] as the per-component switch the docs/CHANGELOG/tests
+            // promise. Hardcoded false — same as literalDefaults()'s 'lazy' below — so the
+            // attribute is the sole opt-in, in both learning states.
+            'lazy' => false,
         };
     }
 
