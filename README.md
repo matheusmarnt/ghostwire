@@ -33,7 +33,7 @@ Add `wire:ghost` to any element (or `#[Ghost]` to a component class, with zero v
 - **Accessibility** — `aria-busy`, focus preservation across the ghost window, a shared live region announcing loading/idle state; axe-core clean at the strictest level
 - **CSP-safe** — runs under a strict Content-Security-Policy (no inline scripts, no `eval`); stylesheet nonce support built in
 - **`php artisan ghost:inspect`** — see exactly which precedence level decided each component's configuration
-- **Learning** — remembers a component's synthesized skeleton locally (opt-in, dev-only) so a lazy-loaded component's first paint on a later visit already has a matching placeholder — export it with `php artisan ghost:export` as a static Blade `@placeholder`
+- **Learning** — remembers a component's synthesized skeleton locally (opt-in, refused in production) so a lazy-loaded component's first paint on a later visit already has a matching placeholder — export it with `php artisan ghost:export` as a static Blade `@placeholder`
 
 ## Requirements & compatibility
 
@@ -71,7 +71,7 @@ See [`/docs/install`](https://matheusmarnt.github.io/ghostwire/docs/install/) fo
 
 ## Learning
 
-Ghostwire can remember a component's synthesized skeleton locally in the browser and reuse it the next time that component is about to lazy-load — so even a fresh visit's first lazy paint already has a matching skeleton, not a blank placeholder. Off by default, and refused server-side in production regardless of config.
+Ghostwire can remember a component's synthesized skeleton locally in the browser and reuse it the next time that component is about to lazy-load — so a later visit's first lazy paint already has a matching skeleton, not a blank placeholder. Off by default, and refused server-side in production regardless of config.
 
 ```bash
 GHOSTWIRE_LEARNING=true

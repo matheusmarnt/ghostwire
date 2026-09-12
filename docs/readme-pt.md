@@ -21,7 +21,7 @@ Adicione `wire:ghost` a qualquer elemento (ou `#[Ghost]` a uma classe de compone
 - **Acessibilidade** — `aria-busy`, preservação de foco durante toda a janela do ghost, uma live region compartilhada anunciando o estado de carregamento/ocioso; limpo no axe-core no nível mais rigoroso
 - **Seguro para CSP** — funciona sob uma Content-Security-Policy estrita (sem scripts inline, sem `eval`); suporte a nonce de stylesheet embutido
 - **`php artisan ghost:inspect`** — veja exatamente qual nível de precedência decidiu a configuração de cada componente
-- **Aprendizado** — lembra o esqueleto sintetizado de um componente localmente (opt-in, apenas em desenvolvimento), para que o primeiro paint lazy de um componente em uma visita posterior já tenha um placeholder correspondente — exporte-o com `php artisan ghost:export` como um `@placeholder` Blade estático
+- **Aprendizado** — lembra o esqueleto sintetizado de um componente localmente (opt-in, recusado em produção), para que o primeiro paint lazy de um componente em uma visita posterior já tenha um placeholder correspondente — exporte-o com `php artisan ghost:export` como um `@placeholder` Blade estático
 
 ## Requisitos e compatibilidade
 
@@ -59,7 +59,7 @@ Veja [`/docs/install`](https://matheusmarnt.github.io/ghostwire/docs/install/) p
 
 ## Aprendizado
 
-O Ghostwire pode lembrar o esqueleto sintetizado de um componente localmente no navegador e reutilizá-lo na próxima vez que esse componente estiver prestes a carregar de forma lazy — assim, até o primeiro lazy paint de uma visita nova já tem um esqueleto correspondente, em vez de um placeholder em branco. Desativado por padrão, e recusado no lado do servidor em produção independentemente da config.
+O Ghostwire pode lembrar o esqueleto sintetizado de um componente localmente no navegador e reutilizá-lo na próxima vez que esse componente estiver prestes a carregar de forma lazy — assim, o primeiro lazy paint de uma visita posterior já tem um esqueleto correspondente, em vez de um placeholder em branco. Desativado por padrão, e recusado no lado do servidor em produção independentemente da config.
 
 ```bash
 GHOSTWIRE_LEARNING=true

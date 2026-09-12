@@ -21,7 +21,7 @@ Agrega `wire:ghost` a cualquier elemento (o `#[Ghost]` a una clase de componente
 - **Accesibilidad** — `aria-busy`, preservación del foco durante toda la ventana del ghost, una live region compartida que anuncia el estado de carga/inactivo; limpio en axe-core en el nivel más estricto
 - **Seguro para CSP** — funciona bajo una Content-Security-Policy estricta (sin scripts inline, sin `eval`); soporte de nonce de stylesheet incorporado
 - **`php artisan ghost:inspect`** — mira exactamente qué nivel de precedencia decidió la configuración de cada componente
-- **Aprendizaje** — recuerda el esqueleto sintetizado de un componente localmente (opt-in, solo en desarrollo), de modo que el primer paint lazy de un componente en una visita posterior ya tenga un placeholder correspondiente — expórtalo con `php artisan ghost:export` como un `@placeholder` Blade estático
+- **Aprendizaje** — recuerda el esqueleto sintetizado de un componente localmente (opt-in, rechazado en producción), de modo que el primer paint lazy de un componente en una visita posterior ya tenga un placeholder correspondiente — expórtalo con `php artisan ghost:export` como un `@placeholder` Blade estático
 
 ## Requisitos y compatibilidad
 
@@ -59,7 +59,7 @@ Consulta [`/docs/install`](https://matheusmarnt.github.io/ghostwire/docs/install
 
 ## Aprendizaje
 
-Ghostwire puede recordar el esqueleto sintetizado de un componente localmente en el navegador y reutilizarlo la próxima vez que ese componente esté a punto de cargarse de forma lazy — así, incluso el primer lazy paint de una visita nueva ya tiene un esqueleto correspondiente, en lugar de un placeholder en blanco. Desactivado por defecto, y rechazado en el servidor en producción sin importar la config.
+Ghostwire puede recordar el esqueleto sintetizado de un componente localmente en el navegador y reutilizarlo la próxima vez que ese componente esté a punto de cargarse de forma lazy — así, el primer lazy paint de una visita posterior ya tiene un esqueleto correspondiente, en lugar de un placeholder en blanco. Desactivado por defecto, y rechazado en el servidor en producción sin importar la config.
 
 ```bash
 GHOSTWIRE_LEARNING=true

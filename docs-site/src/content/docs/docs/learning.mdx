@@ -24,7 +24,7 @@ Whatever the flag says, Ghostwire also refuses to collect anything while `app()-
 
 ## What is stored, and where
 
-Learned trees live in `localStorage`, under the key `ghostwire.learned.v1` — one tree per component per [breakpoint band](#breakpoints). Each entry is the host's width/height plus a flat list of bones (`type`, `x`, `y`, `width`, `height`): geometry and a bone type from a fixed enum, never text, never DOM content, never anything else about the page.
+Learned trees live in `localStorage`, under the key `ghostwire.learned.v1` — one tree per component per [breakpoint band](#breakpoints). Each entry is the component's own name, a timestamp used for eviction, the host's width/height, and a flat list of bones (`type`, `x`, `y`, `width`, `height`): geometry and a bone type from a fixed enum, never text, never DOM content, nothing from the page's own data.
 
 Nothing here is ever sent anywhere — no network request exists on this path. The only way learned data leaves the browser is the user-initiated download described under Exporting, below. You can clear a browser's learned data at any time with `Ghostwire.clearLearned()`.
 
@@ -60,7 +60,7 @@ php artisan ghost:export --component=orders-table --breakpoint=lg \
     --from=~/Downloads/ghostwire-learned.json
 ```
 
-`ghost:export` re-validates the downloaded file independently of anything the browser already checked — by the time it reaches this command, it's a file that passed through a developer's download directory. It writes one static Blade partial per `--component`/`--breakpoint` pair under `resources/views` (`--output` to choose where; `--force` to overwrite one it already wrote) and prints the view name to use:
+`ghost:export` re-validates the downloaded file independently of anything the browser already checked — by the time it reaches this command, it's a file that passed through a developer's download directory. It writes one static Blade partial per `--component`/`--breakpoint` pair under `resources/views` (`--output` to choose where; `--force` to overwrite an existing file at that destination) and prints the view name to use:
 
 ```php
 public function placeholder()
@@ -71,7 +71,7 @@ public function placeholder()
 
 ## Breakpoints
 
-A learned tree is keyed to one of six width bands, matching the component's width at the moment it was learned:
+A learned tree is keyed to one of six width bands, matching the viewport's width at the moment it was learned:
 
 | Band | Minimum width |
 |---|---|
@@ -90,5 +90,5 @@ Learning follows the same hardening as the rest of Ghostwire's transport — see
 
 - A component's name is validated against `[a-z0-9.-]` (1–64 characters) before it's ever used to look up or store a tree, both in the browser and by `ghost:export`.
 - `ghost:export`'s destination is resolved canonically and refused outright if it would land outside `resources/views` — including through a symlinked parent directory.
-- The destination itself is refused if it's a symlink (live or dangling) or an existing directory, regardless of `--force`; overwriting an existing plain file it wrote before still requires `--force`.
+- The destination itself is refused if it's a symlink (live or dangling) or an existing directory, regardless of `--force`; overwriting any other existing file at that destination still requires `--force`.
 - The Blade partial `ghost:export` writes is fully static: every learned number is clamped and printed as a plain pixel value, and the bone type comes from a closed enum. No learned value is ever interpolated as markup, and nothing read back from the store can reach `eval` or `innerHTML`.
