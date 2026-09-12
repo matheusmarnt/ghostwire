@@ -104,7 +104,15 @@ export function boot() {
       if (!LAZY_NAME_PATTERN.test(name || '')) continue;
 
       const learned = learningStore.get(name, band);
-      if (!learned) continue; // nothing learned at this width yet: no skeleton, per SDD §15
+      if (!learned) {
+        // Nothing learned at this width yet (SDD §15: no skeleton, not an error).
+        // Mark it resolved anyway: this function runs on EVERY morph, and without
+        // this the miss path repeats getItem + JSON.parse + full envelope
+        // re-validation for the lifetime of the page — the common case in
+        // production, where collection never runs.
+        el.dataset.ghostLazyPainted = '1';
+        continue;
+      }
 
       el.classList.add('gw-lazy');
       el.style.width = `${learned.width}px`;

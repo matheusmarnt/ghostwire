@@ -219,7 +219,9 @@ describe('paintLazyPlaceholders (SPEC-LRN-02)', () => {
     expect(control.classList.contains('gw-lazy')).toBe(true); // positive control: proves paintLazyPlaceholders() really ran this boot()
     expect(placeholder.classList.contains('gw-lazy')).toBe(false);
     expect(placeholder.querySelectorAll('.gw-bone')).toHaveLength(0);
-    expect(placeholder.dataset.ghostLazyPainted).toBeUndefined();
+    // Task 5: a miss is marked resolved too (not just a successful paint), so
+    // the miss path isn't re-queried against storage on every later morph.
+    expect(placeholder.dataset.ghostLazyPainted).toBe('1');
   });
 
   it('leaves a placeholder unpainted when the only learned tree is for a different viewport band', () => {
@@ -316,6 +318,33 @@ describe('paintLazyPlaceholders (SPEC-LRN-02)', () => {
     livewire.trigger('morphed', { component: { id: 'unrelated' } });
 
     expect(placeholder.style.width).toBe('200px'); // unchanged — the painted flag skipped the repaint
+  });
+
+  // Task 5 (perf): paintLazyPlaceholders() runs on EVERY morph. A pure
+  // "eventually painted" assertion can't tell "the miss was marked resolved,
+  // so the second pass skipped it" apart from "the second pass repeated the
+  // full getItem + JSON.parse + re-validation and happened to miss again" —
+  // both look identical from the DOM alone. This spies on the underlying
+  // storage read (not a re-implementation of get()'s internals) to observe
+  // directly whether the second pass ever touches storage at all.
+  it('marks a miss resolved on the first pass, so a second morph does not re-query storage for it', () => {
+    const storage = fakeStorage();
+    // Deliberately nothing ever put for this name, at any band — a permanent
+    // miss unless the first pass's miss gets marked resolved.
+    const livewire = fakeLivewire();
+    window.Livewire = livewire;
+    vi.stubGlobal('localStorage', storage);
+    const placeholder = document.createElement('div');
+    placeholder.setAttribute('data-ghost-lazy', 'never-learned');
+    document.body.appendChild(placeholder);
+
+    boot(); // first pass: a miss
+    expect(placeholder.dataset.ghostLazyPainted).toBe('1'); // precondition: the miss really was marked resolved
+
+    const getItemSpy = vi.spyOn(storage, 'getItem');
+    livewire.trigger('morphed', { component: { id: 'unrelated' } }); // second pass
+
+    expect(getItemSpy).not.toHaveBeenCalled();
   });
 
   it('paints a lazy placeholder inserted into the DOM after boot(), when a morph occurs', () => {

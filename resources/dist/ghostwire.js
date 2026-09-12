@@ -984,8 +984,6 @@
         if (signature === void 0) return null;
         const entry = envelope.e[`${signature}|${band}`];
         if (entry === void 0) return null;
-        entry.t = now();
-        write(envelope);
         return { width: entry.w, height: entry.h, bones: entry.b };
       },
       put(name, signature, band, hostRect, boneTree) {
@@ -1073,7 +1071,10 @@
         const name = el.getAttribute("data-ghost-lazy");
         if (!LAZY_NAME_PATTERN.test(name || "")) continue;
         const learned = learningStore.get(name, band);
-        if (!learned) continue;
+        if (!learned) {
+          el.dataset.ghostLazyPainted = "1";
+          continue;
+        }
         el.classList.add("gw-lazy");
         el.style.width = `${learned.width}px`;
         el.style.height = `${learned.height}px`;

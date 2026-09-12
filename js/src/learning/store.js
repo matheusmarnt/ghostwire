@@ -151,8 +151,13 @@ export function createLearningStore({ storage, quotaBytes = 256 * 1024, now = ()
       const entry = envelope.e[`${signature}|${band}`];
       if (entry === undefined) return null;
 
-      entry.t = now(); // refresh LRU recency
-      write(envelope);
+      // No write on read. Refreshing LRU recency here re-serialised the whole
+      // envelope and did a synchronous setItem on the lazy-paint critical path, to
+      // move one timestamp. Recency now comes from put() alone, which runs on every
+      // successful synthesis — so eviction order degrades to
+      // least-recently-*written*, which is sufficient: the quota only comes under
+      // pressure while learning is collecting, and collection is refused in
+      // production (GhostComponentHook::learningEnabled()).
 
       return { width: entry.w, height: entry.h, bones: entry.b };
     },
