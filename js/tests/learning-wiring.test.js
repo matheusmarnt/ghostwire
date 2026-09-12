@@ -4,6 +4,7 @@ import { createSynthesizer } from '../src/synthesizer/index.js';
 import { createRegistry } from '../src/registry.js';
 import { boot } from '../src/index.js';
 import { SCHEMA_VERSION, STORAGE_KEY } from '../src/learning/store.js';
+import { setDebugForTests } from '../src/debug.js';
 
 function elWith(payload) {
   const el = document.createElement('div');
@@ -28,30 +29,36 @@ describe('learning transport in the data-ghost schema', () => {
   });
 
   it('discards the whole payload when the learning flag is not a boolean (SPEC-SEC-02 fail-closed)', () => {
+    setDebugForTests(true);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     expect(parseAttributeConfig(elWith({ m: 'synthesize', g: 'yes' }))).toBeNull();
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('"g"'));
 
     warn.mockRestore();
+    setDebugForTests(false);
   });
 
   it('discards the whole payload when the component name breaks the charset', () => {
+    setDebugForTests(true);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     expect(parseAttributeConfig(elWith({ m: 'synthesize', g: true, n: '<img src=x>' }))).toBeNull();
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('"n"'));
 
     warn.mockRestore();
+    setDebugForTests(false);
   });
 
   it('discards the whole payload when the component name is over-long', () => {
+    setDebugForTests(true);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     expect(parseAttributeConfig(elWith({ m: 'synthesize', g: true, n: 'a'.repeat(65) }))).toBeNull();
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('"n"'));
 
     warn.mockRestore();
+    setDebugForTests(false);
   });
 });
 

@@ -1,8 +1,12 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { detectBridge } from '../src/bridge/index.js';
+import { setDebugForTests } from '../src/debug.js';
 
 describe('detectBridge', () => {
-  afterEach(() => { delete window.Livewire; });
+  afterEach(() => {
+    delete window.Livewire;
+    setDebugForTests(false);
+  });
 
   it('picks v4 when Livewire.interceptMessage is a function (SPEC-INT-20)', () => {
     window.Livewire = { interceptMessage: () => {}, hook: () => {} };
@@ -16,6 +20,7 @@ describe('detectBridge', () => {
 
   it('returns null and warns when neither is present', () => {
     window.Livewire = {};
+    setDebugForTests(true);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const result = detectBridge();
     expect(result.name).toBeNull();

@@ -67,7 +67,7 @@ class GhostwireServiceProvider extends ServiceProvider
         Blade::directive('ghostwireScripts', function ($expression) {
             $nonceExpr = trim($expression) !== '' ? $expression : 'null';
 
-            return '<?php if (config(\'ghostwire.enabled\', true)) { $__ghostwireNonce = '.$nonceExpr.'; echo \'<script src="\'.asset(\'vendor/ghostwire/ghostwire.js\').\'"\'.($__ghostwireNonce !== null ? \' nonce="\'.e($__ghostwireNonce).\'"\' : \'\').\' defer></script>\'; } ?>';
+            return '<?php if (config(\'ghostwire.enabled\', true)) { $__ghostwireNonce = '.$nonceExpr.'; $__ghostwireDebug = ! app()->isProduction(); echo \'<script src="\'.asset(\'vendor/ghostwire/ghostwire.js\').\'"\'.($__ghostwireNonce !== null ? \' nonce="\'.e($__ghostwireNonce).\'"\' : \'\').($__ghostwireDebug ? \' data-ghostwire-debug="1"\' : \'\').\' defer></script>\'; } ?>';
         });
 
         if ($this->app->runningInConsole()) {

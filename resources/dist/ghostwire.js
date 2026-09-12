@@ -80,6 +80,16 @@
     return { name: "v3", subscribe };
   }
 
+  // js/src/debug.js
+  var debug = false;
+  try {
+    debug = document.currentScript?.dataset?.ghostwireDebug === "1";
+  } catch {
+  }
+  function isDebug() {
+    return debug;
+  }
+
   // js/src/bridge/index.js
   function detectBridge() {
     if (typeof window.Livewire?.interceptMessage === "function") {
@@ -88,7 +98,7 @@
     if (typeof window.Livewire?.hook === "function") {
       return { name: "v3", bridge: createV3Bridge() };
     }
-    if (false) {
+    if (isDebug()) {
       console.warn("[ghostwire] neither Livewire.interceptMessage nor Livewire.hook was found \u2014 disabling (SPEC-INT-20)");
     }
     return { name: null, bridge: null };
@@ -697,7 +707,7 @@
     return cleaned.length > 0 ? cleaned : null;
   }
   function warn(message) {
-    if (false) console.warn(`[ghostwire] ${message}`);
+    if (isDebug()) console.warn(`[ghostwire] ${message}`);
   }
   function parseAttributeConfig(el) {
     const raw = el.getAttribute("data-ghost");
@@ -1027,7 +1037,7 @@
         const timed = modifier.match(TIMED_MODIFIER_PATTERN);
         if (timed) config[timed[1]] = Number(timed[2]);
         else if (modifier.startsWith("rows.")) config.rows = Number(modifier.slice("rows.".length));
-        else if (false) {
+        else if (isDebug()) {
           console.warn(`[ghostwire] unknown wire:ghost modifier ".${modifier}" \u2014 ignored`);
         }
       }
@@ -1091,7 +1101,7 @@
       (host, signature, boneTree, hostRect) => {
         if (!host.config.learning || !host.config.name) return;
         const persisted = learningStore.put(host.config.name, signature, bandFor(window.innerWidth), hostRect, boneTree);
-        if (!persisted && false) {
+        if (!persisted && isDebug()) {
           console.warn(`[ghostwire] learning: could not persist "${host.config.name}" \u2014 ${boneTree.length} bones exceeds the ${MAX_BONES}-bone cap, or the storage quota was refused`);
         }
       }

@@ -39,3 +39,17 @@ it('ships a compiled bundle with no eval and no new Function (SPEC-SEC-06)', fun
         ->and($bundle)->not->toMatch('/\bnew\s+Function\s*\(/')
         ->and($bundle)->not->toMatch('/\bFunction\s*\(\s*[\'"]/');
 });
+
+it('ghostwireScripts marks the tag for debug outside production', function () {
+    app()->detectEnvironment(fn () => 'local');
+
+    expect(app()->isProduction())->toBeFalse();   // precondition, asserted not assumed
+    expect(Blade::render('@ghostwireScripts'))->toContain('data-ghostwire-debug="1"');
+});
+
+it('ghostwireScripts omits the debug marker in production', function () {
+    app()->detectEnvironment(fn () => 'production');
+
+    expect(app()->isProduction())->toBeTrue();    // precondition, asserted not assumed
+    expect(Blade::render('@ghostwireScripts'))->not->toContain('data-ghostwire-debug');
+});

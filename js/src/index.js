@@ -6,6 +6,7 @@ import { createSynthesizer } from './synthesizer/index.js';
 import { parseAttributeConfig, resolveHostConfig } from './attributeConfig.js';
 import { createLearningStore, MAX_BONES } from './learning/store.js';
 import { bandFor } from './learning/bands.js';
+import { isDebug } from './debug.js';
 
 const TIMED_MODIFIER_PATTERN = /^(delay|hold)\.(\d+)ms$/;
 
@@ -26,7 +27,7 @@ function parseModifiers(modifiers) {
       const timed = modifier.match(TIMED_MODIFIER_PATTERN);
       if (timed) config[timed[1]] = Number(timed[2]);
       else if (modifier.startsWith('rows.')) config.rows = Number(modifier.slice('rows.'.length));
-      else if (process.env.NODE_ENV !== 'production') {
+      else if (isDebug()) {
         console.warn(`[ghostwire] unknown wire:ghost modifier ".${modifier}" — ignored`);
       }
     }
@@ -139,7 +140,7 @@ export function boot() {
       // exceeding MAX_BONES (emit.js fans out per text line and per repeated
       // row, well past walk.js's MAX_CANDIDATES cap). A dev-only warning here
       // costs nothing and is the only signal a developer would otherwise get.
-      if (!persisted && process.env.NODE_ENV !== 'production') {
+      if (!persisted && isDebug()) {
         console.warn(`[ghostwire] learning: could not persist "${host.config.name}" — ${boneTree.length} bones exceeds the ${MAX_BONES}-bone cap, or the storage quota was refused`);
       }
     },

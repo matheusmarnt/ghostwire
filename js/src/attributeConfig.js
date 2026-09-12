@@ -1,3 +1,5 @@
+import { isDebug } from './debug.js';
+
 const KEY_MAP = { m: 'mode', o: 'only', x: 'except', d: 'delay', h: 'hold', r: 'rows', p: 'poll', s: 'sync', l: 'lazy', g: 'learning', n: 'name' };
 // 'a' (per-action method-level overrides, SPEC-API-10) is a top-level key
 // but not a compact-config field itself — it carries its own nested schema,
@@ -29,7 +31,7 @@ function sanitizeActionList(list) {
 }
 
 function warn(message) {
-  if (process.env.NODE_ENV !== 'production') console.warn(`[ghostwire] ${message}`);
+  if (isDebug()) console.warn(`[ghostwire] ${message}`);
 }
 
 export function parseAttributeConfig(el) {
