@@ -3,8 +3,11 @@
 return [
     'enabled' => env('GHOSTWIRE_ENABLED', true),
 
-    // 'opt-in' -> only elements with wire:ghost or components with #[Ghost]
-    // 'global' -> every Livewire component, unless opted out
+    // 'opt-in' -> only components with #[Ghost] (on the class, an ancestor, a
+    //             trait, or an action method) — plus any element carrying the
+    //             wire:ghost directive, which needs no server-side opt-in.
+    // 'global'  -> every Livewire component, unless opted out with
+    //             wire:ghost.off or #[Ghost(mode: 'off')].
     'strategy' => 'opt-in',
 
     'mode' => 'synthesize',
@@ -12,18 +15,11 @@ return [
     'timing' => [
         'delay' => 120,
         'hold' => 300,
-        'timeout' => 15000,
     ],
 
     'silence' => [
         'poll' => true,
         'sync' => true,
-    ],
-
-    'synthesis' => [
-        'max_depth' => 12,
-        'max_bones' => 300,
-        'repeat_sample_size' => 3,
     ],
 
     'learning' => [
