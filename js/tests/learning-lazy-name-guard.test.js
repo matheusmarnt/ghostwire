@@ -34,14 +34,25 @@ describe('paintLazyPlaceholders name-charset guard (Finding 2)', () => {
     getSpy.mockClear();
   });
 
-  it('never consults the store for a data-ghost-lazy value that fails the component-name charset', () => {
+  // F9 (final review): this test's only assertion was that get() was never called,
+  // which "the guard skipped the bad name" and "paintLazyPlaceholders is dead code"
+  // cannot be told apart. Adding a valid-name element in the same execution and
+  // asserting get() WAS called, exactly once, for it — not for the invalid one — is
+  // the positive control that discriminates the two (same shape as learning-lazy.test.js's
+  // own control-painted tests).
+  it('never consults the store for a data-ghost-lazy value that fails the component-name charset, but does for a valid one', () => {
     window.Livewire = fakeLivewire();
-    const placeholder = document.createElement('div');
-    placeholder.setAttribute('data-ghost-lazy', '<script>alert(1)</script>');
-    document.body.appendChild(placeholder);
+    const invalid = document.createElement('div');
+    invalid.setAttribute('data-ghost-lazy', '<script>alert(1)</script>');
+    document.body.appendChild(invalid);
+
+    const valid = document.createElement('div');
+    valid.setAttribute('data-ghost-lazy', 'orders-table');
+    document.body.appendChild(valid);
 
     boot();
 
-    expect(getSpy).not.toHaveBeenCalled();
+    expect(getSpy).toHaveBeenCalledTimes(1);
+    expect(getSpy.mock.calls[0][0]).toBe('orders-table');
   });
 });

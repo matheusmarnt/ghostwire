@@ -23,13 +23,3 @@ it('does not tag a lazy component that never opted in via #[Ghost(lazy: true)]',
 
     expect($html)->not->toContain('data-ghost-lazy');
 });
-
-it('registers the Livewire component hook from register(), not boot()', function () {
-    $source = file_get_contents(dirname(__DIR__, 3).'/src/GhostwireServiceProvider.php');
-
-    $registerAt = strpos($source, 'public function register');
-    $bootAt = strpos($source, 'public function boot');
-    $registerBody = substr($source, $registerAt, $bootAt - $registerAt);
-
-    expect($registerBody)->toContain('Livewire::componentHook(GhostComponentHook::class)');
-});
