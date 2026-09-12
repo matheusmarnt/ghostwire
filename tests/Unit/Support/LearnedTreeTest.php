@@ -230,13 +230,23 @@ it('emits fully static markup with no Blade echo and no PHP tag (SPEC-SEC-05)', 
 
 it('formats geometry with a locale-independent decimal point (Finding 4)', function () {
     $original = setlocale(LC_NUMERIC, '0');
-    $applied = setlocale(LC_NUMERIC, 'de_DE.UTF-8', 'de_DE', 'de_DE.utf8');
+    setlocale(LC_NUMERIC, 'de_DE.UTF-8', 'de_DE', 'de_DE.utf8');
 
     try {
-        // If this sandbox has no comma-decimal locale installed, the test
-        // below would trivially pass without ever exercising the bug - fail
-        // loudly instead of silently proving nothing.
-        expect($applied)->not->toBeFalse();
+        // setlocale()'s RETURN VALUE is not evidence that the locale took
+        // effect: glibc hands back the requested name even when that locale was
+        // never generated, leaving decimal_point at '.'. Guarding on it — as
+        // this test first did — made both assertions below pass against '%.2f'
+        // and '%.2F' alike, so it proved nothing on any machine without a
+        // German locale installed, which is most of them. Ask the only question
+        // that actually matters: did the separator become a comma?
+        if (localeconv()['decimal_point'] !== ',') {
+            $this->markTestSkipped(
+                'no comma-decimal locale installed - run `sudo locale-gen de_DE.UTF-8`. '
+                .'CI generates it and asserts this same condition before running the suite, '
+                .'so this can never skip where it counts.'
+            );
+        }
 
         $blade = LearnedTree::toBlade(['width' => 12.0, 'height' => 5.0, 'bones' => []]);
 

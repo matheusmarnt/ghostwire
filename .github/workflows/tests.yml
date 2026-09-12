@@ -68,6 +68,22 @@ jobs:
       - name: Install Playwright browser for Pest
         if: matrix.php != '8.2'
         run: npx playwright install --with-deps chromium
+      - name: Generate the comma-decimal locale the geometry test needs
+        run: |
+          sudo locale-gen de_DE.UTF-8
+          # A quiet locale-gen failure would turn LearnedTreeTest's
+          # locale-independence check into a permanent skip and leave this job
+          # green for the wrong reason - exactly the vacuous-green shape M7
+          # spent seven task reviews removing. Assert PHP itself sees a comma.
+          php -r '
+            setlocale(LC_NUMERIC, "de_DE.UTF-8", "de_DE", "de_DE.utf8");
+            $d = localeconv()["decimal_point"];
+            if ($d !== ",") {
+                fwrite(STDERR, "de_DE never took effect; decimal_point is still \"$d\"\n");
+                exit(1);
+            }
+            echo "de_DE active, decimal_point is a comma\n";
+          '
       - name: Run tests
         run: |
           if [ "${{ matrix.php }}" = "8.2" ]; then
