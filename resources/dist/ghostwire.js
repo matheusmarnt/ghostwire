@@ -784,7 +784,14 @@
         return emptyEnvelope();
       }
       if (typeof raw !== "string" || raw === "") return emptyEnvelope();
-      return validEnvelope(raw);
+      const envelope = validEnvelope(raw);
+      if (Object.keys(envelope.e).length === 0 && raw.length > 2) {
+        try {
+          storage.removeItem(STORAGE_KEY);
+        } catch {
+        }
+      }
+      return envelope;
     }
     function write(envelope) {
       let serialized = JSON.stringify(envelope);

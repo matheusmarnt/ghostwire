@@ -11,6 +11,11 @@ export function createSynthesizer(registry, defaults = { maxDepth: 12, repeatSam
   const slowStreak = new WeakMap(); // host -> consecutive slow-synthesis count; SPEC-PERF-07 adaptive freeze trigger
 
   function synthesize(host) {
+    // Monotonic by design (SPEC-PERF-07): a host that synthesised too slowly stays
+    // degraded until teardown. Re-testing it on every commit is exactly how flicker is
+    // produced — the cost that made it slow is a property of its subtree, not of the
+    // one commit that measured it. Recovery, if ever wanted, belongs on a
+    // viewport-change signal (the cost is width-dependent), not on the commit path.
     if ((slowStreak.get(host) || 0) >= SLOW_STREAK_LIMIT) return null; // SPEC-PERF-07: skip straight to freeze
 
     const startedAt = now();

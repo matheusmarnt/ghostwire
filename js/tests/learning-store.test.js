@@ -56,6 +56,32 @@ describe('learning store', () => {
     expect(store.get('x', 'lg')).toBeNull();
   });
 
+  // F15: SCHEMA_VERSION has no migration by design (the entries are a derived
+  // cache, cheap to re-learn), but that used to leave the orphaned blob sitting
+  // in localStorage forever once a bump made it unreadable. read() now clears it.
+  it('removes the orphaned blob from storage on a schema version mismatch', () => {
+    storage.seed(JSON.stringify({
+      v: SCHEMA_VERSION + 1,
+      e: { '1|lg': { t: 1, n: 'x', w: 1, h: 1, b: TREE } },
+      c: { 'x|lg': '1' },
+    }));
+
+    store.all();
+
+    expect(storage.getItem(STORAGE_KEY)).toBeNull();
+  });
+
+  it('keeps a valid envelope on read', () => {
+    const store = createLearningStore({ storage, quotaBytes: 256 * 1024, now: () => 1000 });
+    store.put('orders-table', 42, 'md', { width: 100, height: 50 }, [
+      { type: 'text', x: 0, y: 0, width: 10, height: 4 },
+    ]);
+
+    store.all();
+
+    expect(storage.getItem(STORAGE_KEY)).not.toBeNull();
+  });
+
   it('discards unparseable JSON silently (SPEC-SEC-04)', () => {
     storage.seed('}{ not json');
 

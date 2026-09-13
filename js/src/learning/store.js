@@ -114,7 +114,23 @@ export function createLearningStore({ storage, quotaBytes = 256 * 1024, now = ()
 
     if (typeof raw !== 'string' || raw === '') return emptyEnvelope();
 
-    return validEnvelope(raw);
+    const envelope = validEnvelope(raw);
+
+    // A schema bump discards every learned tree by design — they are a derived
+    // cache and re-synthesis is cheap. Drop the orphaned blob rather than leaving
+    // it in localStorage forever: STORAGE_KEY carries the version, so a future bump
+    // would otherwise strand this one permanently. Only fires when a non-trivial
+    // stored value validated down to zero entries: wrong schema version, corrupt
+    // JSON, or every entry rejected — in all three the blob is already worthless.
+    if (Object.keys(envelope.e).length === 0 && raw.length > 2) {
+      try {
+        storage.removeItem(STORAGE_KEY);
+      } catch {
+        // best-effort
+      }
+    }
+
+    return envelope;
   }
 
   function write(envelope) {

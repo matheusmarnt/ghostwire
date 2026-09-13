@@ -28,7 +28,11 @@ Learned trees live in `localStorage`, under the key `ghostwire.learned.v1` — o
 
 Nothing here is ever sent anywhere — no network request exists on this path. The only way learned data leaves the browser is the user-initiated download described under Exporting, below. You can clear a browser's learned data at any time with `Ghostwire.clearLearned()`.
 
-The store is re-validated on every read. Anything that doesn't match the expected shape — a corrupted value, a schema version from an older or newer build — is discarded silently, and the affected component simply learns again on its next visit. Storage is capped at a fixed 256 KB budget, with the least-recently-used entries evicted first once it's full.
+The store is re-validated on every read. Anything that doesn't match the expected shape — a corrupted value, an entry that fails validation — is discarded silently, and the affected component simply learns again on its next visit. Storage is capped at a fixed 256 KB budget, with the least-recently-used entries evicted first once it's full.
+
+## Schema versions
+
+Learned trees are a cache, keyed to a schema version. A Ghostwire upgrade that bumps the version discards every previously learned tree — there's no migration path, because migrating a derived cache would be over-engineering: each entry is simply re-learned on the next visit, at the cost of one re-synthesis, and there's nothing a developer needs to do. The one part that doesn't take care of itself is the old value left in `localStorage`: it's removed the next time it's read, rather than orphaned there forever.
 
 ## `#[Ghost(lazy: true)]`
 
