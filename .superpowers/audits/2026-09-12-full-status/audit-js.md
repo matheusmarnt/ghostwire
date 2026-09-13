@@ -1,6 +1,6 @@
 # Ghostwire JS Audit — verified against source and shipped bundle
 
-Repo: `/home/matheusmariano/personal-projects/laravel-packages/Ghostwire/ghostwire`, branch `main`, commit `ae342e8` (working tree clean except untracked `.superpowers/`, `node-compile-cache/`, neither touched by this audit).
+Repo: `ghostwire`, branch `main`, commit `ae342e8` (working tree clean except untracked `.superpowers/`, `node-compile-cache/`, neither touched by this audit).
 
 Scope actually read: all 15 `.js` files under `js/src/` + `js/src/style.css`, `js/build.mjs`, `resources/dist/ghostwire.js` (1281 lines, non-minified IIFE), `resources/dist/ghostwire.css` (only CSS artifact present — the `*.css` glob in the task matches exactly one file). Everything below was read directly with `Read`/`grep`/`diff`/`sha256sum`, not summarized by a third party.
 

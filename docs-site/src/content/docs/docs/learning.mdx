@@ -28,7 +28,7 @@ Learned trees live in `localStorage`, under the key `ghostwire.learned.v1` — o
 
 Nothing here is ever sent anywhere — no network request exists on this path. The only way learned data leaves the browser is the user-initiated download described under Exporting, below. You can clear a browser's learned data at any time with `Ghostwire.clearLearned()`.
 
-The store is re-validated on every read. Anything that doesn't match the expected shape — a corrupted value, an entry that fails validation — is discarded silently, and the affected component simply learns again on its next visit. Storage is capped at a fixed 256 KB budget, with the least-recently-used entries evicted first once it's full.
+The store is re-validated on every read. Anything that doesn't match the expected shape — a corrupted value, an entry that fails validation — is discarded silently, and the affected component simply learns again on its next visit. Storage is capped at a fixed 256 KB budget, with the least-recently-written entries evicted first once it's full.
 
 ## Schema versions
 

@@ -1,6 +1,6 @@
 # Ghostwire PHP audit (verified against code)
 
-Working dir: `/home/matheusmariano/personal-projects/laravel-packages/Ghostwire/ghostwire`, `main`@`ae342e8`.
+Working dir: `ghostwire`, `main`@`ae342e8`.
 Scope: `src/` (8 files), `config/ghostwire.php`, service-provider wiring. Every claim below was checked
 directly against source (`cat -n`) and grep; docs/CHANGELOG/README/docs-site were not consulted.
 
