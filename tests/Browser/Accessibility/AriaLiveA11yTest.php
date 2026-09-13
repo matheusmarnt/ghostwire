@@ -120,6 +120,44 @@ it('SPEC-A11Y-01: #summary (freeze) also gets aria-busy while visible', function
     expect($page->script('window.__gw.busySeen'))->toBeTrue();
 });
 
+// G1 (2026-09-12 gap-fix audit): this file's own header has claimed
+// SPEC-A11Y-04 browser coverage since it was written, but no test in it ever
+// asserted anything about the announcement region itself — confirmed by
+// `grep -n 'aria-live\|announce\|role="status"'` on this file matching
+// nothing before this test was added. js/src/renderer.js's announce()
+// (called from markBusy()/clearBusy()) writes into a visually-hidden
+// aria-live="polite" role="status" element; this drives the same
+// #refresh-btn interaction the sibling aria-busy tests above use and records
+// the region's text as it transitions, the same "record the real transition,
+// don't trust a point-in-time guess" technique this file already applies to
+// aria-busy/focus.
+it('SPEC-A11Y-04: the live region announces Loading then Content updated', function () {
+    $page = visit('/ghostwire-test-page');
+
+    $page->script('
+        window.__gwAnnounce = { hasRegion: false, seenLoading: false, seenUpdatedAfterLoading: false };
+        new MutationObserver(() => {
+            const region = document.querySelector(\'[role="status"][aria-live="polite"]\');
+            if (!region) return;
+            window.__gwAnnounce.hasRegion = true;
+            if (region.textContent === "Loading") window.__gwAnnounce.seenLoading = true;
+            if (window.__gwAnnounce.seenLoading && region.textContent === "Content updated") {
+                window.__gwAnnounce.seenUpdatedAfterLoading = true;
+            }
+        }).observe(document.body, { childList: true, subtree: true, characterData: true });
+        true;
+    ');
+
+    $page->click('#refresh-btn');
+    $page->wait(1.5); // generous: clears delay(120) + server sleep(200) + hold(300) + morph/settle margin
+
+    $data = json_decode($page->script('JSON.stringify(window.__gwAnnounce)'), true);
+
+    expect($data['hasRegion'])->toBeTrue();
+    expect($data['seenLoading'])->toBeTrue();
+    expect($data['seenUpdatedAfterLoading'])->toBeTrue();
+});
+
 // SPEC-A11Y-03 (fix round 1): the original version of this test lived on
 // /ghostwire-test-page and focused #list via a client-only tabindex="-1" —
 // #list has no naturally-focusable content, and #refresh-btn there is a
