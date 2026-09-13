@@ -17,6 +17,23 @@ beforeEach(function () {
 afterEach(function () {
     File::delete($this->source);
     File::deleteDirectory(resource_path('views/livewire'));
+
+    // Runs even when an expectation above aborted the test body. Without this a
+    // failing assertion leaves a symlink or directory outside views/livewire -
+    // e.g. inside the SHARED vendor/orchestra/testbench-core resources/views
+    // skeleton, or a stray file/dir in the OS temp dir - which then pollutes
+    // later runs and makes an unrelated later failure look like the real one.
+    // is_link() is checked before is_dir()/is_file() on purpose: a symlink
+    // pointing at a directory reports true for is_dir() too, and deleting a
+    // directory *through* such a link would reach outside the link itself.
+    // unlink() only ever removes the link.
+    foreach ($this->createdPaths ?? [] as $path) {
+        if (is_link($path) || is_file($path)) {
+            @unlink($path);
+        } elseif (is_dir($path)) {
+            File::deleteDirectory($path);
+        }
+    }
 });
 
 it('rejects a component name outside [a-z0-9.-] (SPEC-SEC-05)', function (string $name) {
@@ -118,6 +135,7 @@ it('refuses to overwrite through a live symlink even with --force (Finding 2)', 
     File::ensureDirectoryExists(dirname($target));
     $outsideFile = sys_get_temp_dir().'/ghostwire-outside-'.bin2hex(random_bytes(6)).'.blade.php';
     File::put($outsideFile, 'OUTSIDE');
+    $this->createdPaths[] = $outsideFile;
     symlink($outsideFile, $target);
 
     $this->artisan('ghost:export', [
@@ -128,7 +146,6 @@ it('refuses to overwrite through a live symlink even with --force (Finding 2)', 
         ->assertFailed();
 
     expect(File::get($outsideFile))->toBe('OUTSIDE');
-    File::delete($outsideFile);
 });
 
 it('refuses an --output containing a null byte (Finding 8: previously-unreachable branch)', function () {
@@ -147,6 +164,8 @@ it('refuses when a parent segment is a symlink resolving outside resources/views
     // parent segment outside the root - had no test landing on it at all.
     $outsideDir = sys_get_temp_dir().'/ghostwire-outside-dir-'.bin2hex(random_bytes(6));
     File::ensureDirectoryExists($outsideDir);
+    $this->createdPaths[] = $outsideDir;
+    $this->createdPaths[] = resource_path('views/escape');
     symlink($outsideDir, resource_path('views/escape'));
 
     $this->artisan('ghost:export', [
@@ -155,7 +174,4 @@ it('refuses when a parent segment is a symlink resolving outside resources/views
     ])
         ->expectsOutputToContain('Refusing to write outside resources/views')
         ->assertFailed();
-
-    File::delete(resource_path('views/escape'));
-    File::deleteDirectory($outsideDir);
 });

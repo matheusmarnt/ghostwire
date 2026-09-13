@@ -14,6 +14,19 @@ function elWith(payload) {
 }
 
 describe('learning transport in the data-ghost schema', () => {
+  let warn;
+
+  afterEach(() => {
+    // Runs even when an expectation above aborted the test body. Without this a
+    // failing assertion leaves the debug flag on and the console.warn spy active
+    // for whatever test runs next in this file - the same ambient-flag hazard
+    // Task 4 found once already (NODE_ENV), just self-inflicted here via a reset
+    // line placed at the end of the test body instead of in afterEach.
+    warn?.mockRestore();
+    warn = undefined;
+    setDebugForTests(false);
+  });
+
   it('parses the learning flag and component name', () => {
     const config = parseAttributeConfig(elWith({ m: 'synthesize', g: true, n: 'orders-table' }));
 
@@ -30,35 +43,26 @@ describe('learning transport in the data-ghost schema', () => {
 
   it('discards the whole payload when the learning flag is not a boolean (SPEC-SEC-02 fail-closed)', () => {
     setDebugForTests(true);
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     expect(parseAttributeConfig(elWith({ m: 'synthesize', g: 'yes' }))).toBeNull();
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('"g"'));
-
-    warn.mockRestore();
-    setDebugForTests(false);
   });
 
   it('discards the whole payload when the component name breaks the charset', () => {
     setDebugForTests(true);
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     expect(parseAttributeConfig(elWith({ m: 'synthesize', g: true, n: '<img src=x>' }))).toBeNull();
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('"n"'));
-
-    warn.mockRestore();
-    setDebugForTests(false);
   });
 
   it('discards the whole payload when the component name is over-long', () => {
     setDebugForTests(true);
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     expect(parseAttributeConfig(elWith({ m: 'synthesize', g: true, n: 'a'.repeat(65) }))).toBeNull();
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('"n"'));
-
-    warn.mockRestore();
-    setDebugForTests(false);
   });
 });
 
