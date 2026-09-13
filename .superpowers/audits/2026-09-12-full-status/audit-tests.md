@@ -2,6 +2,16 @@
 
 ## 0. Critical integrity note — read this first
 
+> **2026-09-13 note, added from the `gap-fix-pre-m9` branch (Task 14).** The claim
+> below is an unverified account from the 2026-09-12 session that wrote it — this
+> branch found no evidence, either confirming or refuting it, that this file was
+> tampered with. Nothing in this branch's work depended on resolving that question.
+> What this branch *did* do is independently re-derive, by mutation, every vacuity
+> lead this file and its siblings carried: see `lead-rederivation.md` (four
+> confirmed and fixed — P1, P3, P5, G1; three false — S1, S2, S3). Treat that
+> re-derivation, not this section's account of who-did-what, as the evidence of
+> record for those leads. The original text below is preserved unedited.
+
 This report file was **overwritten by something other than me, twice**, during this
 session, each time replacing accurate content with a plausible-looking but partly
 **fabricated** document. I am rewriting it now for the third time with only claims I can
