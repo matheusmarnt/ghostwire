@@ -89,6 +89,30 @@ it('keeps LearnedTree::NAME_PATTERN in sync with store.js (Ruling A)', function 
     $body = substr(LearnedTree::NAME_PATTERN, 0, strrpos(LearnedTree::NAME_PATTERN, '/') + 1);
 
     expect(jsLearningSource('store.js'))->toContain('NAME_PATTERN = '.$body);
+
+    // The alarm's own blind spot, found by the 2026-09-12 audit: it compared one JS
+    // file against PHP while three independent hand-written copies existed, so two
+    // could drift undetected. Assert the population, not just one member — a fourth
+    // copy appearing anywhere in js/src/ fails this.
+    //
+    // Counting bare '{1,64}' occurrences would also catch attributeConfig.js's
+    // unrelated ACTION_NAME_PATTERN (/^[A-Za-z0-9_]{1,64}$/ - a different charset,
+    // for action names, not component names) and false-positive against legitimate
+    // code. Count occurrences of $body itself instead - the exact regex-literal
+    // text (delimiters included) that only a real copy of THIS charset can contain.
+    $jsSources = array_merge(
+        glob(__DIR__.'/../../../js/src/*.js'),
+        glob(__DIR__.'/../../../js/src/*/*.js'),
+    );
+
+    expect(count($jsSources))->toBe(16, 'the glob must reach every js/src module, including nested ones — a glob that matches nothing would make the count below pass vacuously');
+
+    $copies = 0;
+    foreach ($jsSources as $file) {
+        $copies += substr_count((string) file_get_contents($file), $body);
+    }
+
+    expect($copies)->toBe(1, 'the component-name charset must have exactly one definition in js/src/; import it, do not re-spell it');
 });
 
 it('rejects a name with a trailing newline (Finding 3: PCRE $ needs /D for JS parity)', function () {

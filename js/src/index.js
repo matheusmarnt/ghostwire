@@ -4,7 +4,7 @@ import { createScheduler } from './scheduler.js';
 import { createRenderer } from './renderer.js';
 import { createSynthesizer } from './synthesizer/index.js';
 import { parseAttributeConfig, resolveHostConfig } from './attributeConfig.js';
-import { createLearningStore, MAX_BONES } from './learning/store.js';
+import { createLearningStore, MAX_BONES, NAME_PATTERN as LAZY_NAME_PATTERN } from './learning/store.js';
 import { bandFor } from './learning/bands.js';
 import { isDebug } from './debug.js';
 
@@ -83,8 +83,6 @@ export function boot() {
   }
 
   const learningStore = createLearningStore({ storage, quotaBytes: 256 * 1024 });
-
-  const LAZY_NAME_PATTERN = /^[a-z0-9\-.]{1,64}$/;
 
   // SPEC-LRN-02: paints a persisted skeleton into a lazy placeholder root
   // BEFORE Livewire ever renders real content into it (Task 1's

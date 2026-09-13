@@ -24,7 +24,7 @@ it('rejects a component name outside [a-z0-9.-] (SPEC-SEC-05)', function (string
     // exits non-zero (Ruling D) - expectsOutputToContain() pins it to the actual
     // charset-refusal message, not merely "something went wrong".
     $this->artisan('ghost:export', ['--component' => $name, '--breakpoint' => 'lg', '--from' => $this->source])
-        ->expectsOutputToContain('must match [a-z0-9.-]')
+        ->expectsOutputToContain('lowercase letters, digits, hyphen and dot')
         ->assertFailed();
 })->with([
     '../../etc/passwd',

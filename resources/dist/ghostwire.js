@@ -691,179 +691,6 @@
     return { synthesize, forget };
   }
 
-  // js/src/attributeConfig.js
-  var KEY_MAP = { m: "mode", o: "only", x: "except", d: "delay", h: "hold", r: "rows", p: "poll", s: "sync", l: "lazy", g: "learning", n: "name" };
-  var KNOWN_COMPACT_KEYS = /* @__PURE__ */ new Set([...Object.keys(KEY_MAP), "a"]);
-  var METHOD_OVERRIDE_KEYS = /* @__PURE__ */ new Set(["m", "d", "h", "r", "p", "s", "l"]);
-  var ACTION_NAME_PATTERN = /^[A-Za-z0-9_]{1,64}$/;
-  var COMPONENT_NAME_PATTERN = /^[a-z0-9\-.]{1,64}$/;
-  var DEFAULTS = { mode: "synthesize", only: null, except: null, delay: 120, hold: 300, rows: null, poll: false, sync: false, lazy: false, learning: false, name: null };
-  function clamp(value, min, max) {
-    return Math.min(max, Math.max(min, value));
-  }
-  function sanitizeActionList(list) {
-    if (!Array.isArray(list)) return void 0;
-    const cleaned = list.filter((name) => typeof name === "string" && ACTION_NAME_PATTERN.test(name));
-    return cleaned.length > 0 ? cleaned : null;
-  }
-  function warn(message) {
-    if (isDebug()) console.warn(`[ghostwire] ${message}`);
-  }
-  function parseAttributeConfig(el) {
-    const raw = el.getAttribute("data-ghost");
-    if (raw == null) return null;
-    let parsed;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      warn("data-ghost payload is not valid JSON \u2014 discarded, using defaults (SPEC-SEC-02)");
-      return null;
-    }
-    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-      warn("data-ghost payload is not a JSON object \u2014 discarded, using defaults (SPEC-SEC-02)");
-      return null;
-    }
-    for (const key of Object.keys(parsed)) {
-      if (!KNOWN_COMPACT_KEYS.has(key)) {
-        warn(`data-ghost payload has unknown key "${key}" \u2014 whole payload discarded (SPEC-SEC-02)`);
-        return null;
-      }
-    }
-    const config = { ...DEFAULTS };
-    if ("m" in parsed) {
-      if (typeof parsed.m !== "string" || !["synthesize", "freeze", "off"].includes(parsed.m)) {
-        warn('data-ghost "m" is not a valid mode \u2014 whole payload discarded (SPEC-SEC-02)');
-        return null;
-      }
-      config.mode = parsed.m;
-    }
-    if ("d" in parsed) {
-      if (typeof parsed.d !== "number") {
-        warn('data-ghost "d" is not a number \u2014 whole payload discarded (SPEC-SEC-02)');
-        return null;
-      }
-      config.delay = clamp(parsed.d, 0, 6e4);
-    }
-    if ("h" in parsed) {
-      if (typeof parsed.h !== "number") {
-        warn('data-ghost "h" is not a number \u2014 whole payload discarded (SPEC-SEC-02)');
-        return null;
-      }
-      config.hold = clamp(parsed.h, 0, 6e4);
-    }
-    if ("r" in parsed) {
-      if (typeof parsed.r !== "number") {
-        warn('data-ghost "r" is not a number \u2014 whole payload discarded (SPEC-SEC-02)');
-        return null;
-      }
-      config.rows = clamp(parsed.r, 0, 1e3);
-    }
-    if ("p" in parsed) {
-      if (typeof parsed.p !== "boolean") {
-        warn('data-ghost "p" is not a boolean \u2014 whole payload discarded (SPEC-SEC-02)');
-        return null;
-      }
-      config.poll = parsed.p;
-    }
-    if ("s" in parsed) {
-      if (typeof parsed.s !== "boolean") {
-        warn('data-ghost "s" is not a boolean \u2014 whole payload discarded (SPEC-SEC-02)');
-        return null;
-      }
-      config.sync = parsed.s;
-    }
-    if ("l" in parsed) {
-      if (typeof parsed.l !== "boolean") {
-        warn('data-ghost "l" is not a boolean \u2014 whole payload discarded (SPEC-SEC-02)');
-        return null;
-      }
-      config.lazy = parsed.l;
-    }
-    if ("o" in parsed) {
-      const sanitized = sanitizeActionList(parsed.o);
-      if (sanitized === void 0) {
-        warn('data-ghost "o" is not an array \u2014 whole payload discarded (SPEC-SEC-02)');
-        return null;
-      }
-      config.only = sanitized;
-    }
-    if ("x" in parsed) {
-      const sanitized = sanitizeActionList(parsed.x);
-      if (sanitized === void 0) {
-        warn('data-ghost "x" is not an array \u2014 whole payload discarded (SPEC-SEC-02)');
-        return null;
-      }
-      config.except = sanitized;
-    }
-    if ("g" in parsed) {
-      if (typeof parsed.g !== "boolean") {
-        warn('data-ghost "g" is not a boolean \u2014 whole payload discarded (SPEC-SEC-02)');
-        return null;
-      }
-      config.learning = parsed.g;
-    }
-    if ("n" in parsed) {
-      if (typeof parsed.n !== "string" || !COMPONENT_NAME_PATTERN.test(parsed.n)) {
-        warn('data-ghost "n" is not a valid component name \u2014 whole payload discarded (SPEC-SEC-02)');
-        return null;
-      }
-      config.name = parsed.n;
-    }
-    if ("a" in parsed) {
-      if (parsed.a === null || typeof parsed.a !== "object" || Array.isArray(parsed.a)) {
-        warn('data-ghost "a" is not a JSON object \u2014 whole payload discarded (SPEC-SEC-02)');
-        return null;
-      }
-      const actionOverrides = {};
-      for (const [action, fields] of Object.entries(parsed.a)) {
-        if (!ACTION_NAME_PATTERN.test(action)) {
-          warn(`data-ghost "a" has an invalid action name \u2014 whole payload discarded (SPEC-SEC-02)`);
-          return null;
-        }
-        if (fields === null || typeof fields !== "object" || Array.isArray(fields)) {
-          warn(`data-ghost "a.${action}" is not a JSON object \u2014 whole payload discarded (SPEC-SEC-02)`);
-          return null;
-        }
-        const override = {};
-        for (const [key, value] of Object.entries(fields)) {
-          if (!METHOD_OVERRIDE_KEYS.has(key)) {
-            warn(`data-ghost "a.${action}" has unknown key "${key}" \u2014 whole payload discarded (SPEC-SEC-02)`);
-            return null;
-          }
-          if (key === "m") {
-            if (typeof value !== "string" || !["synthesize", "freeze", "off"].includes(value)) {
-              warn(`data-ghost "a.${action}.m" is not a valid mode \u2014 whole payload discarded (SPEC-SEC-02)`);
-              return null;
-            }
-            override.mode = value;
-          } else if (key === "d" || key === "h" || key === "r") {
-            if (typeof value !== "number") {
-              warn(`data-ghost "a.${action}.${key}" is not a number \u2014 whole payload discarded (SPEC-SEC-02)`);
-              return null;
-            }
-            const field = key === "d" ? "delay" : key === "h" ? "hold" : "rows";
-            const max = key === "r" ? 1e3 : 6e4;
-            override[field] = clamp(value, 0, max);
-          } else {
-            if (typeof value !== "boolean") {
-              warn(`data-ghost "a.${action}.${key}" is not a boolean \u2014 whole payload discarded (SPEC-SEC-02)`);
-              return null;
-            }
-            const field = key === "p" ? "poll" : key === "s" ? "sync" : "lazy";
-            override[field] = value;
-          }
-        }
-        actionOverrides[action] = override;
-      }
-      config.actionOverrides = actionOverrides;
-    }
-    return config;
-  }
-  function resolveHostConfig(directiveConfig, attributeConfig) {
-    const base = attributeConfig ?? DEFAULTS;
-    return { ...base, ...directiveConfig };
-  }
-
   // js/src/learning/bands.js
   var BANDS = [
     { name: "2xl", min: 1536 },
@@ -891,7 +718,7 @@
   var NAME_PATTERN = /^[a-z0-9\-.]{1,64}$/;
   var BONE_KEYS = ["type", "x", "y", "width", "height"];
   var ENTRY_KEY_PATTERN = /^(\d{1,10})\|([a-z0-9]{2,3})$/;
-  function clamp2(value, min, max) {
+  function clamp(value, min, max) {
     if (!Number.isFinite(value)) return null;
     return Math.min(max, Math.max(min, value));
   }
@@ -901,10 +728,10 @@
     if (keys.length !== BONE_KEYS.length) return null;
     if (!BONE_KEYS.every((key) => keys.includes(key))) return null;
     if (typeof bone.type !== "string" || !BONE_TYPES.has(bone.type)) return null;
-    const x = clamp2(bone.x, -MAX_COORD, MAX_COORD);
-    const y = clamp2(bone.y, -MAX_COORD, MAX_COORD);
-    const width = clamp2(bone.width, 0, MAX_COORD);
-    const height = clamp2(bone.height, 0, MAX_COORD);
+    const x = clamp(bone.x, -MAX_COORD, MAX_COORD);
+    const y = clamp(bone.y, -MAX_COORD, MAX_COORD);
+    const width = clamp(bone.width, 0, MAX_COORD);
+    const height = clamp(bone.height, 0, MAX_COORD);
     if (x === null || y === null || width === null || height === null) return null;
     return { type: bone.type, x, y, width, height };
   }
@@ -912,9 +739,9 @@
     if (entry === null || typeof entry !== "object" || Array.isArray(entry)) return null;
     if (typeof entry.n !== "string" || !NAME_PATTERN.test(entry.n)) return null;
     if (!Array.isArray(entry.b) || entry.b.length === 0 || entry.b.length > MAX_BONES) return null;
-    const t = clamp2(entry.t, 0, Number.MAX_SAFE_INTEGER);
-    const w = clamp2(entry.w, 0, MAX_COORD);
-    const h = clamp2(entry.h, 0, MAX_COORD);
+    const t = clamp(entry.t, 0, Number.MAX_SAFE_INTEGER);
+    const w = clamp(entry.w, 0, MAX_COORD);
+    const h = clamp(entry.h, 0, MAX_COORD);
     if (t === null || w === null || h === null) return null;
     const bones = [];
     for (const bone of entry.b) {
@@ -989,7 +816,7 @@
       put(name, signature, band, hostRect, boneTree) {
         if (typeof name !== "string" || !NAME_PATTERN.test(name)) return false;
         if (!BAND_NAMES.includes(band)) return false;
-        const sig = clamp2(signature, 0, 4294967295);
+        const sig = clamp(signature, 0, 4294967295);
         if (sig === null) return false;
         const candidate = validEntry({
           t: now(),
@@ -1019,6 +846,178 @@
         }
       }
     };
+  }
+
+  // js/src/attributeConfig.js
+  var KEY_MAP = { m: "mode", o: "only", x: "except", d: "delay", h: "hold", r: "rows", p: "poll", s: "sync", l: "lazy", g: "learning", n: "name" };
+  var KNOWN_COMPACT_KEYS = /* @__PURE__ */ new Set([...Object.keys(KEY_MAP), "a"]);
+  var METHOD_OVERRIDE_KEYS = /* @__PURE__ */ new Set(["m", "d", "h", "r", "p", "s", "l"]);
+  var ACTION_NAME_PATTERN = /^[A-Za-z0-9_]{1,64}$/;
+  var DEFAULTS = { mode: "synthesize", only: null, except: null, delay: 120, hold: 300, rows: null, poll: false, sync: false, lazy: false, learning: false, name: null };
+  function clamp2(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+  function sanitizeActionList(list) {
+    if (!Array.isArray(list)) return void 0;
+    const cleaned = list.filter((name) => typeof name === "string" && ACTION_NAME_PATTERN.test(name));
+    return cleaned.length > 0 ? cleaned : null;
+  }
+  function warn(message) {
+    if (isDebug()) console.warn(`[ghostwire] ${message}`);
+  }
+  function parseAttributeConfig(el) {
+    const raw = el.getAttribute("data-ghost");
+    if (raw == null) return null;
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      warn("data-ghost payload is not valid JSON \u2014 discarded, using defaults (SPEC-SEC-02)");
+      return null;
+    }
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      warn("data-ghost payload is not a JSON object \u2014 discarded, using defaults (SPEC-SEC-02)");
+      return null;
+    }
+    for (const key of Object.keys(parsed)) {
+      if (!KNOWN_COMPACT_KEYS.has(key)) {
+        warn(`data-ghost payload has unknown key "${key}" \u2014 whole payload discarded (SPEC-SEC-02)`);
+        return null;
+      }
+    }
+    const config = { ...DEFAULTS };
+    if ("m" in parsed) {
+      if (typeof parsed.m !== "string" || !["synthesize", "freeze", "off"].includes(parsed.m)) {
+        warn('data-ghost "m" is not a valid mode \u2014 whole payload discarded (SPEC-SEC-02)');
+        return null;
+      }
+      config.mode = parsed.m;
+    }
+    if ("d" in parsed) {
+      if (typeof parsed.d !== "number") {
+        warn('data-ghost "d" is not a number \u2014 whole payload discarded (SPEC-SEC-02)');
+        return null;
+      }
+      config.delay = clamp2(parsed.d, 0, 6e4);
+    }
+    if ("h" in parsed) {
+      if (typeof parsed.h !== "number") {
+        warn('data-ghost "h" is not a number \u2014 whole payload discarded (SPEC-SEC-02)');
+        return null;
+      }
+      config.hold = clamp2(parsed.h, 0, 6e4);
+    }
+    if ("r" in parsed) {
+      if (typeof parsed.r !== "number") {
+        warn('data-ghost "r" is not a number \u2014 whole payload discarded (SPEC-SEC-02)');
+        return null;
+      }
+      config.rows = clamp2(parsed.r, 0, 1e3);
+    }
+    if ("p" in parsed) {
+      if (typeof parsed.p !== "boolean") {
+        warn('data-ghost "p" is not a boolean \u2014 whole payload discarded (SPEC-SEC-02)');
+        return null;
+      }
+      config.poll = parsed.p;
+    }
+    if ("s" in parsed) {
+      if (typeof parsed.s !== "boolean") {
+        warn('data-ghost "s" is not a boolean \u2014 whole payload discarded (SPEC-SEC-02)');
+        return null;
+      }
+      config.sync = parsed.s;
+    }
+    if ("l" in parsed) {
+      if (typeof parsed.l !== "boolean") {
+        warn('data-ghost "l" is not a boolean \u2014 whole payload discarded (SPEC-SEC-02)');
+        return null;
+      }
+      config.lazy = parsed.l;
+    }
+    if ("o" in parsed) {
+      const sanitized = sanitizeActionList(parsed.o);
+      if (sanitized === void 0) {
+        warn('data-ghost "o" is not an array \u2014 whole payload discarded (SPEC-SEC-02)');
+        return null;
+      }
+      config.only = sanitized;
+    }
+    if ("x" in parsed) {
+      const sanitized = sanitizeActionList(parsed.x);
+      if (sanitized === void 0) {
+        warn('data-ghost "x" is not an array \u2014 whole payload discarded (SPEC-SEC-02)');
+        return null;
+      }
+      config.except = sanitized;
+    }
+    if ("g" in parsed) {
+      if (typeof parsed.g !== "boolean") {
+        warn('data-ghost "g" is not a boolean \u2014 whole payload discarded (SPEC-SEC-02)');
+        return null;
+      }
+      config.learning = parsed.g;
+    }
+    if ("n" in parsed) {
+      if (typeof parsed.n !== "string" || !NAME_PATTERN.test(parsed.n)) {
+        warn('data-ghost "n" is not a valid component name \u2014 whole payload discarded (SPEC-SEC-02)');
+        return null;
+      }
+      config.name = parsed.n;
+    }
+    if ("a" in parsed) {
+      if (parsed.a === null || typeof parsed.a !== "object" || Array.isArray(parsed.a)) {
+        warn('data-ghost "a" is not a JSON object \u2014 whole payload discarded (SPEC-SEC-02)');
+        return null;
+      }
+      const actionOverrides = {};
+      for (const [action, fields] of Object.entries(parsed.a)) {
+        if (!ACTION_NAME_PATTERN.test(action)) {
+          warn(`data-ghost "a" has an invalid action name \u2014 whole payload discarded (SPEC-SEC-02)`);
+          return null;
+        }
+        if (fields === null || typeof fields !== "object" || Array.isArray(fields)) {
+          warn(`data-ghost "a.${action}" is not a JSON object \u2014 whole payload discarded (SPEC-SEC-02)`);
+          return null;
+        }
+        const override = {};
+        for (const [key, value] of Object.entries(fields)) {
+          if (!METHOD_OVERRIDE_KEYS.has(key)) {
+            warn(`data-ghost "a.${action}" has unknown key "${key}" \u2014 whole payload discarded (SPEC-SEC-02)`);
+            return null;
+          }
+          if (key === "m") {
+            if (typeof value !== "string" || !["synthesize", "freeze", "off"].includes(value)) {
+              warn(`data-ghost "a.${action}.m" is not a valid mode \u2014 whole payload discarded (SPEC-SEC-02)`);
+              return null;
+            }
+            override.mode = value;
+          } else if (key === "d" || key === "h" || key === "r") {
+            if (typeof value !== "number") {
+              warn(`data-ghost "a.${action}.${key}" is not a number \u2014 whole payload discarded (SPEC-SEC-02)`);
+              return null;
+            }
+            const field = key === "d" ? "delay" : key === "h" ? "hold" : "rows";
+            const max = key === "r" ? 1e3 : 6e4;
+            override[field] = clamp2(value, 0, max);
+          } else {
+            if (typeof value !== "boolean") {
+              warn(`data-ghost "a.${action}.${key}" is not a boolean \u2014 whole payload discarded (SPEC-SEC-02)`);
+              return null;
+            }
+            const field = key === "p" ? "poll" : key === "s" ? "sync" : "lazy";
+            override[field] = value;
+          }
+        }
+        actionOverrides[action] = override;
+      }
+      config.actionOverrides = actionOverrides;
+    }
+    return config;
+  }
+  function resolveHostConfig(directiveConfig, attributeConfig) {
+    const base = attributeConfig ?? DEFAULTS;
+    return { ...base, ...directiveConfig };
   }
 
   // js/src/index.js
@@ -1063,13 +1062,12 @@
       storage = null;
     }
     const learningStore = createLearningStore({ storage, quotaBytes: 256 * 1024 });
-    const LAZY_NAME_PATTERN = /^[a-z0-9\-.]{1,64}$/;
     function paintLazyPlaceholders() {
       const band = bandFor(window.innerWidth);
       for (const el of document.querySelectorAll("[data-ghost-lazy]")) {
         if (el.dataset.ghostLazyPainted === "1") continue;
         const name = el.getAttribute("data-ghost-lazy");
-        if (!LAZY_NAME_PATTERN.test(name || "")) continue;
+        if (!NAME_PATTERN.test(name || "")) continue;
         const learned = learningStore.get(name, band);
         if (!learned) {
           el.dataset.ghostLazyPainted = "1";
