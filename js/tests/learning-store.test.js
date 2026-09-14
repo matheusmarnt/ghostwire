@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -54,6 +54,32 @@ describe('learning store', () => {
     storage.seed(JSON.stringify({ v: 999, e: { '1|lg': { t: 1, n: 'x', w: 1, h: 1, b: TREE } }, c: { 'x|lg': '1' } }));
 
     expect(store.get('x', 'lg')).toBeNull();
+  });
+
+  // F15: SCHEMA_VERSION has no migration by design (the entries are a derived
+  // cache, cheap to re-learn), but that used to leave the orphaned blob sitting
+  // in localStorage forever once a bump made it unreadable. read() now clears it.
+  it('removes the orphaned blob from storage on a schema version mismatch', () => {
+    storage.seed(JSON.stringify({
+      v: SCHEMA_VERSION + 1,
+      e: { '1|lg': { t: 1, n: 'x', w: 1, h: 1, b: TREE } },
+      c: { 'x|lg': '1' },
+    }));
+
+    store.all();
+
+    expect(storage.getItem(STORAGE_KEY)).toBeNull();
+  });
+
+  it('keeps a valid envelope on read', () => {
+    const store = createLearningStore({ storage, quotaBytes: 256 * 1024, now: () => 1000 });
+    store.put('orders-table', 42, 'md', { width: 100, height: 50 }, [
+      { type: 'text', x: 0, y: 0, width: 10, height: 4 },
+    ]);
+
+    store.all();
+
+    expect(storage.getItem(STORAGE_KEY)).not.toBeNull();
   });
 
   it('discards unparseable JSON silently (SPEC-SEC-04)', () => {
@@ -131,15 +157,14 @@ describe('learning store', () => {
     expect(tiny.get('first', 'lg')).toBeNull();
   });
 
-  // Finding 3: this test's name promises "so a hot entry survives eviction",
-  // but nothing here ever evicted anything, and the quota test above holds
-  // only one entry - {third} is the survivor under LRU *and* under plain
-  // insertion-order (FIFO) eviction, so LRU was never actually distinguished
-  // from "evict whatever was put first". This version is the one scenario
-  // where the two diverge: `hot` is put before `cold` but read again
-  // afterwards, so correct LRU keeps `hot` and drops `cold` - the reverse of
-  // what insertion-order eviction would do.
-  it('refreshes the LRU timestamp on read so a hot entry survives eviction', () => {
+  // Task 5 (perf: stop the learning store writing on every read): this test
+  // used to prove get() refreshed LRU recency, keeping a re-read `hot` entry
+  // alive over a never-re-read `cold` one. That write is gone - recency now
+  // comes from put() alone - so this is the corrected counterpart: reading
+  // `hot` must NOT protect it from eviction. `hot` is still the
+  // least-recently-*written* entry, so it is the one evicted, even though it
+  // was the one read most recently.
+  it('does not refresh LRU recency on read, so a read entry can still be evicted', () => {
     const probeStorage = fakeStorage();
     const probe = createLearningStore({ storage: probeStorage, now: () => 1000 });
     probe.put('hot', 1, 'lg', { width: 10, height: 10 }, TREE);
@@ -153,15 +178,27 @@ describe('learning store', () => {
     clock = 2000;
     s.put('cold', 2, 'lg', { width: 10, height: 10 }, TREE);
     clock = 3000;
-    s.get('hot', 'lg'); // touch hot - cold, not hot, is now the coldest entry
-    expect(JSON.parse(storage.raw).e['1|lg'].t).toBe(3000);
+    s.get('hot', 'lg'); // reading hot must not refresh its recency
+    expect(JSON.parse(storage.raw).e['1|lg'].t).toBe(1000); // untouched by the read
 
     clock = 4000;
     s.put('fresh', 3, 'lg', { width: 10, height: 10 }, TREE); // now over quota: forces exactly one eviction
 
-    expect(s.get('hot', 'lg')).not.toBeNull(); // survives: touched more recently than cold
-    expect(s.get('cold', 'lg')).toBeNull(); // evicted: least-recently-used, despite being newer than hot by insertion order
+    expect(s.get('hot', 'lg')).toBeNull(); // evicted: least-recently-written, despite being read most recently
+    expect(s.get('cold', 'lg')).not.toBeNull(); // survives: written after hot
     expect(s.get('fresh', 'lg')).not.toBeNull();
+  });
+
+  it('does not write to storage on a read', () => {
+    store.put('orders-table', 42, 'md', { width: 100, height: 50 }, [
+      { type: 'text', x: 0, y: 0, width: 10, height: 4 },
+    ]);
+
+    const setItemSpy = vi.spyOn(storage, 'setItem');
+    const learned = store.get('orders-table', 'md');
+
+    expect(learned).not.toBeNull(); // positive control: the read really hit an entry
+    expect(setItemSpy).not.toHaveBeenCalled();
   });
 
   it('replaces a component-and-band entry rather than accumulating stale signatures', () => {

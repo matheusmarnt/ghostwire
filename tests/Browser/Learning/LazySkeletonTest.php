@@ -203,7 +203,7 @@ it('paints nothing for a component that declared its own placeholder (FR-56)', f
     // bones, so it was blind to the one regression it was named for: a
     // skeleton painted straight over "my own placeholder").
     $page = visit('/ghostwire-lazy-declared-placeholder');
-    $page->wait(2.0); // let this first load's own lazy fetch finish server-side before navigate() below issues a second request — otherwise it can queue behind the still-sleeping first one and make the 0.4s check below race the server, not just the client (same reason Test 2 waits here)
+    $page->wait(2.0); // let this first load's own lazy fetch finish server-side before seeding+navigating below, to keep the two loads' server-side work from overlapping — no longer load-bearing for correctness (see mechanism note below), just less noise
 
     $page->script(<<<'JS'
         (function () {
@@ -220,28 +220,66 @@ it('paints nothing for a component that declared its own placeholder (FR-56)', f
     // localStorage survives) so boot()'s first paintLazyPlaceholders() pass
     // on the fresh page sees the seeded entry already in place.
     $page->navigate('/ghostwire-lazy-declared-placeholder');
-    $page->wait(0.4); // inside the fixture's 1.2s render window (review Finding 1: this fixture had no usleep at all before)
 
-    $seen = json_decode($page->script(<<<'JS'
-        JSON.stringify({
-            declaredPh: !!document.querySelector('#declared-placeholder'),
-            realContent: !!document.querySelector('#declared-real'),
-            tagged: document.querySelectorAll('[data-ghost-lazy]').length,
-            bones: document.querySelectorAll('.gw-bone').length,
-        })
-    JS), true);
+    // Mechanism (Task 13, Ruling 16 — replaces the old, wrong "inside the
+    // fixture's 1.2s render window" framing): pest-plugin-browser's HTTP
+    // server (Amp's SocketHttpServer) runs in this same test process, on
+    // the same single-threaded event loop. LazyDeclaredPlaceholder::render()'s
+    // usleep(1.2s) blocks that whole loop while it runs, so a fixed
+    // $page->wait(0.4) issued around the same moment does not return after
+    // ~0.4s — it only returns once the concurrent usleep() releases the
+    // loop, landing within a few ms of the lazy request's real completion
+    // on every run (measured: wait(0.4) took 1215-1233ms, never near
+    // 400ms, in 13/13 instrumented samples; the DOM state either side of
+    // that boundary was a coin flip). No fixed wait shorter than 1.2s can
+    // win that race reliably. Fix: observe the whole placeholder-visible
+    // window instead of sampling one arbitrary instant inside it — attach
+    // the probe immediately, before any wait, so nothing is raced.
+    $page->script(<<<'JS'
+        (function () {
+            window.__gwProbe = {
+                placeholderSeen: !!document.querySelector('#declared-placeholder'),
+                placeholderGone: false,
+                maxBones: 0,
+                maxTagged: 0,
+            };
 
-    // Positive control: the placeholder window is actually open right now —
-    // rules out a 404, a load failure, a renamed component, or an
-    // already-morphed page silently making the checks below vacuous.
-    expect($seen['declaredPh'])->toBeTrue();
-    expect($seen['realContent'])->toBeFalse();
-    // The developer's own placeholder was never tagged...
-    expect($seen['tagged'])->toBe(0);
+            function sample() {
+                var bones = document.querySelectorAll('.gw-bone').length;
+                var tagged = document.querySelectorAll('[data-ghost-lazy]').length;
+                if (bones > window.__gwProbe.maxBones) window.__gwProbe.maxBones = bones;
+                if (tagged > window.__gwProbe.maxTagged) window.__gwProbe.maxTagged = tagged;
+                if (!document.querySelector('#declared-placeholder') || document.querySelector('#declared-real')) {
+                    window.__gwProbe.placeholderGone = true;
+                }
+            }
+
+            sample(); // covers the (here unlikely, since the placeholder is server-rendered) case where the transition already happened by the time this attaches
+            new MutationObserver(sample).observe(document.body, { childList: true, subtree: true, attributes: true });
+        })();
+    JS);
+
+    $page->wait(2.0); // not a race any more: the probe above already recorded the whole window; this just gives the transition time to finish before we read it back
+
+    $probe = json_decode($page->script('JSON.stringify(window.__gwProbe)'), true);
+
+    // Positive control: the placeholder was actually observed present at
+    // attach time — rules out a 404, a load failure, a renamed component,
+    // or an already-morphed page silently making the checks below vacuous.
+    expect($probe['placeholderSeen'])->toBeTrue();
+    // Stronger positive control than before: the transition to real
+    // content actually completed by the end of the observation window,
+    // proving the probe watched a real, live component and not a frozen
+    // or broken page.
+    expect($probe['placeholderGone'])->toBeTrue();
+    // The developer's own placeholder was never tagged, at any point while
+    // it was visible...
+    expect($probe['maxTagged'])->toBe(0);
     // ...and, with real learned data sitting in the store for this exact
-    // name, nothing was painted either — what this test's name actually
-    // claims, checked directly rather than inferred from the tag's absence.
-    expect($seen['bones'])->toBe(0);
+    // name, nothing was ever painted either — what this test's name
+    // actually claims, observed across the whole window rather than
+    // inferred from one instant we guessed.
+    expect($probe['maxBones'])->toBe(0);
 
     $page->assertNoJavaScriptErrors();
 });

@@ -66,6 +66,11 @@ it('never emits raw, unescaped quotes around the JSON payload (SPEC-SEC-01)', fu
 
 it('does not omit a field from data-ghost when it only matches config() overrides, not the literal package default (config-drift fix)', function () {
     config(['ghostwire.learning.enabled' => false]);
+    // Task 2 (FR-04): this test is about the payload's config-drift handling,
+    // not activation — ConfigDriftProbeComponent deliberately carries no
+    // #[Ghost], so it needs 'global' to emit data-ghost at all under the
+    // opt-in default.
+    config(['ghostwire.strategy' => 'global']);
     config()->set('ghostwire.timing.delay', 500);
     Livewire::component('config-drift-probe', ConfigDriftProbeComponent::class);
 

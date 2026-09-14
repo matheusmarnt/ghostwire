@@ -56,6 +56,29 @@ class GhostComponentHook extends ComponentHook
     public function render($view, $data)
     {
         return function ($html, $replaceHtml) {
+            // Second gate, deliberately redundant with the provider's registration
+            // guard: config can change after boot (tests, runtime toggles), and a
+            // registered hook must still emit nothing when the package is off.
+            if (! config('ghostwire.enabled', true)) {
+                return;
+            }
+
+            // FR-04: 'global' instruments every component; the default 'opt-in'
+            // instruments only components that declared #[Ghost] somewhere in their
+            // chain. wire:ghost in a view needs no data-ghost — the client falls back
+            // to attributeConfig.js's literal DEFAULTS (resolveHostConfig), so FR-01
+            // is unaffected by this gate.
+            //
+            // Placed before resolve()/methodOverrides() on purpose: that ordering is
+            // the entire performance point (PR-7). Do not move it below them.
+            $resolver = app(ConfigResolver::class);
+            $componentClass = get_class($this->component);
+
+            if (config('ghostwire.strategy', 'opt-in') !== 'global'
+                && ! $resolver->hasDeclaration($componentClass)) {
+                return;
+            }
+
             // $this->component is set by ComponentHookRegistry::initializeHook()
             // (vendor/livewire/livewire/src/ComponentHookRegistry.php) to the
             // concrete Livewire component instance this hook run is scoped
@@ -67,8 +90,6 @@ class GhostComponentHook extends ComponentHook
             // ConfigResolver::methodOverrides() and sent as the compact "a"
             // map, merged client-side into the matching action's config for
             // the duration of that one commit (js/src/index.js).
-            $resolver = app(ConfigResolver::class);
-            $componentClass = get_class($this->component);
             $resolved = $resolver->resolve($componentClass);
             $payload = $this->compactPayload($resolved, $resolver->literalDefaults());
 

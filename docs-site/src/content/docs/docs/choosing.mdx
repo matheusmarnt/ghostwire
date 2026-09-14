@@ -10,4 +10,4 @@ description: When to use each mode — a decision page.
 
 They compose: put `#[Ghost(mode: 'freeze')]` on the class as the default, then a `wire:ghost.delay.50ms` directive on one particularly slow-loading element inside it to override just that host's timing. The precedence cascade in [`/docs/ghost-attribute`](/ghostwire/docs/ghost-attribute/) resolves the combination.
 
-If you're migrating 60 legacy components without touching any view — start with `#[Ghost]` at the class level and a global `strategy: 'opt-in'` (or `'global'`) config default; add directive-level overrides only where a specific element needs different timing or mode than the rest of its component.
+If you're migrating 60 legacy components without touching any view — put `#[Ghost]` on the base class they share: under the default `strategy: 'opt-in'`, the inherited attribute instruments every subclass, so no `strategy: 'global'` is needed; add directive-level overrides only where a specific element needs different timing or mode than the rest of its component.

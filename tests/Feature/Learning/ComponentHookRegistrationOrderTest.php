@@ -18,6 +18,12 @@ class ComponentHookRegistrationOrderTest extends ReversedProviderOrderTestCase
 {
     public function test_still_registers_the_ghost_component_hook_when_livewire_boots_first(): void
     {
+        // Task 2 (FR-04): this test is about the registration-order regression
+        // (does the hook run at all), not about opt-in activation — the bare
+        // probe fixture carries no #[Ghost], so it needs 'global' to prove the
+        // hook fired.
+        config()->set('ghostwire.strategy', 'global');
+
         $html = Livewire::test(GhostAttributeProbe::class)->html();
 
         // Only proves the hook actually ran (GhostComponentHook stamps this

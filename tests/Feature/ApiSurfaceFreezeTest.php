@@ -33,10 +33,9 @@ it('freezes the #[Ghost] attribute constructor signature', function () {
 it('freezes config/ghostwire.php\'s public key set', function () {
     $config = require __DIR__.'/../../config/ghostwire.php';
 
-    expect(array_keys($config))->toBe(['enabled', 'strategy', 'mode', 'timing', 'silence', 'synthesis', 'learning'])
-        ->and(array_keys($config['timing']))->toBe(['delay', 'hold', 'timeout'])
+    expect(array_keys($config))->toBe(['enabled', 'strategy', 'mode', 'timing', 'silence', 'learning'])
+        ->and(array_keys($config['timing']))->toBe(['delay', 'hold'])
         ->and(array_keys($config['silence']))->toBe(['poll', 'sync'])
-        ->and(array_keys($config['synthesis']))->toBe(['max_depth', 'max_bones', 'repeat_sample_size'])
         ->and(array_keys($config['learning']))->toBe(['enabled', 'store']);
 });
 

@@ -18,6 +18,12 @@ it('keeps bone animations to transform/opacity only (SPEC-RND-05)', function () 
         expect($m)->not->toBeEmpty("missing @keyframes {$name}");
 
         $body = $m[1];
+
+        // The assertion this test was named for. Without it the whole block is
+        // absence-only: an empty @keyframes passes every check below while
+        // animating nothing at all.
+        expect($body)->toMatch('/\b(transform|opacity)\s*:/', "@keyframes {$name} animates neither transform nor opacity");
+
         expect($body)->not->toContain('background-position')
             ->and($body)->not->toContain('width:')
             ->and($body)->not->toContain('height:')

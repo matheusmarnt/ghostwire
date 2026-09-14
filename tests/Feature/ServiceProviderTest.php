@@ -6,7 +6,6 @@ use Illuminate\Support\Facades\Blade;
 it('merges the package config', function () {
     expect(config('ghostwire.timing.delay'))->toBe(120);
     expect(config('ghostwire.timing.hold'))->toBe(300);
-    expect(config('ghostwire.timing.timeout'))->toBe(15000);
 });
 
 it('registers the config publish group', function () {

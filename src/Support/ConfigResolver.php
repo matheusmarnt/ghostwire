@@ -21,6 +21,9 @@ final class ConfigResolver
     /** @var array<class-string, array<string, mixed>> */
     private array $classChainCache = [];
 
+    /** @var array<class-string, bool> */
+    private array $hasDeclarationCache = [];
+
     /**
      * @return array{mode: string, only: ?array, except: ?array, delay: int, hold: int, rows: ?int, poll: bool, sync: bool, lazy: bool}
      */
@@ -115,6 +118,70 @@ final class ConfigResolver
         }
 
         return $overrides;
+    }
+
+    /**
+     * FR-04 / SPEC-API-12: is this component opted in at all? True when #[Ghost]
+     * is declared anywhere reachable from the class — on the class itself, on any
+     * ancestor, on any trait used anywhere in the chain, or on any public method.
+     *
+     * This is a PRESENCE check, not an arguments check — a bare #[Ghost] with no
+     * arguments is a valid, real opt-in (arguably the headline use case: "just
+     * give me the defaults"). It deliberately does NOT reuse classChain()/
+     * declaredArgsForMethod(): those return [] for a bare #[Ghost] too (nothing
+     * was textually written at the call site to merge), which is correct for
+     * precedence resolution but wrong here — reusing them silently treated a
+     * bare #[Ghost] as "not declared" and gated it off under opt-in.
+     *
+     * Deliberately cheaper than resolve(): it short-circuits on the first
+     * declaration found and merges nothing. GhostComponentHook calls it BEFORE
+     * resolve()/methodOverrides(), so a non-opted-in component pays one cached
+     * lookup per class instead of a full per-render reflection sweep of every
+     * public method (PR-7).
+     */
+    public function hasDeclaration(string $componentClass): bool
+    {
+        if (isset($this->hasDeclarationCache[$componentClass])) {
+            return $this->hasDeclarationCache[$componentClass];
+        }
+
+        return $this->hasDeclarationCache[$componentClass] = $this->declaresGhostAnywhere($componentClass);
+    }
+
+    /** @see ancestorAndTraitLevels() same traversal, collecting declared args instead of testing presence */
+    private function declaresGhostAnywhere(string $class): bool
+    {
+        if ($this->declaresGhost($class)) {
+            return true;
+        }
+
+        $current = get_parent_class($class);
+        while ($current !== false) {
+            if ($this->declaresGhost($current)) {
+                return true;
+            }
+            $current = get_parent_class($current);
+        }
+
+        foreach (class_uses_recursive($class) as $trait) {
+            if ($this->declaresGhost($trait)) {
+                return true;
+            }
+        }
+
+        foreach ((new ReflectionClass($class))->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
+            if ($method->getAttributes(Ghost::class) !== []) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** True when #[Ghost] is attached to $class at all, regardless of arguments. */
+    private function declaresGhost(string $class): bool
+    {
+        return (new ReflectionClass($class))->getAttributes(Ghost::class) !== [];
     }
 
     /** @param array<int, array<string, mixed>> $levels */

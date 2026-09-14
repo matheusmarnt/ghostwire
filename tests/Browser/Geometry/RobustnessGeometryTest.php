@@ -17,7 +17,26 @@ test('SPEC-SYN-11: repeat sampling preserves real item count and matches real ge
     $page = visit('/gallery/repeat-list');
 
     $page->script(<<<'JS'
-        window.__gwRepeat = { matched: null, boneCount: 0, rowCount: 0 };
+        window.__gwRepeat = { matched: null, widthMatched: null, boneCount: 0, rowCount: 0 };
+
+        // A <li> is block-level and stretches to its <ul>'s full width
+        // regardless of text length, so comparing bone width against the LI's
+        // own rect can never discriminate "Row 3" from "Row 12" — measure the
+        // TEXT NODE itself (same technique the runtime's own
+        // measureTextLines()/measureShallowTextBones() use), which is tight to
+        // the real glyph width and does vary with content length.
+        function gwTextRect(el) {
+            for (const node of el.childNodes) {
+                if (node.nodeType === Node.TEXT_NODE && node.textContent.trim() !== '') {
+                    const range = document.createRange();
+                    range.selectNodeContents(node);
+                    const rects = range.getClientRects();
+                    if (rects.length > 0) return rects[0];
+                }
+            }
+            return el.getBoundingClientRect();
+        }
+
         new MutationObserver(() => {
             if (window.__gwRepeat.matched !== null) return; // evaluate once, at first sighting
             const layer = document.body.querySelector('.gw-layer');
@@ -26,17 +45,33 @@ test('SPEC-SYN-11: repeat sampling preserves real item count and matches real ge
             if (bones.length === 0) return;
 
             const rows = Array.from(document.querySelectorAll('#repeat-list li.row'));
-            const lastRow = rows[rows.length - 1].getBoundingClientRect();
+            const lastRow = gwTextRect(rows[rows.length - 1]);
             const TOLERANCE = 2;
 
-            const matched = bones.some((bone) => {
+            let matched = false;
+            let widthMatched = false;
+            for (const bone of bones) {
                 const b = bone.getBoundingClientRect();
-                return Math.abs(b.top - lastRow.top) <= TOLERANCE && Math.abs(b.left - lastRow.left) <= TOLERANCE;
-            });
+                if (Math.abs(b.top - lastRow.top) <= TOLERANCE && Math.abs(b.left - lastRow.left) <= TOLERANCE) {
+                    matched = true;
+                    // P5 (2026-09-12 gap-fix audit): "Row 1".."Row 9" and "Row
+                    // 10".."Row 12" are different text lengths, so a bone whose
+                    // width was only pitch/template-translated (the sampled
+                    // template row, e.g. "Row 3") rather than measured from
+                    // this row's own real text ("Row 12") would land at the
+                    // right position but the WRONG width — position alone
+                    // (the `matched` check above) cannot see that, confirmed by
+                    // mutation (forcing emit.js's per-row real-measurement
+                    // branch off): the position-only check kept passing.
+                    widthMatched = Math.abs(b.width - lastRow.width) <= TOLERANCE;
+                    break;
+                }
+            }
 
             window.__gwRepeat.boneCount = bones.length;
             window.__gwRepeat.rowCount = rows.length;
             window.__gwRepeat.matched = matched;
+            window.__gwRepeat.widthMatched = widthMatched;
         }).observe(document.body, { childList: true, subtree: true });
         true;
     JS);
@@ -49,6 +84,7 @@ test('SPEC-SYN-11: repeat sampling preserves real item count and matches real ge
     expect($data['rowCount'])->toBe(12);
     expect($data['boneCount'])->toBe($data['rowCount'] + 1); // one text bone per row + the refresh button's control bone
     expect($data['matched'])->toBeTrue(); // the last (cloned, unsampled) row's bone lands within 2px of the real row it stands in for
+    expect($data['widthMatched'])->toBeTrue(); // ...and it is that row's own real width ("Row 12"), not the sampled template's ("Row 3")
 });
 
 test('SPEC-SYN-14: scrollable containers limit synthesis to the visible area', function () {

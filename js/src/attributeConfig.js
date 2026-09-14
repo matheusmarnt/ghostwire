@@ -1,3 +1,6 @@
+import { isDebug } from './debug.js';
+import { NAME_PATTERN as COMPONENT_NAME_PATTERN } from './learning/store.js';
+
 const KEY_MAP = { m: 'mode', o: 'only', x: 'except', d: 'delay', h: 'hold', r: 'rows', p: 'poll', s: 'sync', l: 'lazy', g: 'learning', n: 'name' };
 // 'a' (per-action method-level overrides, SPEC-API-10) is a top-level key
 // but not a compact-config field itself — it carries its own nested schema,
@@ -8,7 +11,6 @@ const KEY_MAP = { m: 'mode', o: 'only', x: 'except', d: 'delay', h: 'hold', r: '
 const KNOWN_COMPACT_KEYS = new Set([...Object.keys(KEY_MAP), 'a']);
 const METHOD_OVERRIDE_KEYS = new Set(['m', 'd', 'h', 'r', 'p', 's', 'l']);
 const ACTION_NAME_PATTERN = /^[A-Za-z0-9_]{1,64}$/;
-const COMPONENT_NAME_PATTERN = /^[a-z0-9\-.]{1,64}$/;
 
 // Mirrors src/Support/ConfigResolver.php's literalDefaults() exactly — these
 // are fixed literals, not config()-driven values. GhostComponentHook's
@@ -29,7 +31,7 @@ function sanitizeActionList(list) {
 }
 
 function warn(message) {
-  if (process.env.NODE_ENV !== 'production') console.warn(`[ghostwire] ${message}`);
+  if (isDebug()) console.warn(`[ghostwire] ${message}`);
 }
 
 export function parseAttributeConfig(el) {

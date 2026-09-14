@@ -24,7 +24,7 @@ class ExportCommand extends Command
         $component = (string) $this->option('component');
 
         if (! preg_match(LearnedTree::NAME_PATTERN, $component)) {
-            $this->error('The --component option must match [a-z0-9.-] and be 1-64 characters long.');
+            $this->error('The --component option must be 1-64 characters of lowercase letters, digits, hyphen and dot.');
 
             return self::FAILURE;
         }

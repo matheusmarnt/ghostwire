@@ -80,6 +80,16 @@
     return { name: "v3", subscribe };
   }
 
+  // js/src/debug.js
+  var debug = false;
+  try {
+    debug = document.currentScript?.dataset?.ghostwireDebug === "1";
+  } catch {
+  }
+  function isDebug() {
+    return debug;
+  }
+
   // js/src/bridge/index.js
   function detectBridge() {
     if (typeof window.Livewire?.interceptMessage === "function") {
@@ -88,7 +98,7 @@
     if (typeof window.Livewire?.hook === "function") {
       return { name: "v3", bridge: createV3Bridge() };
     }
-    if (false) {
+    if (isDebug()) {
       console.warn("[ghostwire] neither Livewire.interceptMessage nor Livewire.hook was found \u2014 disabling (SPEC-INT-20)");
     }
     return { name: null, bridge: null };
@@ -681,14 +691,177 @@
     return { synthesize, forget };
   }
 
+  // js/src/learning/bands.js
+  var BANDS = [
+    { name: "2xl", min: 1536 },
+    { name: "xl", min: 1280 },
+    { name: "lg", min: 1024 },
+    { name: "md", min: 768 },
+    { name: "sm", min: 640 },
+    { name: "xs", min: 0 }
+  ];
+  var BAND_NAMES = ["xs", "sm", "md", "lg", "xl", "2xl"];
+  function bandFor(width) {
+    const w = Number.isFinite(width) ? width : 0;
+    for (const band of BANDS) {
+      if (w >= band.min) return band.name;
+    }
+    return "xs";
+  }
+
+  // js/src/learning/store.js
+  var SCHEMA_VERSION = 1;
+  var STORAGE_KEY = "ghostwire.learned.v1";
+  var MAX_COORD = 2e4;
+  var MAX_BONES = 300;
+  var BONE_TYPES = /* @__PURE__ */ new Set(["text", "avatar", "block", "icon", "media", "control", "heading"]);
+  var NAME_PATTERN = /^[a-z0-9\-.]{1,64}$/;
+  var BONE_KEYS = ["type", "x", "y", "width", "height"];
+  var ENTRY_KEY_PATTERN = /^(\d{1,10})\|([a-z0-9]{2,3})$/;
+  function clamp(value, min, max) {
+    if (!Number.isFinite(value)) return null;
+    return Math.min(max, Math.max(min, value));
+  }
+  function validBone(bone) {
+    if (bone === null || typeof bone !== "object" || Array.isArray(bone)) return null;
+    const keys = Object.keys(bone);
+    if (keys.length !== BONE_KEYS.length) return null;
+    if (!BONE_KEYS.every((key) => keys.includes(key))) return null;
+    if (typeof bone.type !== "string" || !BONE_TYPES.has(bone.type)) return null;
+    const x = clamp(bone.x, -MAX_COORD, MAX_COORD);
+    const y = clamp(bone.y, -MAX_COORD, MAX_COORD);
+    const width = clamp(bone.width, 0, MAX_COORD);
+    const height = clamp(bone.height, 0, MAX_COORD);
+    if (x === null || y === null || width === null || height === null) return null;
+    return { type: bone.type, x, y, width, height };
+  }
+  function validEntry(entry) {
+    if (entry === null || typeof entry !== "object" || Array.isArray(entry)) return null;
+    if (typeof entry.n !== "string" || !NAME_PATTERN.test(entry.n)) return null;
+    if (!Array.isArray(entry.b) || entry.b.length === 0 || entry.b.length > MAX_BONES) return null;
+    const t = clamp(entry.t, 0, Number.MAX_SAFE_INTEGER);
+    const w = clamp(entry.w, 0, MAX_COORD);
+    const h = clamp(entry.h, 0, MAX_COORD);
+    if (t === null || w === null || h === null) return null;
+    const bones = [];
+    for (const bone of entry.b) {
+      const valid = validBone(bone);
+      if (valid === null) return null;
+      bones.push(valid);
+    }
+    return { t, n: entry.n, w, h, b: bones };
+  }
+  function emptyEnvelope() {
+    return { v: SCHEMA_VERSION, e: {}, c: {} };
+  }
+  function validEnvelope(raw) {
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return emptyEnvelope();
+    }
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return emptyEnvelope();
+    if (parsed.v !== SCHEMA_VERSION) return emptyEnvelope();
+    if (parsed.e === null || typeof parsed.e !== "object" || Array.isArray(parsed.e)) return emptyEnvelope();
+    const envelope = emptyEnvelope();
+    for (const [key, entry] of Object.entries(parsed.e)) {
+      const match = ENTRY_KEY_PATTERN.exec(key);
+      if (!match || !BAND_NAMES.includes(match[2])) continue;
+      const valid = validEntry(entry);
+      if (valid === null) continue;
+      envelope.e[key] = valid;
+      envelope.c[`${valid.n}|${match[2]}`] = match[1];
+    }
+    return envelope;
+  }
+  function createLearningStore({ storage, quotaBytes = 256 * 1024, now = () => Date.now() } = {}) {
+    function read() {
+      let raw;
+      try {
+        raw = storage.getItem(STORAGE_KEY);
+      } catch {
+        return emptyEnvelope();
+      }
+      if (typeof raw !== "string" || raw === "") return emptyEnvelope();
+      const envelope = validEnvelope(raw);
+      if (Object.keys(envelope.e).length === 0 && raw.length > 2) {
+        try {
+          storage.removeItem(STORAGE_KEY);
+        } catch {
+        }
+      }
+      return envelope;
+    }
+    function write(envelope) {
+      let serialized = JSON.stringify(envelope);
+      while (serialized.length > quotaBytes) {
+        const keys = Object.keys(envelope.e);
+        if (keys.length === 0) return false;
+        const coldest = keys.reduce((a, b) => envelope.e[a].t <= envelope.e[b].t ? a : b);
+        const band = ENTRY_KEY_PATTERN.exec(coldest)[2];
+        delete envelope.c[`${envelope.e[coldest].n}|${band}`];
+        delete envelope.e[coldest];
+        serialized = JSON.stringify(envelope);
+      }
+      try {
+        storage.setItem(STORAGE_KEY, serialized);
+      } catch {
+        return false;
+      }
+      return true;
+    }
+    return {
+      get(name, band) {
+        const envelope = read();
+        const signature = envelope.c[`${name}|${band}`];
+        if (signature === void 0) return null;
+        const entry = envelope.e[`${signature}|${band}`];
+        if (entry === void 0) return null;
+        return { width: entry.w, height: entry.h, bones: entry.b };
+      },
+      put(name, signature, band, hostRect, boneTree) {
+        if (typeof name !== "string" || !NAME_PATTERN.test(name)) return false;
+        if (!BAND_NAMES.includes(band)) return false;
+        const sig = clamp(signature, 0, 4294967295);
+        if (sig === null) return false;
+        const candidate = validEntry({
+          t: now(),
+          n: name,
+          w: hostRect?.width,
+          h: hostRect?.height,
+          b: boneTree
+        });
+        if (candidate === null) return false;
+        const envelope = read();
+        const stamp = String(Math.trunc(sig));
+        const previous = envelope.c[`${name}|${band}`];
+        if (previous !== void 0 && previous !== stamp) {
+          delete envelope.e[`${previous}|${band}`];
+        }
+        envelope.e[`${stamp}|${band}`] = candidate;
+        envelope.c[`${name}|${band}`] = stamp;
+        return write(envelope);
+      },
+      all() {
+        return read();
+      },
+      clear() {
+        try {
+          storage.removeItem(STORAGE_KEY);
+        } catch {
+        }
+      }
+    };
+  }
+
   // js/src/attributeConfig.js
   var KEY_MAP = { m: "mode", o: "only", x: "except", d: "delay", h: "hold", r: "rows", p: "poll", s: "sync", l: "lazy", g: "learning", n: "name" };
   var KNOWN_COMPACT_KEYS = /* @__PURE__ */ new Set([...Object.keys(KEY_MAP), "a"]);
   var METHOD_OVERRIDE_KEYS = /* @__PURE__ */ new Set(["m", "d", "h", "r", "p", "s", "l"]);
   var ACTION_NAME_PATTERN = /^[A-Za-z0-9_]{1,64}$/;
-  var COMPONENT_NAME_PATTERN = /^[a-z0-9\-.]{1,64}$/;
   var DEFAULTS = { mode: "synthesize", only: null, except: null, delay: 120, hold: 300, rows: null, poll: false, sync: false, lazy: false, learning: false, name: null };
-  function clamp(value, min, max) {
+  function clamp2(value, min, max) {
     return Math.min(max, Math.max(min, value));
   }
   function sanitizeActionList(list) {
@@ -697,7 +870,7 @@
     return cleaned.length > 0 ? cleaned : null;
   }
   function warn(message) {
-    if (false) console.warn(`[ghostwire] ${message}`);
+    if (isDebug()) console.warn(`[ghostwire] ${message}`);
   }
   function parseAttributeConfig(el) {
     const raw = el.getAttribute("data-ghost");
@@ -732,21 +905,21 @@
         warn('data-ghost "d" is not a number \u2014 whole payload discarded (SPEC-SEC-02)');
         return null;
       }
-      config.delay = clamp(parsed.d, 0, 6e4);
+      config.delay = clamp2(parsed.d, 0, 6e4);
     }
     if ("h" in parsed) {
       if (typeof parsed.h !== "number") {
         warn('data-ghost "h" is not a number \u2014 whole payload discarded (SPEC-SEC-02)');
         return null;
       }
-      config.hold = clamp(parsed.h, 0, 6e4);
+      config.hold = clamp2(parsed.h, 0, 6e4);
     }
     if ("r" in parsed) {
       if (typeof parsed.r !== "number") {
         warn('data-ghost "r" is not a number \u2014 whole payload discarded (SPEC-SEC-02)');
         return null;
       }
-      config.rows = clamp(parsed.r, 0, 1e3);
+      config.rows = clamp2(parsed.r, 0, 1e3);
     }
     if ("p" in parsed) {
       if (typeof parsed.p !== "boolean") {
@@ -793,7 +966,7 @@
       config.learning = parsed.g;
     }
     if ("n" in parsed) {
-      if (typeof parsed.n !== "string" || !COMPONENT_NAME_PATTERN.test(parsed.n)) {
+      if (typeof parsed.n !== "string" || !NAME_PATTERN.test(parsed.n)) {
         warn('data-ghost "n" is not a valid component name \u2014 whole payload discarded (SPEC-SEC-02)');
         return null;
       }
@@ -833,7 +1006,7 @@
             }
             const field = key === "d" ? "delay" : key === "h" ? "hold" : "rows";
             const max = key === "r" ? 1e3 : 6e4;
-            override[field] = clamp(value, 0, max);
+            override[field] = clamp2(value, 0, max);
           } else {
             if (typeof value !== "boolean") {
               warn(`data-ghost "a.${action}.${key}" is not a boolean \u2014 whole payload discarded (SPEC-SEC-02)`);
@@ -854,165 +1027,6 @@
     return { ...base, ...directiveConfig };
   }
 
-  // js/src/learning/bands.js
-  var BANDS = [
-    { name: "2xl", min: 1536 },
-    { name: "xl", min: 1280 },
-    { name: "lg", min: 1024 },
-    { name: "md", min: 768 },
-    { name: "sm", min: 640 },
-    { name: "xs", min: 0 }
-  ];
-  var BAND_NAMES = ["xs", "sm", "md", "lg", "xl", "2xl"];
-  function bandFor(width) {
-    const w = Number.isFinite(width) ? width : 0;
-    for (const band of BANDS) {
-      if (w >= band.min) return band.name;
-    }
-    return "xs";
-  }
-
-  // js/src/learning/store.js
-  var SCHEMA_VERSION = 1;
-  var STORAGE_KEY = "ghostwire.learned.v1";
-  var MAX_COORD = 2e4;
-  var MAX_BONES = 300;
-  var BONE_TYPES = /* @__PURE__ */ new Set(["text", "avatar", "block", "icon", "media", "control", "heading"]);
-  var NAME_PATTERN = /^[a-z0-9\-.]{1,64}$/;
-  var BONE_KEYS = ["type", "x", "y", "width", "height"];
-  var ENTRY_KEY_PATTERN = /^(\d{1,10})\|([a-z0-9]{2,3})$/;
-  function clamp2(value, min, max) {
-    if (!Number.isFinite(value)) return null;
-    return Math.min(max, Math.max(min, value));
-  }
-  function validBone(bone) {
-    if (bone === null || typeof bone !== "object" || Array.isArray(bone)) return null;
-    const keys = Object.keys(bone);
-    if (keys.length !== BONE_KEYS.length) return null;
-    if (!BONE_KEYS.every((key) => keys.includes(key))) return null;
-    if (typeof bone.type !== "string" || !BONE_TYPES.has(bone.type)) return null;
-    const x = clamp2(bone.x, -MAX_COORD, MAX_COORD);
-    const y = clamp2(bone.y, -MAX_COORD, MAX_COORD);
-    const width = clamp2(bone.width, 0, MAX_COORD);
-    const height = clamp2(bone.height, 0, MAX_COORD);
-    if (x === null || y === null || width === null || height === null) return null;
-    return { type: bone.type, x, y, width, height };
-  }
-  function validEntry(entry) {
-    if (entry === null || typeof entry !== "object" || Array.isArray(entry)) return null;
-    if (typeof entry.n !== "string" || !NAME_PATTERN.test(entry.n)) return null;
-    if (!Array.isArray(entry.b) || entry.b.length === 0 || entry.b.length > MAX_BONES) return null;
-    const t = clamp2(entry.t, 0, Number.MAX_SAFE_INTEGER);
-    const w = clamp2(entry.w, 0, MAX_COORD);
-    const h = clamp2(entry.h, 0, MAX_COORD);
-    if (t === null || w === null || h === null) return null;
-    const bones = [];
-    for (const bone of entry.b) {
-      const valid = validBone(bone);
-      if (valid === null) return null;
-      bones.push(valid);
-    }
-    return { t, n: entry.n, w, h, b: bones };
-  }
-  function emptyEnvelope() {
-    return { v: SCHEMA_VERSION, e: {}, c: {} };
-  }
-  function validEnvelope(raw) {
-    let parsed;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      return emptyEnvelope();
-    }
-    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return emptyEnvelope();
-    if (parsed.v !== SCHEMA_VERSION) return emptyEnvelope();
-    if (parsed.e === null || typeof parsed.e !== "object" || Array.isArray(parsed.e)) return emptyEnvelope();
-    const envelope = emptyEnvelope();
-    for (const [key, entry] of Object.entries(parsed.e)) {
-      const match = ENTRY_KEY_PATTERN.exec(key);
-      if (!match || !BAND_NAMES.includes(match[2])) continue;
-      const valid = validEntry(entry);
-      if (valid === null) continue;
-      envelope.e[key] = valid;
-      envelope.c[`${valid.n}|${match[2]}`] = match[1];
-    }
-    return envelope;
-  }
-  function createLearningStore({ storage, quotaBytes = 256 * 1024, now = () => Date.now() } = {}) {
-    function read() {
-      let raw;
-      try {
-        raw = storage.getItem(STORAGE_KEY);
-      } catch {
-        return emptyEnvelope();
-      }
-      if (typeof raw !== "string" || raw === "") return emptyEnvelope();
-      return validEnvelope(raw);
-    }
-    function write(envelope) {
-      let serialized = JSON.stringify(envelope);
-      while (serialized.length > quotaBytes) {
-        const keys = Object.keys(envelope.e);
-        if (keys.length === 0) return false;
-        const coldest = keys.reduce((a, b) => envelope.e[a].t <= envelope.e[b].t ? a : b);
-        const band = ENTRY_KEY_PATTERN.exec(coldest)[2];
-        delete envelope.c[`${envelope.e[coldest].n}|${band}`];
-        delete envelope.e[coldest];
-        serialized = JSON.stringify(envelope);
-      }
-      try {
-        storage.setItem(STORAGE_KEY, serialized);
-      } catch {
-        return false;
-      }
-      return true;
-    }
-    return {
-      get(name, band) {
-        const envelope = read();
-        const signature = envelope.c[`${name}|${band}`];
-        if (signature === void 0) return null;
-        const entry = envelope.e[`${signature}|${band}`];
-        if (entry === void 0) return null;
-        entry.t = now();
-        write(envelope);
-        return { width: entry.w, height: entry.h, bones: entry.b };
-      },
-      put(name, signature, band, hostRect, boneTree) {
-        if (typeof name !== "string" || !NAME_PATTERN.test(name)) return false;
-        if (!BAND_NAMES.includes(band)) return false;
-        const sig = clamp2(signature, 0, 4294967295);
-        if (sig === null) return false;
-        const candidate = validEntry({
-          t: now(),
-          n: name,
-          w: hostRect?.width,
-          h: hostRect?.height,
-          b: boneTree
-        });
-        if (candidate === null) return false;
-        const envelope = read();
-        const stamp = String(Math.trunc(sig));
-        const previous = envelope.c[`${name}|${band}`];
-        if (previous !== void 0 && previous !== stamp) {
-          delete envelope.e[`${previous}|${band}`];
-        }
-        envelope.e[`${stamp}|${band}`] = candidate;
-        envelope.c[`${name}|${band}`] = stamp;
-        return write(envelope);
-      },
-      all() {
-        return read();
-      },
-      clear() {
-        try {
-          storage.removeItem(STORAGE_KEY);
-        } catch {
-        }
-      }
-    };
-  }
-
   // js/src/index.js
   var TIMED_MODIFIER_PATTERN = /^(delay|hold)\.(\d+)ms$/;
   function parseModifiers(modifiers) {
@@ -1027,7 +1041,7 @@
         const timed = modifier.match(TIMED_MODIFIER_PATTERN);
         if (timed) config[timed[1]] = Number(timed[2]);
         else if (modifier.startsWith("rows.")) config.rows = Number(modifier.slice("rows.".length));
-        else if (false) {
+        else if (isDebug()) {
           console.warn(`[ghostwire] unknown wire:ghost modifier ".${modifier}" \u2014 ignored`);
         }
       }
@@ -1055,15 +1069,17 @@
       storage = null;
     }
     const learningStore = createLearningStore({ storage, quotaBytes: 256 * 1024 });
-    const LAZY_NAME_PATTERN = /^[a-z0-9\-.]{1,64}$/;
     function paintLazyPlaceholders() {
       const band = bandFor(window.innerWidth);
       for (const el of document.querySelectorAll("[data-ghost-lazy]")) {
         if (el.dataset.ghostLazyPainted === "1") continue;
         const name = el.getAttribute("data-ghost-lazy");
-        if (!LAZY_NAME_PATTERN.test(name || "")) continue;
+        if (!NAME_PATTERN.test(name || "")) continue;
         const learned = learningStore.get(name, band);
-        if (!learned) continue;
+        if (!learned) {
+          el.dataset.ghostLazyPainted = "1";
+          continue;
+        }
         el.classList.add("gw-lazy");
         el.style.width = `${learned.width}px`;
         el.style.height = `${learned.height}px`;
@@ -1091,7 +1107,7 @@
       (host, signature, boneTree, hostRect) => {
         if (!host.config.learning || !host.config.name) return;
         const persisted = learningStore.put(host.config.name, signature, bandFor(window.innerWidth), hostRect, boneTree);
-        if (!persisted && false) {
+        if (!persisted && isDebug()) {
           console.warn(`[ghostwire] learning: could not persist "${host.config.name}" \u2014 ${boneTree.length} bones exceeds the ${MAX_BONES}-bone cap, or the storage quota was refused`);
         }
       }

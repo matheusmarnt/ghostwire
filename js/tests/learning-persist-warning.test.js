@@ -38,6 +38,7 @@ vi.mock('../src/learning/store.js', async (importOriginal) => {
 import { boot } from '../src/index.js';
 import { __captured } from '../src/synthesizer/index.js';
 import { MAX_BONES, __capturedStore } from '../src/learning/store.js';
+import { setDebugForTests } from '../src/debug.js';
 
 function fakeStorage() {
   const map = new Map();
@@ -60,10 +61,12 @@ describe('learning persist-failure warning (Finding 2)', () => {
     delete window.Livewire;
     delete window.Ghostwire;
     vi.unstubAllGlobals();
+    setDebugForTests(false);
   });
 
   it('warns with the component name, the real bone count, and the cap when put() rejects an over-cap tree', () => {
     boot();
+    setDebugForTests(true);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const host = { config: { learning: true, name: 'huge-table' } };

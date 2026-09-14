@@ -175,23 +175,55 @@ test('SPEC-MORPH-03: host content is concealed (visibility: hidden) while bones 
     expect($page->script('window.__gwConcealedVisibility'))->toBe('hidden');
 });
 
-test('SPEC-PERF-10: bones introduce zero CLS for gallery layouts 1-3', function (string $route, string $triggerSelector) {
+test('SPEC-PERF-10: bones introduce zero CLS for gallery layouts 1-3', function (string $route, string $triggerSelector, string $hostSelector) {
     $page = visit($route);
 
-    $page->script('
+    // P1 (2026-09-12 gap-fix audit, re-derived by mutation): the browser's own
+    // layout-shift metric reports ZERO entries for these fixtures — confirmed
+    // by instrumenting a raw PerformanceObserver dump — even with concealment
+    // mutated to genuinely collapse the host's box (visibility: hidden ->
+    // display: none). $cls below would pass regardless of whether concealment
+    // is implemented correctly, so it can't be the only check. This also
+    // samples the host's own rect every frame and records the largest
+    // deviation from its rect at click-time: visibility: hidden preserves the
+    // box exactly (delta ~0px); a space-collapsing regression spikes this to
+    // the host's own width/height the instant it collapses.
+    $page->script(<<<JS
         window.__cls = 0;
         new PerformanceObserver((list) => {
             for (const entry of list.getEntries()) {
                 if (!entry.hadRecentInput) window.__cls += entry.value;
             }
         }).observe({ type: "layout-shift", buffered: true });
+
+        window.__gwHostDelta = 0;
+        (function () {
+            const host = document.querySelector('{$hostSelector}');
+            const r0 = host.getBoundingClientRect();
+            const sample = () => {
+                const r = host.getBoundingClientRect();
+                const delta = Math.max(
+                    Math.abs(r.width - r0.width),
+                    Math.abs(r.height - r0.height),
+                    Math.abs(r.top - r0.top),
+                    Math.abs(r.left - r0.left)
+                );
+                if (delta > window.__gwHostDelta) window.__gwHostDelta = delta;
+                window.__gwRafId = requestAnimationFrame(sample);
+            };
+            window.__gwRafId = requestAnimationFrame(sample);
+        })();
         true;
-    ');
+    JS);
 
     $page->click($triggerSelector);
     $page->wait(1.0); // generous: clears delay(120) + server sleep(200) + hold(300) + morph/settle margin
 
+    $page->script('cancelAnimationFrame(window.__gwRafId);');
+
     $cls = $page->script('window.__cls');
+    $hostDelta = $page->script('window.__gwHostDelta');
 
     expect($cls)->toBe(0);
+    expect($hostDelta)->toBeLessThanOrEqual(2); // the host's own box must never change shape/position while concealed
 })->with('gallery_layouts');

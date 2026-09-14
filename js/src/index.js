@@ -4,8 +4,9 @@ import { createScheduler } from './scheduler.js';
 import { createRenderer } from './renderer.js';
 import { createSynthesizer } from './synthesizer/index.js';
 import { parseAttributeConfig, resolveHostConfig } from './attributeConfig.js';
-import { createLearningStore, MAX_BONES } from './learning/store.js';
+import { createLearningStore, MAX_BONES, NAME_PATTERN as LAZY_NAME_PATTERN } from './learning/store.js';
 import { bandFor } from './learning/bands.js';
+import { isDebug } from './debug.js';
 
 const TIMED_MODIFIER_PATTERN = /^(delay|hold)\.(\d+)ms$/;
 
@@ -26,7 +27,7 @@ function parseModifiers(modifiers) {
       const timed = modifier.match(TIMED_MODIFIER_PATTERN);
       if (timed) config[timed[1]] = Number(timed[2]);
       else if (modifier.startsWith('rows.')) config.rows = Number(modifier.slice('rows.'.length));
-      else if (process.env.NODE_ENV !== 'production') {
+      else if (isDebug()) {
         console.warn(`[ghostwire] unknown wire:ghost modifier ".${modifier}" — ignored`);
       }
     }
@@ -83,8 +84,6 @@ export function boot() {
 
   const learningStore = createLearningStore({ storage, quotaBytes: 256 * 1024 });
 
-  const LAZY_NAME_PATTERN = /^[a-z0-9\-.]{1,64}$/;
-
   // SPEC-LRN-02: paints a persisted skeleton into a lazy placeholder root
   // BEFORE Livewire ever renders real content into it (Task 1's
   // 'render.placeholder' listener is what tags the root with
@@ -103,7 +102,15 @@ export function boot() {
       if (!LAZY_NAME_PATTERN.test(name || '')) continue;
 
       const learned = learningStore.get(name, band);
-      if (!learned) continue; // nothing learned at this width yet: no skeleton, per SDD §15
+      if (!learned) {
+        // Nothing learned at this width yet (SDD §15: no skeleton, not an error).
+        // Mark it resolved anyway: this function runs on EVERY morph, and without
+        // this the miss path repeats getItem + JSON.parse + full envelope
+        // re-validation for the lifetime of the page — the common case in
+        // production, where collection never runs.
+        el.dataset.ghostLazyPainted = '1';
+        continue;
+      }
 
       el.classList.add('gw-lazy');
       el.style.width = `${learned.width}px`;
@@ -139,7 +146,7 @@ export function boot() {
       // exceeding MAX_BONES (emit.js fans out per text line and per repeated
       // row, well past walk.js's MAX_CANDIDATES cap). A dev-only warning here
       // costs nothing and is the only signal a developer would otherwise get.
-      if (!persisted && process.env.NODE_ENV !== 'production') {
+      if (!persisted && isDebug()) {
         console.warn(`[ghostwire] learning: could not persist "${host.config.name}" — ${boneTree.length} bones exceeds the ${MAX_BONES}-bone cap, or the storage quota was refused`);
       }
     },

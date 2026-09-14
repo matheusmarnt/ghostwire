@@ -18,6 +18,12 @@ const getSpy = vi.fn(() => null);
 vi.mock('../src/learning/store.js', () => ({
   createLearningStore: () => ({ get: getSpy, put: () => false, all: () => ({ v: 1, e: {}, c: {} }), clear: () => {} }),
   MAX_BONES: 300,
+  // Task 7: index.js now imports NAME_PATTERN (aliased LAZY_NAME_PATTERN) from this
+  // module instead of declaring its own copy - the mock must carry it too, or the
+  // import comes back undefined and the guard this test exercises throws instead
+  // of running. Kept as a literal value, matching MAX_BONES above, not
+  // importOriginal: this mock deliberately replaces the whole module surface.
+  NAME_PATTERN: /^[a-z0-9\-.]{1,64}$/,
 }));
 
 import { boot } from '../src/index.js';

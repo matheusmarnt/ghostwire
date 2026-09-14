@@ -114,7 +114,23 @@ export function createLearningStore({ storage, quotaBytes = 256 * 1024, now = ()
 
     if (typeof raw !== 'string' || raw === '') return emptyEnvelope();
 
-    return validEnvelope(raw);
+    const envelope = validEnvelope(raw);
+
+    // A schema bump discards every learned tree by design — they are a derived
+    // cache and re-synthesis is cheap. Drop the orphaned blob rather than leaving
+    // it in localStorage forever: STORAGE_KEY carries the version, so a future bump
+    // would otherwise strand this one permanently. Only fires when a non-trivial
+    // stored value validated down to zero entries: wrong schema version, corrupt
+    // JSON, or every entry rejected — in all three the blob is already worthless.
+    if (Object.keys(envelope.e).length === 0 && raw.length > 2) {
+      try {
+        storage.removeItem(STORAGE_KEY);
+      } catch {
+        // best-effort
+      }
+    }
+
+    return envelope;
   }
 
   function write(envelope) {
@@ -151,8 +167,13 @@ export function createLearningStore({ storage, quotaBytes = 256 * 1024, now = ()
       const entry = envelope.e[`${signature}|${band}`];
       if (entry === undefined) return null;
 
-      entry.t = now(); // refresh LRU recency
-      write(envelope);
+      // No write on read. Refreshing LRU recency here re-serialised the whole
+      // envelope and did a synchronous setItem on the lazy-paint critical path, to
+      // move one timestamp. Recency now comes from put() alone, which runs on every
+      // successful synthesis — so eviction order degrades to
+      // least-recently-*written*, which is sufficient: the quota only comes under
+      // pressure while learning is collecting, and collection is refused in
+      // production (GhostComponentHook::learningEnabled()).
 
       return { width: entry.w, height: entry.h, bones: entry.b };
     },
