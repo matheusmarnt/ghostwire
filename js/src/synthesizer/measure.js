@@ -17,9 +17,17 @@ export function measure(host, candidates, regionRect = null, clipRootEl = null) 
   // hidden-ness is ours, not the author's, so it must not trip SPEC-SYN-12's
   // filter in emit.js, or every resize degrades the host to freeze. closest()
   // is a DOM-tree read, not a layout read (SPEC-PERF-01/02 unaffected).
-  // ponytail: during that re-synthesis an author's own visibility: hidden on
-  // a descendant is indistinguishable from ours and gets a bone; add
-  // per-element detection if it ever matters.
+  // ponytail: the see-through is not scoped to the resize path — closest()
+  // governs ANY measure() run under a concealed ancestor, which also covers
+  // a nested inner host synthesizing at show time while an outer host is
+  // already concealed. The island path's candidates outside host.el are the
+  // one case it cannot reach: we never conceal those siblings, so they are
+  // treated as visible either way. Wherever it does apply, an author's own
+  // visibility: hidden on a descendant is indistinguishable from ours and
+  // gets a bone — and a resize-synthesized tree reaches the learning store
+  // through index.js's onSynthesized callback, so such a bone can be
+  // persisted, not just painted. Add per-element detection if it ever
+  // matters.
   const concealedByUs = host.el.closest('.gw-concealed') !== null;
 
   const results = candidates.map((candidate) => {

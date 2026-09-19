@@ -26,7 +26,7 @@ Do not pipe `vendor/bin/pest` through `head`, `tail` or `grep` — `pest-plugin-
 CI runs a dedicated `perf` workflow on every pull request. Every gate is structural — a count of bytes or DOM operations, never a duration — so it cannot fail because a runner is slow:
 
 - **Bundle budget (SPEC-PERF-08):** `resources/dist/ghostwire.js` must stay at or under 10 KB gzip with zero runtime dependencies (`js/tests/perf-bundle-budget.test.js`). If a change pushes it over, the budget is the conversation to have, not the number to raise.
-- **Read-before-write (SPEC-PERF-01/02):** no layout read after the first DOM write of a cycle — in jsdom (`js/tests/perf-read-write-order.test.js`) and in a real browser against the built bundle (`tests/Browser/Performance/RenderBudgetTest.php`).
+- **Read-before-write (SPEC-PERF-01/02):** no layout read after the first DOM write of a cycle — measured from the first write to a connected node (the host's `aria-busy`), in jsdom (`js/tests/perf-read-write-order.test.js`) and in a real browser against the built bundle (`tests/Browser/Performance/RenderBudgetTest.php`).
 - **Bounded synthesis (SPEC-PERF-03/04):** layout reads grow sub-quadratically with host size and stop growing once the 300-candidate cap engages (`tests/Browser/Performance/ComplexityTest.php`).
 - **No lifecycle leaks (SPEC-PERF-11):** 500 show/hide cycles leave no layers, observers or timers behind (`js/tests/perf-lifecycle-leaks.test.js`).
 

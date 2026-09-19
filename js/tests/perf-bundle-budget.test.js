@@ -7,7 +7,7 @@
 // proves the committed file equals a fresh build), so the number asserted
 // here is the number every Composer consumer receives.
 //
-// Issue #18 measured the v1.0.0 bundle at 12.5 KB gzip against this 10 KB
+// Issue #18 measured the v1.0.0 bundle at 12,847 bytes gzip against this 10 KB
 // budget — a breach that shipped because nothing in CI measured it. It is
 // bytes, not time: deterministic, and therefore a gate that cannot flake.
 import { describe, it, expect } from 'vitest';

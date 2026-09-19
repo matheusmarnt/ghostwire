@@ -6,14 +6,15 @@
 // cost budget deferred since M3 (issue #5, then #18) — all structural
 // (ADR-007), measured by gwShowBurst() in tests/Pest.php.
 //
-// The render path is renderer.js's mountLayer() (reads border-radius/
-// overflow and the host rect, then appends the layer as its ONLY tree write)
-// followed by renderBones() (one createElement + appendChild per bone into
-// the now-live layer). Its cost is structurally bounded when, and only when:
-//   (a) no layout read follows the layer append inside that same task — a
-//       read there is a forced synchronous reflow against a freshly-dirtied
-//       layout (SPEC-PERF-01), and the runtime's own read-before-write rule
-//       (SPEC-PERF-02) is what keeps it at zero;
+// The render path is renderer.js's prepareLayer() (reads border-radius/
+// overflow and the host rect, applied to a still-detached element) and
+// attachLayer() (the ONLY tree write of the mount), followed by
+// renderBones() (one createElement + appendChild per bone into the now-live
+// layer). Its cost is structurally bounded when, and only when:
+//   (a) no layout read follows the cycle's first write to a connected node
+//       (the host's aria-busy) — a read there is a forced synchronous reflow
+//       against a freshly-dirtied layout (SPEC-PERF-01), and the runtime's
+//       own read-before-write rule (SPEC-PERF-02) is what keeps it at zero;
 //   (b) the number of bones — and so of DOM insertions — is bounded by the
 //       SPEC-SYN-13 candidate cap for a host of any size;
 //   (c) exactly one layer is mounted per cycle (a double mount was the shape
@@ -23,10 +24,10 @@
 // browser, on both Livewire lines, for every M3 gallery layout shape (repeat
 // sampling, scroll clipping, card grid) and the capped node-count fixture.
 
-test('SPEC-PERF-01/02: the show burst performs zero layout reads after the Ghost Layer is appended', function (string $route) {
+test('SPEC-PERF-01/02: the show burst performs zero layout reads after its first DOM write', function (string $route) {
     $burst = gwShowBurst($route);
 
-    expect($burst['readsAfterLayerAppend'])->toBe(0, "{$route}: {$burst['readsAfterLayerAppend']} layout read(s) landed after the layer append — a forced reflow in the render path");
+    expect($burst['readsAfterFirstWrite'])->toBe(0, "{$route}: {$burst['readsAfterFirstWrite']} layout read(s) landed after the burst's first DOM write — a forced reflow in the show cycle");
 })->with([
     'node count, cap engaged' => ['/gallery/node-count?nodes=800'],
     'repeat list' => ['/gallery/repeat-list'],

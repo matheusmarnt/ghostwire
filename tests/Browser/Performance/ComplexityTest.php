@@ -14,8 +14,8 @@
 //   (reads at 800 nodes equal reads at 400), so no host can make a
 //   synthesis arbitrarily long; SPEC-PERF-07's adaptive freeze remains the
 //   user-facing guard against a genuinely slow synthesis.
-//   Authority: Ruling R2 of the 2026-09-19 plan
-//   (docs/plans/2026-09-19-fix-issues-18-21.md, "Rulings"), per ADR-007 and
+//   Authority: controller ruling R2 of 2026-09-19, recorded in the
+//   maintainers' local plan (gitignored, not shipped), per ADR-007 and
 //   issue #18's analysis that median-of-3/5/7 wall-clock samples all still
 //   flaked.
 //
@@ -61,8 +61,12 @@ test('SPEC-PERF-04: synthesis work is bounded by the SPEC-SYN-13 candidate cap â
     // Capture floor: 300 capped candidates (SPEC-SYN-13, walk.js MAX_CANDIDATES)
     // x 3 reads each (getComputedStyle + getBoundingClientRect + Range.getClientRects
     // for a text candidate) is the minimum a burst that actually contains synthesis
-    // can measure. Guards against silent degradation if an async boundary is ever
-    // introduced between synthesize() and mountLayer(): the flush would then fire
+    // can measure. Those 3 reads per text candidate are an ASSUMPTION about the
+    // current measure.js, not a spec bound: an optimisation that legitimately drops
+    // one read per candidate must lower this floor deliberately, in the same commit,
+    // rather than leave a gate that fails on an improvement.
+    // Guards against silent degradation if an async boundary is ever
+    // introduced between synthesize() and attachLayer(): the flush would then fire
     // with inShow still false, discard the pre-boundary reads, and the equality
     // below would hold vacuously on a smaller-but-still-bounded number.
     expect($at800)->toBeGreaterThanOrEqual(3 * 300, "burst captured only {$at800} reads for 800 nodes â€” below the 900-read floor a real synthesis must clear; the equality below would be vacuous otherwise");

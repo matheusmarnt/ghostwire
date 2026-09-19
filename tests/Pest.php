@@ -10,10 +10,11 @@ uses(TestCase::class)->in('Feature', 'Unit', 'Browser', 'Contract');
 function gwShowBurstProbeJs(): string
 {
     return <<<'JS'
-        window.__gwShowBurst = { reads: null, readsAfterLayerAppend: null, bones: null, layerAppends: 0 };
+        window.__gwShowBurst = { reads: null, readsAfterFirstWrite: null, bones: null, layerAppends: 0 };
         (() => {
             let reads = 0;
-            let afterAppend = 0;
+            let afterFirstWrite = 0;
+            let firstWrite = false;
             let inShow = false;
             let scheduled = false;
             // One flush per synchronous burst: the microtask runs when the
@@ -27,13 +28,13 @@ function gwShowBurstProbeJs(): string
                 queueMicrotask(() => {
                     if (inShow) {
                         window.__gwShowBurst.reads = reads;
-                        window.__gwShowBurst.readsAfterLayerAppend = afterAppend;
+                        window.__gwShowBurst.readsAfterFirstWrite = afterFirstWrite;
                         window.__gwShowBurst.bones = document.querySelectorAll('.gw-layer .gw-bone').length;
                     }
-                    reads = 0; afterAppend = 0; inShow = false; scheduled = false;
+                    reads = 0; afterFirstWrite = 0; firstWrite = false; inShow = false; scheduled = false;
                 });
             };
-            const onRead = () => { reads += 1; if (inShow) afterAppend += 1; touch(); };
+            const onRead = () => { reads += 1; if (firstWrite) afterFirstWrite += 1; touch(); };
             const wrap = (proto, name) => {
                 const orig = proto[name];
                 proto[name] = function (...args) { onRead(); return orig.apply(this, args); };
@@ -60,8 +61,31 @@ function gwShowBurstProbeJs(): string
             wrapWindowSize('innerHeight');
             const origGCS = window.getComputedStyle;
             window.getComputedStyle = function (...args) { onRead(); return origGCS.apply(this, args); };
+            // The burst's first write to a CONNECTED node opens the window.
+            // Detached-node writes (renderer.prepareLayer styling the layer
+            // before it is appended) never dirty document layout and are
+            // ignored. classList and style writes are not instrumented: the
+            // first write of a Ghostwire show cycle is always one of the
+            // kinds below (aria-busy via setAttribute, the live region's
+            // textContent, or the layer append), so a later classList/style
+            // write can never be the one that opens the window.
+            const onWrite = (node) => { if (node && node.isConnected) { firstWrite = true; touch(); } };
+            const origSetAttribute = Element.prototype.setAttribute;
+            Element.prototype.setAttribute = function (...args) { onWrite(this); return origSetAttribute.apply(this, args); };
+            const origRemoveAttribute = Element.prototype.removeAttribute;
+            Element.prototype.removeAttribute = function (...args) { onWrite(this); return origRemoveAttribute.apply(this, args); };
+            const textContent = Object.getOwnPropertyDescriptor(Node.prototype, 'textContent');
+            Object.defineProperty(Node.prototype, 'textContent', {
+                configurable: true,
+                enumerable: textContent.enumerable,
+                get: textContent.get,
+                set(value) { onWrite(this); textContent.set.call(this, value); },
+            });
+            const origInsertBefore = Node.prototype.insertBefore;
+            Node.prototype.insertBefore = function (...args) { onWrite(this); return origInsertBefore.apply(this, args); };
             const origAppend = Node.prototype.appendChild;
             Node.prototype.appendChild = function (node) {
+                onWrite(this);
                 if (node && node.classList && node.classList.contains('gw-layer')) {
                     inShow = true;
                     window.__gwShowBurst.layerAppends += 1;

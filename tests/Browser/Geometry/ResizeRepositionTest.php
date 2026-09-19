@@ -13,7 +13,9 @@
 // (issue #21) instead of filtering every candidate as hidden, so the real
 // DOM produces bones with no rows hint needed.
 //
-// Non-vacuity, proven by two mutations during Task 7 of the 2026-09-19 plan:
+// Non-vacuity, proven by two mutations under controller ruling R8 of
+// 2026-09-19, recorded in the maintainers' local plan (gitignored, not
+// shipped):
 // (1) against the pre-fix v1.0.0 bundle (git show
 // v1.0.0:resources/dist/ghostwire.js) the test FAILS — the resize degrades
 // the host to freeze, so .gw-layer no longer exists when the test reads it;
