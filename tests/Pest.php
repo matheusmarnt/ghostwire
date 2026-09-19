@@ -41,6 +41,23 @@ function gwShowBurstProbeJs(): string
             wrap(Element.prototype, 'getBoundingClientRect');
             wrap(Range.prototype, 'getClientRects');
             wrap(Range.prototype, 'getBoundingClientRect');
+            // index.js reads window.innerWidth directly (bandFor(), e.g. line 120's
+            // paintLazyPlaceholders and line 175's learning-persist callback) — a
+            // window-geometry read the four wrapped APIs above are structurally
+            // blind to. Graceful fallback, never throw: skip silently if the
+            // descriptor is missing or non-configurable (shouldn't happen in
+            // Chromium, but this probe must never break a real run over it).
+            const wrapWindowSize = (name) => {
+                const descriptor = Object.getOwnPropertyDescriptor(window, name);
+                if (!descriptor || !descriptor.configurable || typeof descriptor.get !== 'function') return;
+                const orig = descriptor.get;
+                Object.defineProperty(window, name, {
+                    configurable: true,
+                    get() { onRead(); return orig.call(window); },
+                });
+            };
+            wrapWindowSize('innerWidth');
+            wrapWindowSize('innerHeight');
             const origGCS = window.getComputedStyle;
             window.getComputedStyle = function (...args) { onRead(); return origGCS.apply(this, args); };
             const origAppend = Node.prototype.appendChild;
@@ -65,7 +82,10 @@ function gwShowBurst(string $route, string $trigger = '#refresh-btn'): array
     $page->script(gwShowBurstProbeJs());
     // Dispatched from the page itself, not $page->click(), so Playwright's own
     // actionability hit-testing never runs inside the instrumented window.
-    $page->script("document.querySelector('{$trigger}').click(); true;");
+    // json_encode(), not raw interpolation: $trigger is a CSS selector that
+    // could legally contain a quote (e.g. an attribute selector), which would
+    // otherwise break out of the JS string.
+    $page->script('document.querySelector('.json_encode($trigger).').click(); true;');
     $page->wait(1.0); // show (120ms) + response (200ms server sleep) + hold (300ms): the whole cycle
 
     $burst = json_decode($page->script('JSON.stringify(window.__gwShowBurst)'), true);
@@ -74,7 +94,7 @@ function gwShowBurst(string $route, string $trigger = '#refresh-btn'): array
     // synthesis really ran (a burst of zero reads would pass every ratio
     // below vacuously).
     expect($burst['layerAppends'])->toBe(1, "{$route}: expected exactly one Ghost Layer mount, saw {$burst['layerAppends']}");
-    expect($burst['reads'])->toBeGreaterThan(0);
+    expect($burst['reads'])->toBeGreaterThan(0, "{$route}: expected at least one layout read in the show burst, saw 0 — synthesis may not have run");
     expect($page->script('typeof window.__ghostwireLastSynthesisMs'))->toBe('number');
 
     return $burst;

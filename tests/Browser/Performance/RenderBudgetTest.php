@@ -38,6 +38,6 @@ test('render budget: bones per cycle are bounded by the SPEC-SYN-13 candidate ca
     $burst = gwShowBurst('/gallery/node-count?nodes=800');
 
     expect($burst['bones'])->toBeGreaterThan(0)
-        ->and($burst['bones'])->toBeLessThanOrEqual(301) // MAX_CANDIDATES (300, walk.js) text bones + the one aggregated block bone the cap emits
+        ->and($burst['bones'])->toBeLessThanOrEqual(301) // (SPEC-SYN-13 candidate cap x text lines per candidate) + 1 block bone; node-count's items are single-line, so 300 x 1 + 1 = 301 here — not a fixture-independent structural bound
         ->and($burst['layerAppends'])->toBe(1);
 });
