@@ -1,4 +1,4 @@
-import { collectAndClassify } from './walk.js';
+import { collectAndClassify, collectAndClassifyRange } from './walk.js';
 import { measure } from './measure.js';
 import { emit } from './emit.js';
 import { createSignatureCache } from './signature.js';
@@ -10,7 +10,7 @@ export function createSynthesizer(registry, defaults = { maxDepth: 12, repeatSam
   const cache = createSignatureCache();
   const slowStreak = new WeakMap(); // host -> consecutive slow-synthesis count; SPEC-PERF-07 adaptive freeze trigger
 
-  function synthesize(host) {
+  function synthesize(host, region = null) {
     // Monotonic by design (SPEC-PERF-07): a host that synthesised too slowly stays
     // degraded until teardown. Re-testing it on every commit is exactly how flicker is
     // produced — the cost that made it slow is a property of its subtree, not of the
@@ -19,7 +19,9 @@ export function createSynthesizer(registry, defaults = { maxDepth: 12, repeatSam
     if ((slowStreak.get(host) || 0) >= SLOW_STREAK_LIMIT) return null; // SPEC-PERF-07: skip straight to freeze
 
     const startedAt = now();
-    const candidates = collectAndClassify(host, registry, defaults.maxDepth, defaults.repeatSampleSize);
+    const candidates = region
+      ? collectAndClassifyRange(region.startNode, region.endNode, host, registry, defaults.maxDepth, defaults.repeatSampleSize)
+      : collectAndClassify(host, registry, defaults.maxDepth, defaults.repeatSampleSize);
     const signature = cache.computeSignature(candidates);
 
     const cached = cache.get(host, signature);
@@ -28,7 +30,7 @@ export function createSynthesizer(registry, defaults = { maxDepth: 12, repeatSam
       return cached;
     }
 
-    const measured = measure(host, candidates);
+    const measured = measure(host, candidates, region ? region.rect : null);
     const boneTree = emit(host, measured, host.config.rows);
 
     if (boneTree) {

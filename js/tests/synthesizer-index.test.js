@@ -159,4 +159,43 @@ describe('synthesizer/index', () => {
 
     expect(typeof window.__ghostwireLastSynthesisMs).toBe('number');
   });
+
+  it('uses collectAndClassifyRange and the region rect when a region is passed to synthesize()', () => {
+    const registry = createRegistry();
+    const host = { el: document.createElement('div'), config: {} };
+    registry.attach(host.el, { id: 'c1' }, {});
+    document.body.appendChild(host.el);
+
+    // The island's markers and content live inside host.el (as they would in
+    // real Livewire output — an @island block nested within the component),
+    // so measure.js's computeClipRect() walk from the candidate up to
+    // host.el stays inside this subtree.
+    const start = document.createComment('[if FRAGMENT:type=island|name=t|token=t1|mode=morph]><![endif]');
+    const inner = document.createElement('div');
+    // inner's rect matches regionRect exactly so the ancestor-clip
+    // intersection in computeClipRect() is a no-op regardless of jsdom's
+    // incomplete overflow computed-style resolution for a plain element.
+    inner.getBoundingClientRect = () => ({ top: 0, left: 0, right: 200, bottom: 100, width: 200, height: 100 });
+    const text = document.createElement('p');
+    text.textContent = 'x';
+    text.getBoundingClientRect = () => ({ top: 10, left: 10, right: 90, bottom: 30, width: 80, height: 20 });
+    inner.appendChild(text);
+    const end = document.createComment('[if ENDFRAGMENT:type=island|name=t|token=t1|mode=morph]><![endif]');
+    host.el.append(start, inner, end);
+
+    const regionRect = { top: 0, left: 0, right: 200, bottom: 100, width: 200, height: 100 };
+    const synthesizer = createSynthesizer(registry);
+
+    const boneTree = synthesizer.synthesize(host, { startNode: start, endNode: end, rect: regionRect });
+
+    // Not asserting on boneTree's exact shape here (covered by existing
+    // whole-host synthesize tests) — this proves the region path was
+    // actually taken: measure() uses region.rect as hostRect instead of
+    // host.el's own (unstubbed, zero) rect, so the region synthesis finds
+    // a real bone while a whole-host synthesize of the same host degrades
+    // to null.
+    const wholeHostTree = synthesizer.synthesize(host);
+    expect(boneTree).not.toBeNull();
+    expect(boneTree).not.toBe(wholeHostTree);
+  });
 });
