@@ -25,6 +25,23 @@ describe('renderer', () => {
     expect(layer.getAttribute('aria-hidden')).toBe('true');
   });
 
+  it('prepareLayer builds the positioned layer without inserting it; attachLayer inserts it and sets host.layer', () => {
+    const renderer = createRenderer();
+    const host = makeHost();
+    host.el.getBoundingClientRect = () => ({ top: 5, left: 6, right: 106, bottom: 55, width: 100, height: 50 });
+
+    const layer = renderer.prepareLayer(host);
+
+    expect(layer.isConnected).toBe(false);
+    expect(host.layer).toBeNull();
+    expect(layer.style.top).toBe('5px');
+    expect(layer.style.width).toBe('100px');
+
+    expect(renderer.attachLayer(host, layer)).toBe(layer);
+    expect(layer.parentNode).toBe(document.body);
+    expect(host.layer).toBe(layer);
+  });
+
   it('removeLayer detaches the layer from the DOM and clears host.layer', () => {
     const renderer = createRenderer();
     const host = makeHost();

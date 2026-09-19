@@ -185,17 +185,23 @@ export function boot() {
   );
   const scheduler = createScheduler({
     onShow(host) {
-      renderer.markBusy(host); // SPEC-A11Y-01: busy regardless of render mode
-
-      if (host.config.mode === 'off' || host.config.ignore || host.config.keep) return;
-      if (host.config.mode === 'freeze') { renderer.freeze(host); return; }
+      // SPEC-PERF-01/02: every layout read of the show cycle (regionForHost,
+      // synthesize, prepareLayer) happens before its first DOM write.
+      // markBusy IS a write (aria-busy on the host, the live region's text),
+      // so on the synthesize path it moves below the read phase — same task,
+      // same paint, invisible to assistive technology; SPEC-A11Y-01 (busy
+      // regardless of render mode) still holds on every branch below.
+      if (host.config.mode === 'off' || host.config.ignore || host.config.keep) { renderer.markBusy(host); return; }
+      if (host.config.mode === 'freeze') { renderer.markBusy(host); renderer.freeze(host); return; }
 
       const region = regionForHost(host, bridgeName);
       const boneTree = synthesizer.synthesize(host, region);
-      if (!boneTree) { renderer.freeze(host); host.degraded = true; return; } // SPEC-SYN-16/17 degrade
+      if (!boneTree) { renderer.markBusy(host); renderer.freeze(host); host.degraded = true; return; } // SPEC-SYN-16/17 degrade
+      const layer = renderer.prepareLayer(host, region?.rect); // the cycle's last reads
 
-      renderer.captureFocus(host); // SPEC-A11Y-03: before visibility: hidden forces a blur
-      renderer.mountLayer(host, region?.rect);
+      renderer.markBusy(host); // first write of the cycle
+      renderer.captureFocus(host); // SPEC-A11Y-03: before visibility: hidden forces a blur (reads activeElement only — not layout)
+      renderer.attachLayer(host, layer);
       renderer.renderBones(host, boneTree);
       host.el.classList.add('gw-concealed');
     },
@@ -360,7 +366,7 @@ export function boot() {
       if (host.config.mode === 'freeze') {
         renderer.freeze(host);
       } else if (host.layer) {
-        // SPEC-MORPH-03: truthy host.layer means mountLayer() ran and
+        // SPEC-MORPH-03: truthy host.layer means attachLayer() ran and
         // removeLayer() hasn't — i.e. this host really is on the concealed
         // synthesize path right now, and its bones are covering content that
         // would otherwise be live and clickable underneath them.

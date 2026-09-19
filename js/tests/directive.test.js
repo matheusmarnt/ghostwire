@@ -67,6 +67,7 @@ vi.mock('../src/renderer.js', async (importOriginal) => {
       const spied = {
         ...real,
         mountLayer: vi.fn(real.mountLayer),
+        prepareLayer: vi.fn(real.prepareLayer),
         measureHostRect: vi.fn(real.measureHostRect),
       };
       instances.push(spied);
@@ -931,15 +932,15 @@ describe('directive registration and modifier parsing', () => {
     });
 
     // De-wiring check: with the region plumbing removed (call sites reverted
-    // to synthesize(host)/mountLayer(host), no region argument at all), both
+    // to synthesize(host)/prepareLayer(host), no region argument at all), both
     // assertions below fail — synthesize is recorded with only ONE argument
-    // (never matching a 2-arg toHaveBeenCalledWith), and mountLayer receives
+    // (never matching a 2-arg toHaveBeenCalledWith), and prepareLayer receives
     // no rect at all rather than the island's. Confirmed empirically by
     // temporarily reverting index.js's three call sites and re-running this
     // file: this test and the two below it failed for exactly that reason,
     // while every other test (including the config.island one above) still
     // passed.
-    it('scopes the show path to the enclosing island: synthesize() gets the region, mountLayer() gets its rect, not the whole host (SPEC-INT-13)', () => {
+    it('scopes the show path to the enclosing island: synthesize() gets the region, prepareLayer() gets its rect, not the whole host (SPEC-INT-13)', () => {
       vi.useFakeTimers();
       const origRangeRect = Range.prototype.getBoundingClientRect;
       try {
@@ -978,8 +979,9 @@ describe('directive registration and modifier parsing', () => {
 
         // The shape distinction: synthesize() gets the whole region object...
         expect(synthesizer.synthesize).toHaveBeenCalledWith(host, { startNode: start, endNode: end, rect: islandRect });
-        // ...mountLayer() gets only its bare rect.
-        expect(renderer.mountLayer).toHaveBeenCalledWith(host, islandRect);
+        // ...prepareLayer() (onShow's read half since the SPEC-PERF-01/02
+        // read/write split) gets only its bare rect.
+        expect(renderer.prepareLayer).toHaveBeenCalledWith(host, islandRect);
       } finally {
         // Both restores live in ONE finally spanning the whole test body
         // (not just the interceptedCallback call), so a throw anywhere above

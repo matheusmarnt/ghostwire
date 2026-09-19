@@ -21,14 +21,17 @@ export function createRenderer() {
     ensureLiveRegion().textContent = message;
   }
 
-  function mountLayer(host, regionRect = null) {
+  // SPEC-PERF-01/02: mounting is split into a read half (prepareLayer — the
+  // host's computed style and rect, applied to a still-detached element;
+  // writes to a detached node never dirty document layout) and a write half
+  // (attachLayer — the single DOM-tree insertion), so js/src/index.js's
+  // onShow can finish every read of the cycle before its first write.
+  // mountLayer composes the two for callers with no other writes in between.
+  function prepareLayer(host, regionRect = null) {
     const layer = document.createElement('div');
     layer.className = 'gw-layer';
     layer.setAttribute('aria-hidden', 'true');
 
-    // SPEC-PERF-01/02: read everything about the host BEFORE any DOM-tree
-    // write. Writes to `layer` here are safe pre-append — it isn't in the
-    // document tree yet, so setting its style doesn't dirty document layout.
     // ponytail: host's own border-radius/overflow can't change between mount
     // and unmount, so read them once here rather than on every
     // repositionLayer() call (SPEC-RND-02).
@@ -45,10 +48,17 @@ export function createRenderer() {
     layer.style.left = `${rect.left}px`;
     layer.style.width = `${rect.width}px`;
     layer.style.height = `${rect.height}px`;
+    return layer;
+  }
 
-    document.body.appendChild(layer); // SPEC-MORPH-01: mounted outside the reconciled tree entirely; also the ONLY DOM-tree write in this function, last
+  function attachLayer(host, layer) {
+    document.body.appendChild(layer); // SPEC-MORPH-01: mounted outside the reconciled tree entirely; the ONLY DOM-tree write of the mount
     host.layer = layer;
     return layer;
+  }
+
+  function mountLayer(host, regionRect = null) {
+    return attachLayer(host, prepareLayer(host, regionRect));
   }
 
   // SPEC-PERF-01/02: split into an independent read (measure) and write
@@ -178,5 +188,5 @@ export function createRenderer() {
     }
   }
 
-  return { mountLayer, repositionLayer, measureHostRect, applyLayerRect, renderBones, paintBones, removeLayer, freeze, unfreeze, markBusy, clearBusy, captureFocus, restoreFocus };
+  return { mountLayer, prepareLayer, attachLayer, repositionLayer, measureHostRect, applyLayerRect, renderBones, paintBones, removeLayer, freeze, unfreeze, markBusy, clearBusy, captureFocus, restoreFocus };
 }
