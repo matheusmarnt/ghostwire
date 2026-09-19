@@ -50,6 +50,10 @@ Route::view('/ghostwire-ghost-attribute-probe', 'ghostwire-fixtures::page', ['co
 // sizing against the real framework and the real built runtime.
 Route::view('/ghostwire-island-demo', 'ghostwire-fixtures::page', ['component' => 'island-demo']);
 
+// Issue #21 fixture for tests/Browser/Geometry/ResizeRepositionTest.php:
+// a long-hold host whose skeleton stays up across a viewport resize.
+Route::view('/ghostwire-resize-probe', 'ghostwire-fixtures::page', ['component' => 'resize-probe']);
+
 Route::view('/legacy/legacy-widget-one', 'ghostwire-fixtures::page', ['component' => 'legacy-widget-one']);
 Route::view('/legacy/legacy-widget-two', 'ghostwire-fixtures::page', ['component' => 'legacy-widget-two']);
 Route::view('/legacy/legacy-widget-three', 'ghostwire-fixtures::page', ['component' => 'legacy-widget-three']);

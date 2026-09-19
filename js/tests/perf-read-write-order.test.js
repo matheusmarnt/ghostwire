@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createSynthesizer } from '../src/synthesizer/index.js';
 import { createRegistry } from '../src/registry.js';
 import { createRenderer } from '../src/renderer.js';
@@ -170,5 +170,120 @@ describe('SPEC-PERF-01/02: onPostPaint-style batching across multiple hosts on o
 
     expect(hostA.layer.style.top).toBe('0px');
     expect(hostB.layer.style.width).toBe('100px');
+  });
+});
+
+// SPEC-PERF-01/02 for the REAL show burst: everything js/src/index.js's
+// onShow does, in order, through boot() — not a hand-assembled
+// synthesize+mount+render sequence. The whole-branch review of 2026-09-19
+// found that onShow wrote first (renderer.markBusy: aria-busy on the host,
+// the live region's textContent) and read afterwards (regionForHost,
+// synthesize, mountLayer) — a forced layout per cycle that the two describes
+// above could never see because neither of them calls onShow.
+describe('SPEC-PERF-01/02: the real onShow burst reads everything before its first DOM write', () => {
+  class FakeResizeObserver {
+    constructor(callback) { this.callback = callback; }
+    observe() {}
+    disconnect() {}
+  }
+
+  const origGetClientRects = Range.prototype.getClientRects;
+  const origBCR = Element.prototype.getBoundingClientRect;
+  const origGCS = window.getComputedStyle;
+  const origAppendChild = Node.prototype.appendChild;
+  const origSetAttribute = Element.prototype.setAttribute;
+  const origTextContent = Object.getOwnPropertyDescriptor(Node.prototype, 'textContent');
+  let events;
+  let hostEl;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    document.body.innerHTML = '';
+    document.head.innerHTML = '<style>.gw-concealed { visibility: hidden; }</style>';
+    global.ResizeObserver = FakeResizeObserver;
+    events = [];
+    hostEl = null;
+    Element.prototype.getBoundingClientRect = function () {
+      events.push({ type: 'read', source: 'getBoundingClientRect' });
+      return this === hostEl
+        ? { top: 0, left: 0, right: 200, bottom: 100, width: 200, height: 100 }
+        : { top: 10, left: 10, right: 90, bottom: 30, width: 80, height: 20 };
+    };
+    Range.prototype.getClientRects = function () {
+      events.push({ type: 'read', source: 'getClientRects' });
+      return [{ top: 10, left: 10, right: 90, bottom: 30, width: 80, height: 20 }];
+    };
+    window.getComputedStyle = function (...args) {
+      events.push({ type: 'read', source: 'getComputedStyle' });
+      return origGCS.apply(this, args);
+    };
+    // Writes are recorded only for CONNECTED nodes: a write to a detached
+    // node (renderer.prepareLayer styling the not-yet-appended layer) never
+    // dirties document layout and is not what SPEC-PERF-02 is about.
+    Node.prototype.appendChild = function (...args) {
+      if (this.isConnected) events.push({ type: 'write', source: 'appendChild' });
+      return origAppendChild.apply(this, args);
+    };
+    Element.prototype.setAttribute = function (...args) {
+      if (this.isConnected) events.push({ type: 'write', source: `setAttribute:${args[0]}` });
+      return origSetAttribute.apply(this, args);
+    };
+    Object.defineProperty(Node.prototype, 'textContent', {
+      configurable: true,
+      enumerable: origTextContent.enumerable,
+      get: origTextContent.get,
+      set(value) {
+        if (this.isConnected) events.push({ type: 'write', source: 'textContent' });
+        origTextContent.set.call(this, value);
+      },
+    });
+  });
+
+  afterEach(() => {
+    Element.prototype.getBoundingClientRect = origBCR;
+    Range.prototype.getClientRects = origGetClientRects;
+    window.getComputedStyle = origGCS;
+    Node.prototype.appendChild = origAppendChild;
+    Element.prototype.setAttribute = origSetAttribute;
+    Object.defineProperty(Node.prototype, 'textContent', origTextContent);
+    document.head.innerHTML = '';
+    delete window.Livewire;
+    vi.useRealTimers();
+  });
+
+  it('never reads layout after the first write to a connected node (aria-busy, live region, layer, bones, gw-concealed)', async () => {
+    let registeredCallback;
+    let interceptedCallback;
+    window.Livewire = {
+      interceptMessage: (cb) => { interceptedCallback = cb; return () => {}; },
+      hook: () => {},
+      directive: (name, cb) => { if (name === 'ghost') registeredCallback = cb; },
+    };
+    const { boot } = await import('../src/index.js');
+    boot();
+    hostEl = document.createElement('div');
+    hostEl.innerHTML = '<p>Hello world</p>';
+    document.body.appendChild(hostEl);
+    registeredCallback({
+      el: hostEl,
+      directive: { modifiers: [], expression: '' },
+      component: { id: 'c1', el: hostEl },
+      cleanup: () => {},
+    });
+    interceptedCallback({
+      message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'save' }] },
+      onSuccess: () => {}, onError: () => {}, onFailure: () => {}, onCancel: () => {}, onFinish: () => {},
+    });
+
+    events.length = 0; // only the show burst itself
+    vi.advanceTimersByTime(120); // scheduler delay -> the real onShow, synchronously
+
+    const firstWrite = events.findIndex((e) => e.type === 'write');
+    const readsAfterFirstWrite = events.slice(firstWrite + 1).filter((e) => e.type === 'read');
+    expect(document.querySelector('.gw-layer')).not.toBeNull(); // precondition: the skeleton really showed
+    expect(hostEl.getAttribute('aria-busy')).toBe('true'); // precondition: SPEC-A11Y-01 still holds on the synthesize path
+    expect(firstWrite).toBeGreaterThan(-1);
+    expect(events.slice(0, firstWrite).filter((e) => e.type === 'read').length).toBeGreaterThan(0);
+    expect(readsAfterFirstWrite).toEqual([]);
   });
 });

@@ -19,6 +19,7 @@ use Ghostwire\Tests\Browser\Fixtures\Legacy\LegacyWidgetFour;
 use Ghostwire\Tests\Browser\Fixtures\Legacy\LegacyWidgetOne;
 use Ghostwire\Tests\Browser\Fixtures\Legacy\LegacyWidgetThree;
 use Ghostwire\Tests\Browser\Fixtures\Legacy\LegacyWidgetTwo;
+use Ghostwire\Tests\Browser\Fixtures\ResizeProbe;
 use Livewire\Livewire;
 use Livewire\LivewireServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
@@ -43,6 +44,7 @@ class TestCase extends Orchestra
         Livewire::component('node-count', NodeCount::class);
         Livewire::component('ghost-attribute-probe', GhostAttributeProbe::class);
         Livewire::component('island-demo', IslandDemo::class);
+        Livewire::component('resize-probe', ResizeProbe::class);
         Livewire::component('legacy-widget-one', LegacyWidgetOne::class);
         Livewire::component('legacy-widget-two', LegacyWidgetTwo::class);
         Livewire::component('legacy-widget-three', LegacyWidgetThree::class);

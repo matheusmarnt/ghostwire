@@ -11,6 +11,24 @@ export function measure(host, candidates, regionRect = null, clipRootEl = null) 
   const clipRoot = clipRootEl || host.el;
   const hostStyle = window.getComputedStyle(host.el);
   const clipCache = new Map(); // ancestor element -> clip info, scoped to this measure() call only
+  // Issue #21: a SPEC-SYN-21 resize re-synthesis runs while the skeleton is
+  // showing — host.el (or, for a nested host, an ancestor host) carries
+  // .gw-concealed, whose visibility: hidden every candidate inherits. That
+  // hidden-ness is ours, not the author's, so it must not trip SPEC-SYN-12's
+  // filter in emit.js, or every resize degrades the host to freeze. closest()
+  // is a DOM-tree read, not a layout read (SPEC-PERF-01/02 unaffected).
+  // ponytail: the see-through is not scoped to the resize path — closest()
+  // governs ANY measure() run under a concealed ancestor, which also covers
+  // a nested inner host synthesizing at show time while an outer host is
+  // already concealed. The island path's candidates outside host.el are the
+  // one case it cannot reach: we never conceal those siblings, so they are
+  // treated as visible either way. Wherever it does apply, an author's own
+  // visibility: hidden on a descendant is indistinguishable from ours and
+  // gets a bone — and a resize-synthesized tree reaches the learning store
+  // through index.js's onSynthesized callback, so such a bone can be
+  // persisted, not just painted. Add per-element detection if it ever
+  // matters.
+  const concealedByUs = host.el.closest('.gw-concealed') !== null;
 
   const results = candidates.map((candidate) => {
     const style = window.getComputedStyle(candidate.el);
@@ -19,7 +37,7 @@ export function measure(host, candidates, regionRect = null, clipRootEl = null) 
       type: candidate.type,
       depth: candidate.depth,
       rect: candidate.el.getBoundingClientRect(),
-      visibility: style.visibility,
+      visibility: concealedByUs && style.visibility === 'hidden' ? 'visible' : style.visibility,
       transform: style.transform,
       clipRect: computeClipRect(candidate.el, clipRoot, hostRect, clipCache),
     };
