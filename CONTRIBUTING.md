@@ -25,13 +25,15 @@ vendor/bin/pint
 1. Fork the repository
 2. Create a branch: `git checkout -b my-feature`
 3. Make your changes with tests
-4. Ensure code style is clean and `CHANGELOG.md` is updated
-5. Commit using [Conventional Commits](https://www.conventionalcommits.org/)
+4. Ensure code style is clean (`vendor/bin/pint`)
+5. Commit using [Conventional Commits](https://www.conventionalcommits.org/) — **do not edit `CHANGELOG.md`**, release-please generates it from your commit subjects
 6. Push and open a PR against `main`
 
 ## Commit Convention
 
-This project uses Conventional Commits for automated changelogs:
+This project uses Conventional Commits for automated changelogs **and automated releases**. Your commit subjects are the changelog: release-please reads them from `main`, opens a release PR with the version bump and generated `CHANGELOG.md` entries, and once that PR is merged it creates the tag and the GitHub Release on its own.
+
+A subject release-please cannot parse is skipped **silently** — no changelog entry and no version bump, with nothing going red. `lint.yml`'s `commit-convention` job exists to make that loud, so a PR with a non-conventional commit fails CI.
 
 | Prefix | Release bump |
 |---|---|

@@ -13,5 +13,5 @@
 
 - [ ] Tests added / updated
 - [ ] `vendor/bin/pint` has no issues
-- [ ] `CHANGELOG.md` updated (or PR labeled `changelog-exempt`)
+- [ ] `CHANGELOG.md` **not** hand-edited — release-please generates it from the commit subjects
 - [ ] Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
