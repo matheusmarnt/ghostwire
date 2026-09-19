@@ -198,4 +198,23 @@ describe('synthesizer/measure', () => {
 
     expect(measured.results[0].repeat.extraTextBones).toEqual([[rectA, rectB]]);
   });
+
+  it('uses the given regionRect as hostRect instead of host.el.getBoundingClientRect() when provided', () => {
+    const host = { el: document.createElement('div') };
+    document.body.appendChild(host.el);
+    const regionRect = { top: 10, left: 20, width: 100, height: 50, right: 120, bottom: 60 };
+
+    const result = measure(host, [], regionRect);
+
+    expect(result.hostRect).toBe(regionRect);
+  });
+
+  it('falls back to host.el.getBoundingClientRect() when no regionRect is given (unchanged default behavior)', () => {
+    const host = { el: document.createElement('div') };
+    document.body.appendChild(host.el);
+
+    const result = measure(host, []);
+
+    expect(result.hostRect).toEqual(host.el.getBoundingClientRect());
+  });
 });

@@ -1,7 +1,7 @@
 import { hasDirectText } from './walk.js';
 
-export function measure(host, candidates) {
-  const hostRect = host.el.getBoundingClientRect();
+export function measure(host, candidates, regionRect = null) {
+  const hostRect = regionRect || host.el.getBoundingClientRect();
   const hostStyle = window.getComputedStyle(host.el);
   const clipCache = new Map(); // ancestor element -> clip info, scoped to this measure() call only
 
