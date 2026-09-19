@@ -1170,6 +1170,7 @@
         const region = regionForHost(host, bridgeName);
         const boneTree = synthesizer.synthesize(host, region);
         if (boneTree) {
+          renderer.repositionLayer(host, region?.rect);
           renderer.renderBones(host, boneTree);
         } else {
           renderer.removeLayer(host);

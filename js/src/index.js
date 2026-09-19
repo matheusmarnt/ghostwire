@@ -152,6 +152,13 @@ export function boot() {
       const region = regionForHost(host, bridgeName);
       const boneTree = synthesizer.synthesize(host, region);
       if (boneTree) {
+        // Issue #21: the fresh bones are laid out relative to the host's (or
+        // island's) CURRENT rect, so the layer must move to that same rect in
+        // this same task — otherwise they paint against the stale origin the
+        // layer was mounted at until the next onPostPaint happens to fix it.
+        // SPEC-PERF-01/02: repositionLayer's one read lands here, right after
+        // synthesize()'s reads and before renderBones' first DOM write.
+        renderer.repositionLayer(host, region?.rect);
         renderer.renderBones(host, boneTree);
       } else {
         renderer.removeLayer(host);
