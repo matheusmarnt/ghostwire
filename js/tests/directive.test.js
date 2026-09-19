@@ -37,9 +37,51 @@ vi.mock('../src/registry.js', async (importOriginal) => {
   };
 });
 
+// Task 6: spies on the two renderer/synthesizer entry points this task wires
+// island regions into, so the .island tests below can assert on the exact
+// arguments each received — the region PLUMBING is what Task 6 owns; the
+// walk/measure/emit pipeline behind synthesize() is Tasks 1/4/5's own tested
+// territory, not re-proven here.
+vi.mock('../src/synthesizer/index.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  const instances = [];
+  return {
+    createSynthesizer: (...args) => {
+      const real = actual.createSynthesizer(...args);
+      const spied = {
+        ...real,
+        synthesize: vi.fn(real.synthesize),
+      };
+      instances.push(spied);
+      return spied;
+    },
+    __instances: instances,
+  };
+});
+
+vi.mock('../src/renderer.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  const instances = [];
+  return {
+    createRenderer: (...args) => {
+      const real = actual.createRenderer(...args);
+      const spied = {
+        ...real,
+        mountLayer: vi.fn(real.mountLayer),
+        measureHostRect: vi.fn(real.measureHostRect),
+      };
+      instances.push(spied);
+      return spied;
+    },
+    __instances: instances,
+  };
+});
+
 import { boot } from '../src/index.js';
 import { __instances as schedulerInstances } from '../src/scheduler.js';
 import { __instances as registryInstances } from '../src/registry.js';
+import { __instances as synthesizerInstances } from '../src/synthesizer/index.js';
+import { __instances as rendererInstances } from '../src/renderer.js';
 
 describe('directive registration and modifier parsing', () => {
   let registeredCallback;
@@ -830,6 +872,192 @@ describe('directive registration and modifier parsing', () => {
       expect(registryInstances.at(-1).attach).toHaveBeenCalledTimes(1);
       const [attachedEl] = registryInstances.at(-1).attach.mock.calls.at(-1);
       expect(attachedEl).toBe(child);
+    });
+  });
+
+  describe('.island scoping into the show/reposition lifecycle (SPEC-INT-13, Task 6)', () => {
+    function appendMarker(parent, kind, meta) {
+      parent.appendChild(document.createComment(`[if ${kind}:${meta}]><![endif]`));
+    }
+
+    // Places `el` (the wire:ghost host) as a direct sibling BETWEEN a
+    // FRAGMENT/ENDFRAGMENT comment pair, inside a wrapper appended to
+    // document.body. This is the structure closestIslandRange() actually
+    // looks for — it walks OUTWARD from el's own preceding siblings (and
+    // then each ancestor's), never into el's children (confirmed against
+    // islands.test.js's own fixtures) — so the markers must enclose el from
+    // outside, not live inside it.
+    function wrapInIsland(el) {
+      const meta = 'type=island|name=t|token=t1|mode=morph';
+      const wrapper = document.createElement('div');
+      appendMarker(wrapper, 'FRAGMENT', meta);
+      const start = wrapper.lastChild;
+      wrapper.appendChild(el);
+      appendMarker(wrapper, 'ENDFRAGMENT', meta);
+      const end = wrapper.lastChild;
+      document.body.appendChild(wrapper);
+      return { start, end };
+    }
+
+    it('sets config.island = true for the .island modifier (SPEC-INT-13)', () => {
+      boot();
+      const el = document.createElement('div');
+      document.body.appendChild(el);
+      const component = { id: 'c1', el };
+      registeredCallback({
+        el,
+        directive: { modifiers: ['island'], expression: '' },
+        component,
+        cleanup: () => {},
+      });
+
+      const registry = registryInstances.at(-1);
+      const host = registry.hostFor(el);
+
+      expect(host.config.island).toBe(true);
+    });
+
+    // De-wiring check: with the region plumbing removed (call sites reverted
+    // to synthesize(host)/mountLayer(host), no region argument at all), both
+    // assertions below fail — synthesize is recorded with only ONE argument
+    // (never matching a 2-arg toHaveBeenCalledWith), and mountLayer receives
+    // no rect at all rather than the island's. Confirmed empirically by
+    // temporarily reverting index.js's three call sites and re-running this
+    // file: this test and the two below it failed for exactly that reason,
+    // while every other test (including the config.island one above) still
+    // passed.
+    it('scopes the show path to the enclosing island: synthesize() gets the region, mountLayer() gets its rect, not the whole host (SPEC-INT-13)', () => {
+      vi.useFakeTimers();
+      try {
+        boot();
+        const el = document.createElement('div');
+        const { start, end } = wrapInIsland(el);
+
+        const islandRect = { top: 5, left: 5, right: 85, bottom: 25, width: 80, height: 20 };
+        const origRangeRect = Range.prototype.getBoundingClientRect;
+        Range.prototype.getBoundingClientRect = () => islandRect;
+
+        const component = { id: 'c1', el };
+        registeredCallback({
+          el,
+          directive: { modifiers: ['island'], expression: '' },
+          component,
+          cleanup: () => {},
+        });
+
+        const registry = registryInstances.at(-1);
+        const host = registry.hostFor(el);
+        const synthesizer = synthesizerInstances.at(-1);
+        const renderer = rendererInstances.at(-1);
+        // The walk/measure/emit pipeline is Tasks 1/4/5's own tested
+        // territory — stub a fixed, valid Bone Tree so this test's only
+        // concern is the region PLUMBING Task 6 adds.
+        synthesizer.synthesize.mockReturnValue([{ type: 'text', x: 0, y: 0, width: 50, height: 10 }]);
+
+        try {
+          interceptedCallback({
+            message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'save' }] },
+            onSuccess: () => {},
+            onError: () => {},
+            onFailure: () => {},
+            onCancel: () => {},
+            onFinish: () => {},
+          });
+          vi.advanceTimersByTime(120); // scheduler's default delay -> the real onShow fires
+        } finally {
+          Range.prototype.getBoundingClientRect = origRangeRect;
+        }
+
+        // The shape distinction: synthesize() gets the whole region object...
+        expect(synthesizer.synthesize).toHaveBeenCalledWith(host, { startNode: start, endNode: end, rect: islandRect });
+        // ...mountLayer() gets only its bare rect.
+        expect(renderer.mountLayer).toHaveBeenCalledWith(host, islandRect);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('scopes the onPostPaint reposition read to the enclosing island too (SPEC-INT-13)', () => {
+      boot();
+      const el = document.createElement('div');
+      wrapInIsland(el);
+
+      const islandRect = { top: 5, left: 5, right: 85, bottom: 25, width: 80, height: 20 };
+      const origRangeRect = Range.prototype.getBoundingClientRect;
+      Range.prototype.getBoundingClientRect = () => islandRect;
+
+      const component = { id: 'c1', el };
+      registeredCallback({
+        el,
+        directive: { modifiers: ['island'], expression: '' },
+        component,
+        cleanup: () => {},
+      });
+
+      const registry = registryInstances.at(-1);
+      const host = registry.hostFor(el);
+      const renderer = rendererInstances.at(-1);
+
+      try {
+        // onSuccess -> onRender fires onPostPaint synchronously (mirrors the
+        // "method-level #[Ghost] override" tests above) — no fake timers
+        // needed since onPostPaint doesn't depend on the show delay.
+        interceptedCallback({
+          message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'save' }] },
+          onSuccess: (cb) => cb({ payload: { effects: { html: '<div></div>' } }, onRender: (fn) => fn() }),
+          onError: () => {},
+          onFailure: () => {},
+          onCancel: () => {},
+          onFinish: () => {},
+        });
+      } finally {
+        Range.prototype.getBoundingClientRect = origRangeRect;
+      }
+
+      expect(renderer.measureHostRect).toHaveBeenCalledWith(host, islandRect);
+    });
+
+    it('falls back to the whole-host skeleton when .island is set but no enclosing island exists (SPEC-INT-13 SHOULD, not MUST — must never throw)', () => {
+      vi.useFakeTimers();
+      try {
+        boot();
+        const el = document.createElement('div');
+        el.getBoundingClientRect = () => ({ top: 0, left: 0, right: 200, bottom: 50, width: 200, height: 50 });
+        document.body.appendChild(el); // no FRAGMENT/ENDFRAGMENT markers anywhere
+
+        const component = { id: 'c1', el };
+        registeredCallback({
+          el,
+          directive: { modifiers: ['island'], expression: '' },
+          component,
+          cleanup: () => {},
+        });
+
+        const registry = registryInstances.at(-1);
+        const host = registry.hostFor(el);
+        const synthesizer = synthesizerInstances.at(-1);
+        synthesizer.synthesize.mockReturnValue([{ type: 'text', x: 0, y: 0, width: 50, height: 10 }]);
+
+        expect(() => {
+          interceptedCallback({
+            message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'save' }] },
+            onSuccess: () => {},
+            onError: () => {},
+            onFailure: () => {},
+            onCancel: () => {},
+            onFinish: () => {},
+          });
+          vi.advanceTimersByTime(120);
+        }).not.toThrow();
+
+        // regionForHost() resolved cleanly to null (no enclosing island) and
+        // that null reached synthesize() unchanged — exactly pre-M9 behavior.
+        expect(synthesizer.synthesize).toHaveBeenCalledWith(host, null);
+        expect(host.layer).not.toBeNull();
+        expect(host.layer.style.top).toBe('0px'); // fell back to host.el's own rect
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });
