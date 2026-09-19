@@ -210,14 +210,14 @@
       if (window.Ghostwire?.announcements === false) return;
       ensureLiveRegion().textContent = message;
     }
-    function mountLayer(host) {
+    function mountLayer(host, regionRect = null) {
       const layer = document.createElement("div");
       layer.className = "gw-layer";
       layer.setAttribute("aria-hidden", "true");
       const style = window.getComputedStyle(host.el);
       layer.style.borderRadius = style.borderRadius;
       layer.style.overflow = style.overflow === "visible" ? "visible" : "hidden";
-      const rect = host.el.getBoundingClientRect();
+      const rect = regionRect || host.el.getBoundingClientRect();
       layer.style.top = `${rect.top}px`;
       layer.style.left = `${rect.left}px`;
       layer.style.width = `${rect.width}px`;
@@ -226,9 +226,9 @@
       host.layer = layer;
       return layer;
     }
-    function measureHostRect(host) {
+    function measureHostRect(host, regionRect = null) {
       if (!host.layer) return null;
-      return host.el.getBoundingClientRect();
+      return regionRect || host.el.getBoundingClientRect();
     }
     function applyLayerRect(host, rect) {
       if (!host.layer || !rect) return;
@@ -237,8 +237,8 @@
       host.layer.style.width = `${rect.width}px`;
       host.layer.style.height = `${rect.height}px`;
     }
-    function repositionLayer(host) {
-      applyLayerRect(host, measureHostRect(host));
+    function repositionLayer(host, regionRect = null) {
+      applyLayerRect(host, measureHostRect(host, regionRect));
     }
     function paintBones(container, boneTree) {
       if (!container) return;
@@ -322,13 +322,25 @@
   function collectAndClassify(host, registry, maxDepth = 12, repeatSampleSize = 3) {
     const candidates = [];
     const state = { groupSeq: 0 };
-    visit(host.el, registry, candidates, 0, maxDepth, repeatSampleSize, state, null, host.el);
+    visit(host.el, registry, candidates, 0, maxDepth, repeatSampleSize, state, null, host.el, void 0);
     return candidates;
   }
-  function visit(node, registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, rootEl) {
+  function collectAndClassifyRange(startNode, endNode, host, registry, maxDepth = 12, repeatSampleSize = 3) {
+    const candidates = [];
+    const state = { groupSeq: 0 };
+    let node = startNode.nextSibling;
+    while (node && node !== endNode) {
+      if (node.nodeType === Node.ELEMENT_NODE && (!registry.hostFor(node) || node === host.el)) {
+        visit(node, registry, candidates, 0, maxDepth, repeatSampleSize, state, null, node, host.el);
+      }
+      node = node.nextSibling;
+    }
+    return candidates;
+  }
+  function visit(node, registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, rootEl, exemptHostEl) {
     const children = [];
     for (const child of node.children) {
-      if (registry.hostFor(child)) continue;
+      if (registry.hostFor(child) && child !== exemptHostEl) continue;
       if (child.getAttribute("aria-hidden") === "true") continue;
       children.push(child);
     }
@@ -346,7 +358,7 @@
         const groupId = state.groupSeq++;
         const sampleSize = Math.min(repeatSampleSize, runLength);
         for (let s = 0; s < sampleSize; s++) {
-          processChild(children[i + s], registry, out, depth, maxDepth, repeatSampleSize, state, { id: groupId, index: s }, rootEl);
+          processChild(children[i + s], registry, out, depth, maxDepth, repeatSampleSize, state, { id: groupId, index: s }, rootEl, exemptHostEl);
         }
         const extraCount = runLength - sampleSize;
         if (extraCount > 0) {
@@ -365,15 +377,15 @@
         i += runLength;
         continue;
       }
-      processChild(children[i], registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, rootEl);
+      processChild(children[i], registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, rootEl, exemptHostEl);
       i += 1;
     }
   }
-  function processChild(child, registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, rootEl) {
+  function processChild(child, registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, rootEl, exemptHostEl) {
     const type = classify(child);
     if (type === "container") {
       if (depth < maxDepth) {
-        visit(child, registry, out, depth + 1, maxDepth, repeatSampleSize, state, repeatGroup, rootEl);
+        visit(child, registry, out, depth + 1, maxDepth, repeatSampleSize, state, repeatGroup, rootEl, exemptHostEl);
       } else {
         const block = { type: "block", el: child, depth: depth + 1 };
         if (repeatGroup) block.repeatGroup = repeatGroup;
@@ -411,8 +423,8 @@
   }
 
   // js/src/synthesizer/measure.js
-  function measure(host, candidates) {
-    const hostRect = host.el.getBoundingClientRect();
+  function measure(host, candidates, regionRect = null) {
+    const hostRect = regionRect || host.el.getBoundingClientRect();
     const hostStyle = window.getComputedStyle(host.el);
     const clipCache = /* @__PURE__ */ new Map();
     const results = candidates.map((candidate) => {
@@ -655,17 +667,17 @@
   function createSynthesizer(registry, defaults = { maxDepth: 12, repeatSampleSize: 3 }, onResize, now = () => performance.now(), onSynthesized) {
     const cache = createSignatureCache();
     const slowStreak = /* @__PURE__ */ new WeakMap();
-    function synthesize(host) {
+    function synthesize(host, region = null) {
       if ((slowStreak.get(host) || 0) >= SLOW_STREAK_LIMIT) return null;
       const startedAt = now();
-      const candidates = collectAndClassify(host, registry, defaults.maxDepth, defaults.repeatSampleSize);
+      const candidates = region ? collectAndClassifyRange(region.startNode, region.endNode, host, registry, defaults.maxDepth, defaults.repeatSampleSize) : collectAndClassify(host, registry, defaults.maxDepth, defaults.repeatSampleSize);
       const signature = cache.computeSignature(candidates);
       const cached = cache.get(host, signature);
       if (cached) {
         recordDuration(host, now() - startedAt);
         return cached;
       }
-      const measured = measure(host, candidates);
+      const measured = measure(host, candidates, region ? region.rect : null);
       const boneTree = emit(host, measured, host.config.rows);
       if (boneTree) {
         cache.set(host, signature, boneTree, () => onResize?.(host));
@@ -1027,6 +1039,59 @@
     return { ...base, ...directiveConfig };
   }
 
+  // js/src/islands.js
+  var FRAGMENT_MARKER = /\[if (FRAGMENT|ENDFRAGMENT):(.*?)\]/;
+  function fragmentMarkerInfo(node) {
+    if (node.nodeType !== Node.COMMENT_NODE) return null;
+    const match = FRAGMENT_MARKER.exec(node.textContent);
+    if (!match) return null;
+    const meta = {};
+    for (const pair of match[2].split("|")) {
+      const eq = pair.indexOf("=");
+      if (eq === -1) continue;
+      meta[pair.slice(0, eq)] = pair.slice(eq + 1);
+    }
+    return { kind: match[1], meta };
+  }
+  function findMatchingEnd(startNode) {
+    let depth = 0;
+    let node = startNode.nextSibling;
+    while (node) {
+      const info = fragmentMarkerInfo(node);
+      if (info) {
+        if (info.kind === "FRAGMENT") depth++;
+        else if (depth === 0) return node;
+        else depth--;
+      }
+      node = node.nextSibling;
+    }
+    return null;
+  }
+  function closestIslandRange(el) {
+    let ancestor = el;
+    while (ancestor) {
+      let depth = 0;
+      let sibling = ancestor.previousSibling;
+      while (sibling) {
+        const info = fragmentMarkerInfo(sibling);
+        if (info) {
+          if (info.kind === "ENDFRAGMENT") {
+            depth++;
+          } else if (depth > 0) {
+            depth--;
+          } else {
+            if (info.meta.type !== "island") return null;
+            const endNode = findMatchingEnd(sibling);
+            return endNode ? { startNode: sibling, endNode } : null;
+          }
+        }
+        sibling = sibling.previousSibling;
+      }
+      ancestor = ancestor.parentNode;
+    }
+    return null;
+  }
+
   // js/src/index.js
   var TIMED_MODIFIER_PATTERN = /^(delay|hold)\.(\d+)ms$/;
   function parseModifiers(modifiers) {
@@ -1036,8 +1101,8 @@
       else if (modifier === "off") config.mode = "off";
       else if (modifier === "ignore") config.ignore = true;
       else if (modifier === "keep") config.keep = true;
-      else if (modifier === "island") {
-      } else {
+      else if (modifier === "island") config.island = true;
+      else {
         const timed = modifier.match(TIMED_MODIFIER_PATTERN);
         if (timed) config[timed[1]] = Number(timed[2]);
         else if (modifier.startsWith("rows.")) config.rows = Number(modifier.slice("rows.".length));
@@ -1057,8 +1122,17 @@
       return false;
     });
   }
+  function regionForHost(host, bridgeName) {
+    if (!host.config.island || bridgeName !== "v4") return null;
+    const range = closestIslandRange(host.el);
+    if (!range) return null;
+    const domRange = document.createRange();
+    domRange.setStartAfter(range.startNode);
+    domRange.setEndBefore(range.endNode);
+    return { startNode: range.startNode, endNode: range.endNode, rect: domRange.getBoundingClientRect() };
+  }
   function boot() {
-    const { bridge } = detectBridge();
+    const { name: bridgeName, bridge } = detectBridge();
     if (!bridge) return;
     const registry = createRegistry();
     const renderer = createRenderer();
@@ -1092,7 +1166,8 @@
       void 0,
       (host) => {
         if (host.state !== "visible" || host.config.mode === "freeze") return;
-        const boneTree = synthesizer.synthesize(host);
+        const region = regionForHost(host, bridgeName);
+        const boneTree = synthesizer.synthesize(host, region);
         if (boneTree) {
           renderer.renderBones(host, boneTree);
         } else {
@@ -1120,14 +1195,15 @@
           renderer.freeze(host);
           return;
         }
-        const boneTree = synthesizer.synthesize(host);
+        const region = regionForHost(host, bridgeName);
+        const boneTree = synthesizer.synthesize(host, region);
         if (!boneTree) {
           renderer.freeze(host);
           host.degraded = true;
           return;
         }
         renderer.captureFocus(host);
-        renderer.mountLayer(host);
+        renderer.mountLayer(host, region?.rect);
         renderer.renderBones(host, boneTree);
         host.el.classList.add("gw-concealed");
       },
@@ -1250,7 +1326,7 @@
           hosts.push(host);
           scheduler.messagePostPaint(host);
         }
-        const rects = hosts.map((host) => renderer.measureHostRect(host));
+        const rects = hosts.map((host) => renderer.measureHostRect(host, regionForHost(host, bridgeName)?.rect));
         hosts.forEach((host, i) => renderer.applyLayerRect(host, rects[i]));
       },
       onFinish(ctx) {
