@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { collectAndClassify, classify } from '../src/synthesizer/walk.js';
+import { collectAndClassify, collectAndClassifyRange, classify } from '../src/synthesizer/walk.js';
 import { createRegistry } from '../src/registry.js';
 
 function makeHost(html) {
@@ -253,5 +253,56 @@ describe('synthesizer/walk', () => {
     );
     expect(sampledTextCandidates).toHaveLength(6); // 3 sampled rows x 2 cells each
     expect(new Set(sampledTextCandidates.map((c) => c.repeatGroup.index))).toEqual(new Set([0, 1, 2]));
+  });
+});
+
+describe('collectAndClassifyRange', () => {
+  it('collects candidates only from the sibling range between the two markers, not from outside it', () => {
+    const registry = createRegistry();
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = '<span id="before">before</span>';
+    const start = document.createComment('[if FRAGMENT:type=island|name=t|token=t1|mode=morph]><![endif]');
+    wrapper.appendChild(start);
+    const host = { el: document.createElement('div'), config: {} };
+    host.el.innerHTML = '<p>inside island</p>';
+    wrapper.appendChild(host.el);
+    const end = document.createComment('[if ENDFRAGMENT:type=island|name=t|token=t1|mode=morph]><![endif]');
+    wrapper.appendChild(end);
+    wrapper.insertAdjacentHTML('beforeend', '<span id="after">after</span>');
+    document.body.appendChild(wrapper);
+
+    const candidates = collectAndClassifyRange(start, end, host, registry);
+
+    expect(candidates.some((c) => c.el.textContent === 'before')).toBe(false);
+    expect(candidates.some((c) => c.el.textContent === 'after')).toBe(false);
+    expect(candidates.some((c) => c.el.tagName === 'P')).toBe(true);
+  });
+
+  it('does not treat the target host itself as a nested-host boundary, but still stops at a different nested host', () => {
+    const registry = createRegistry();
+    const wrapper = document.createElement('div');
+    const start = document.createComment('[if FRAGMENT:type=island|name=t|token=t1|mode=morph]><![endif]');
+    wrapper.appendChild(start);
+
+    const host = { el: document.createElement('div'), config: {} };
+    const wrapperOfHost = document.createElement('section');
+    wrapperOfHost.appendChild(host.el);
+    host.el.innerHTML = '<p id="own-content">mine</p>';
+    wrapper.appendChild(wrapperOfHost);
+    registry.attach(host.el, { id: 'c1' }, {});
+
+    const otherHost = document.createElement('div');
+    otherHost.innerHTML = '<p id="other-content">not mine</p>';
+    wrapper.appendChild(otherHost);
+    registry.attach(otherHost, { id: 'c1' }, {});
+
+    const end = document.createComment('[if ENDFRAGMENT:type=island|name=t|token=t1|mode=morph]><![endif]');
+    wrapper.appendChild(end);
+    document.body.appendChild(wrapper);
+
+    const candidates = collectAndClassifyRange(start, end, host, registry);
+
+    expect(candidates.some((c) => c.el.id === 'own-content')).toBe(true);
+    expect(candidates.some((c) => c.el.id === 'other-content')).toBe(false);
   });
 });
