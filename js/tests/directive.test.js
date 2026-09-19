@@ -928,13 +928,13 @@ describe('directive registration and modifier parsing', () => {
     // passed.
     it('scopes the show path to the enclosing island: synthesize() gets the region, mountLayer() gets its rect, not the whole host (SPEC-INT-13)', () => {
       vi.useFakeTimers();
+      const origRangeRect = Range.prototype.getBoundingClientRect;
       try {
         boot();
         const el = document.createElement('div');
         const { start, end } = wrapInIsland(el);
 
         const islandRect = { top: 5, left: 5, right: 85, bottom: 25, width: 80, height: 20 };
-        const origRangeRect = Range.prototype.getBoundingClientRect;
         Range.prototype.getBoundingClientRect = () => islandRect;
 
         const component = { id: 'c1', el };
@@ -954,54 +954,75 @@ describe('directive registration and modifier parsing', () => {
         // concern is the region PLUMBING Task 6 adds.
         synthesizer.synthesize.mockReturnValue([{ type: 'text', x: 0, y: 0, width: 50, height: 10 }]);
 
-        try {
-          interceptedCallback({
-            message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'save' }] },
-            onSuccess: () => {},
-            onError: () => {},
-            onFailure: () => {},
-            onCancel: () => {},
-            onFinish: () => {},
-          });
-          vi.advanceTimersByTime(120); // scheduler's default delay -> the real onShow fires
-        } finally {
-          Range.prototype.getBoundingClientRect = origRangeRect;
-        }
+        interceptedCallback({
+          message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'save' }] },
+          onSuccess: () => {},
+          onError: () => {},
+          onFailure: () => {},
+          onCancel: () => {},
+          onFinish: () => {},
+        });
+        vi.advanceTimersByTime(120); // scheduler's default delay -> the real onShow fires
 
         // The shape distinction: synthesize() gets the whole region object...
         expect(synthesizer.synthesize).toHaveBeenCalledWith(host, { startNode: start, endNode: end, rect: islandRect });
         // ...mountLayer() gets only its bare rect.
         expect(renderer.mountLayer).toHaveBeenCalledWith(host, islandRect);
       } finally {
+        // Both restores live in ONE finally spanning the whole test body
+        // (not just the interceptedCallback call), so a throw anywhere above
+        // — not only inside interceptedCallback — still restores the Range
+        // patch. vi.useRealTimers() also discards the host's still-pending
+        // fake timeoutTimer (scheduler.js's 15s hard cap, never reached in
+        // this test): a fake timer never fired by real-time advancement is
+        // simply dropped on uninstall, never converted into a real one, so
+        // nothing here can fire later against a since-restored Range patch
+        // (see the sibling onPostPaint test below for the real-timer version
+        // of this leak, and its fix).
+        Range.prototype.getBoundingClientRect = origRangeRect;
         vi.useRealTimers();
       }
     });
 
     it('scopes the onPostPaint reposition read to the enclosing island too (SPEC-INT-13)', () => {
-      boot();
-      const el = document.createElement('div');
-      wrapInIsland(el);
-
-      const islandRect = { top: 5, left: 5, right: 85, bottom: 25, width: 80, height: 20 };
+      // Fake timers here too (Bug fix, post-Task-6): onStart's
+      // scheduler.messageStart() arms a real ~120ms delayTimer regardless of
+      // whether this test ever cares about the show itself. Without fake
+      // timers, that delayTimer survives past this test's own teardown and
+      // fires for real later — invoking the genuine onShow -> regionForHost
+      // -> domRange.getBoundingClientRect() with THIS test's Range patch
+      // already restored (and jsdom's Range has no native
+      // getBoundingClientRect of its own), crashing as an uncaught exception
+      // in whatever test happens to be running (or none) when it fires.
+      // vi.useRealTimers() in the finally below discards that still-pending
+      // fake timer outright rather than letting it become a real one.
+      vi.useFakeTimers();
       const origRangeRect = Range.prototype.getBoundingClientRect;
-      Range.prototype.getBoundingClientRect = () => islandRect;
-
-      const component = { id: 'c1', el };
-      registeredCallback({
-        el,
-        directive: { modifiers: ['island'], expression: '' },
-        component,
-        cleanup: () => {},
-      });
-
-      const registry = registryInstances.at(-1);
-      const host = registry.hostFor(el);
-      const renderer = rendererInstances.at(-1);
-
       try {
+        boot();
+        const el = document.createElement('div');
+        wrapInIsland(el);
+
+        const islandRect = { top: 5, left: 5, right: 85, bottom: 25, width: 80, height: 20 };
+        Range.prototype.getBoundingClientRect = () => islandRect;
+
+        const component = { id: 'c1', el };
+        registeredCallback({
+          el,
+          directive: { modifiers: ['island'], expression: '' },
+          component,
+          cleanup: () => {},
+        });
+
+        const registry = registryInstances.at(-1);
+        const host = registry.hostFor(el);
+        const renderer = rendererInstances.at(-1);
+
         // onSuccess -> onRender fires onPostPaint synchronously (mirrors the
-        // "method-level #[Ghost] override" tests above) — no fake timers
-        // needed since onPostPaint doesn't depend on the show delay.
+        // "method-level #[Ghost] override" tests above) — no timer advance
+        // needed since onPostPaint doesn't depend on the show delay; fake
+        // timers are only here to make the delayTimer armed by onStart inert
+        // (see comment above).
         interceptedCallback({
           message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'save' }] },
           onSuccess: (cb) => cb({ payload: { effects: { html: '<div></div>' } }, onRender: (fn) => fn() }),
@@ -1010,11 +1031,12 @@ describe('directive registration and modifier parsing', () => {
           onCancel: () => {},
           onFinish: () => {},
         });
+
+        expect(renderer.measureHostRect).toHaveBeenCalledWith(host, islandRect);
       } finally {
         Range.prototype.getBoundingClientRect = origRangeRect;
+        vi.useRealTimers();
       }
-
-      expect(renderer.measureHostRect).toHaveBeenCalledWith(host, islandRect);
     });
 
     it('falls back to the whole-host skeleton when .island is set but no enclosing island exists (SPEC-INT-13 SHOULD, not MUST — must never throw)', () => {
