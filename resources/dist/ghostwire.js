@@ -423,8 +423,9 @@
   }
 
   // js/src/synthesizer/measure.js
-  function measure(host, candidates, regionRect = null) {
+  function measure(host, candidates, regionRect = null, clipRootEl = null) {
     const hostRect = regionRect || host.el.getBoundingClientRect();
+    const clipRoot = clipRootEl || host.el;
     const hostStyle = window.getComputedStyle(host.el);
     const clipCache = /* @__PURE__ */ new Map();
     const results = candidates.map((candidate) => {
@@ -436,7 +437,7 @@
         rect: candidate.el.getBoundingClientRect(),
         visibility: style.visibility,
         transform: style.transform,
-        clipRect: computeClipRect(candidate.el, host.el, hostRect, clipCache)
+        clipRect: computeClipRect(candidate.el, clipRoot, hostRect, clipCache)
       };
       if (candidate.repeatGroup) entry.repeatGroup = candidate.repeatGroup;
       if (candidate.type === "text") entry.lineRects = measureTextLines(candidate.el);
@@ -457,10 +458,10 @@
     }
     return rects;
   }
-  function computeClipRect(el, hostEl, hostRect, cache) {
+  function computeClipRect(el, rootEl, hostRect, cache) {
     let clip = hostRect;
     let ancestor = el.parentElement;
-    while (ancestor && ancestor !== hostEl) {
+    while (ancestor && ancestor !== rootEl) {
       let info;
       if (cache.has(ancestor)) {
         info = cache.get(ancestor);
@@ -677,11 +678,11 @@
         recordDuration(host, now() - startedAt);
         return cached;
       }
-      const measured = measure(host, candidates, region ? region.rect : null);
+      const measured = region ? measure(host, candidates, region.rect, region.startNode.parentElement) : measure(host, candidates);
       const boneTree = emit(host, measured, host.config.rows);
       if (boneTree) {
         cache.set(host, signature, boneTree, () => onResize?.(host));
-        onSynthesized?.(host, signature, boneTree, measured.hostRect);
+        if (!region) onSynthesized?.(host, signature, boneTree, measured.hostRect);
       } else {
         cache.invalidate(host);
       }
