@@ -7,17 +7,20 @@
 // re-synthesized. Runs on both Livewire lines (the resize path is bridge-
 // independent). The fixture's #[Ghost(hold: 4000)] keeps the skeleton up
 // across the resize with no message in flight, so nothing but the resize
-// path can move the layer inside the assertion window. Its #[Ghost(rows: 3)]
-// is load-bearing too, for an unrelated reason documented on the fixture
-// (ResizeProbe.php): re-synthesis while concealed measures zero visible
-// candidates (visibility: hidden inherits from .gw-concealed), so without a
-// rows hint boneTree is always null and the host degrades to freeze instead
-// of ever reaching the reposition branch this test exists to check.
+// path can move the layer inside the assertion window. That resize
+// re-synthesizes while the host still carries .gw-concealed; measure.js
+// (js/src/synthesizer/measure.js) now sees through its own concealment
+// (issue #21) instead of filtering every candidate as hidden, so the real
+// DOM produces bones with no rows hint needed.
 //
-// Non-vacuity, proven both ways during Task 3 of the 2026-09-19 plan: against
-// the pre-fix v1.0.0 bundle (git show v1.0.0:resources/dist/ghostwire.js) the
-// width/left assertions fail — the layer keeps the 1200px-viewport rect while
-// the host has shrunk to the 700px one; against the fixed bundle they pass.
+// Non-vacuity, proven by two mutations during Task 7 of the 2026-09-19 plan:
+// (1) against the pre-fix v1.0.0 bundle (git show
+// v1.0.0:resources/dist/ghostwire.js) the test FAILS — the resize degrades
+// the host to freeze, so .gw-layer no longer exists when the test reads it;
+// (2) with measure.js's concealment see-through disabled (`concealedByUs`
+// forced to `false`) the test FAILS the same way, proving this test covers
+// the concealment fix itself and not only the reposition call. Against the
+// fixed bundle it passes.
 
 function gwClientRect($page, string $selector): array
 {

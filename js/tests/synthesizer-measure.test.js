@@ -253,3 +253,67 @@ describe('synthesizer/measure', () => {
     expect(unbounded.results[0].clipRect.height).toBe(0);
   });
 });
+
+// Issue #21: a SPEC-SYN-21 resize re-synthesis runs while the skeleton is
+// showing, i.e. with .gw-concealed on host.el. Its `visibility: hidden` is
+// inherited by every candidate, and SPEC-SYN-12's filter would drop them
+// all — the host would degrade to freeze on every resize. Hidden-ness that
+// comes from Ghostwire's own concealment is not the author's and must not
+// count; an author's own visibility: hidden on a non-concealed host must.
+describe('visibility under Ghostwire\'s own concealment (issue #21)', () => {
+  let style;
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    style = document.createElement('style');
+    style.textContent = '.gw-concealed { visibility: hidden; } .author-hidden { visibility: hidden; }';
+    document.head.appendChild(style);
+    if (!Range.prototype.getClientRects) {
+      Range.prototype.getClientRects = () => [{ top: 10, left: 10, right: 90, bottom: 30, width: 80, height: 20 }];
+    }
+  });
+
+  afterEach(() => { style.remove(); });
+
+  function hostWith(html, hostClass = '') {
+    const el = document.createElement('div');
+    el.className = hostClass;
+    el.innerHTML = html;
+    el.getBoundingClientRect = () => ({ top: 0, left: 0, right: 200, bottom: 100, width: 200, height: 100 });
+    document.body.appendChild(el);
+    for (const child of el.querySelectorAll('*')) {
+      child.getBoundingClientRect = () => ({ top: 10, left: 10, right: 90, bottom: 30, width: 80, height: 20 });
+    }
+    return { el, config: {} };
+  }
+
+  it('records a candidate hidden only by the host\'s .gw-concealed as visible', () => {
+    const host = hostWith('<p>Hello world</p>', 'gw-concealed');
+    const candidates = [{ el: host.el.firstElementChild, type: 'text', depth: 0 }];
+    expect(window.getComputedStyle(host.el.firstElementChild).visibility).toBe('hidden'); // precondition: jsdom really inherits it
+
+    const measured = measure(host, candidates);
+
+    expect(measured.results[0].visibility).toBe('visible');
+  });
+
+  it('records a candidate hidden by a concealed ANCESTOR host as visible too (nested hosts, SPEC-API-03)', () => {
+    const outer = hostWith('<div id="inner"><p>Nested</p></div>', 'gw-concealed');
+    const innerEl = outer.el.querySelector('#inner');
+    const inner = { el: innerEl, config: {} };
+    const candidates = [{ el: innerEl.firstElementChild, type: 'text', depth: 0 }];
+
+    const measured = measure(inner, candidates);
+
+    expect(measured.results[0].visibility).toBe('visible');
+  });
+
+  it('still records an author\'s own visibility: hidden on a host that is not concealed (SPEC-SYN-12)', () => {
+    const host = hostWith('<p class="author-hidden">Hidden by the app</p>');
+    const candidates = [{ el: host.el.firstElementChild, type: 'text', depth: 0 }];
+
+    const measured = measure(host, candidates);
+
+    expect(measured.results[0].visibility).toBe('hidden');
+  });
+});

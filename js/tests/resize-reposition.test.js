@@ -49,6 +49,14 @@ describe('onResize repositions the Ghost Layer (issue #21)', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     document.body.innerHTML = '';
+    // The real concealment rule from js/src/style.css: while the skeleton is
+    // showing, host.el carries .gw-concealed and every descendant inherits
+    // visibility: hidden — the exact state a SPEC-SYN-21 resize re-synthesis
+    // runs in. jsdom's getComputedStyle inherits it like a browser does.
+    // Without this rule the harness measured "visible" content the real
+    // browser never sees, which is how the resize path's degrade-to-freeze
+    // went unnoticed (issue #21, found by Task 3's browser test).
+    document.head.innerHTML = '<style>.gw-concealed { visibility: hidden; }</style>';
     FakeResizeObserver.instances = [];
     global.ResizeObserver = FakeResizeObserver;
     events = [];
@@ -95,6 +103,7 @@ describe('onResize repositions the Ghost Layer (issue #21)', () => {
     Range.prototype.getBoundingClientRect = origRangeRect;
     window.getComputedStyle = origGCS;
     Node.prototype.appendChild = origAppendChild;
+    document.head.innerHTML = '';
     delete window.Livewire;
     vi.useRealTimers();
   });
