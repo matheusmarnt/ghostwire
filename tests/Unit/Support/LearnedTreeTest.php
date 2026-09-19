@@ -105,7 +105,7 @@ it('keeps LearnedTree::NAME_PATTERN in sync with store.js (Ruling A)', function 
         glob(__DIR__.'/../../../js/src/*/*.js'),
     );
 
-    expect(count($jsSources))->toBe(16, 'the glob must reach every js/src module, including nested ones — a glob that matches nothing would make the count below pass vacuously');
+    expect(count($jsSources))->toBe(17, 'the glob must reach every js/src module, including nested ones — a glob that matches nothing would make the count below pass vacuously');
 
     $copies = 0;
     foreach ($jsSources as $file) {

@@ -34,6 +34,9 @@ testbench.yaml
 # Worktrees
 .worktrees/
 
+# Superpowers scratch (SDD ledgers, ad-hoc audits) — local workspace, not repo content
+/.superpowers/
+
 # Claude Code
 .claude/
 CLAUDE.md

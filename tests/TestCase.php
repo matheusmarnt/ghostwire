@@ -11,6 +11,7 @@ use Ghostwire\Tests\Browser\Fixtures\Gallery\PaginatedTable;
 use Ghostwire\Tests\Browser\Fixtures\Gallery\RepeatList;
 use Ghostwire\Tests\Browser\Fixtures\Gallery\ScrollableKanban;
 use Ghostwire\Tests\Browser\Fixtures\GhostAttributeProbe;
+use Ghostwire\Tests\Browser\Fixtures\IslandDemo;
 use Ghostwire\Tests\Browser\Fixtures\LazyDeclaredPlaceholder;
 use Ghostwire\Tests\Browser\Fixtures\LazyOrdersTable;
 use Ghostwire\Tests\Browser\Fixtures\Legacy\LegacyWidgetFive;
@@ -41,6 +42,7 @@ class TestCase extends Orchestra
         Livewire::component('scrollable-kanban', ScrollableKanban::class);
         Livewire::component('node-count', NodeCount::class);
         Livewire::component('ghost-attribute-probe', GhostAttributeProbe::class);
+        Livewire::component('island-demo', IslandDemo::class);
         Livewire::component('legacy-widget-one', LegacyWidgetOne::class);
         Livewire::component('legacy-widget-two', LegacyWidgetTwo::class);
         Livewire::component('legacy-widget-three', LegacyWidgetThree::class);

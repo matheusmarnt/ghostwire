@@ -7,6 +7,7 @@ import { parseAttributeConfig, resolveHostConfig } from './attributeConfig.js';
 import { createLearningStore, MAX_BONES, NAME_PATTERN as LAZY_NAME_PATTERN } from './learning/store.js';
 import { bandFor } from './learning/bands.js';
 import { isDebug } from './debug.js';
+import { closestIslandRange } from './islands.js';
 
 const TIMED_MODIFIER_PATTERN = /^(delay|hold)\.(\d+)ms$/;
 
@@ -22,7 +23,7 @@ function parseModifiers(modifiers) {
     else if (modifier === 'off') config.mode = 'off'; // SPEC-API-41: off is terminal, expressed as a mode value throughout
     else if (modifier === 'ignore') config.ignore = true;
     else if (modifier === 'keep') config.keep = true;
-    else if (modifier === 'island') { /* no-op on v3 and v4 alike — SPEC-INT-13 lands in M9 */ }
+    else if (modifier === 'island') config.island = true; // SPEC-INT-13: opt-in, resolved against the live DOM at show time by regionForHost()
     else {
       const timed = modifier.match(TIMED_MODIFIER_PATTERN);
       if (timed) config[timed[1]] = Number(timed[2]);
@@ -65,8 +66,31 @@ function hasGhostDirective(root) {
   });
 }
 
+// SPEC-INT-13: resolves the region a host's skeleton should be scoped to for
+// this show/reposition. Only hosts explicitly opted in via wire:ghost.island
+// attempt island scoping, and only on the v4 bridge (v3 never emits the
+// comment markers closestIslandRange looks for, so this would always return
+// null there too — the explicit check just avoids a wasted DOM walk on every
+// v3 show). Returns null — meaning "use the whole host, unchanged" — whenever
+// the host isn't `.island`-configured, isn't on v4, or (SPEC-INT-13's
+// accepted degradation) isn't currently inside a live island fragment.
+function regionForHost(host, bridgeName) {
+  if (!host.config.island || bridgeName !== 'v4') return null;
+  const range = closestIslandRange(host.el);
+  if (!range) return null;
+  const domRange = document.createRange();
+  domRange.setStartAfter(range.startNode);
+  domRange.setEndBefore(range.endNode);
+  return { startNode: range.startNode, endNode: range.endNode, rect: domRange.getBoundingClientRect() };
+}
+
 export function boot() {
-  const { bridge } = detectBridge();
+  // detectBridge() returns { name, bridge }. regionForHost() compares the
+  // NAME STRING against 'v4', so capture it here — aliased, so it can't be
+  // mistaken for the `bridge` object that `bridge.subscribe(...)` uses below.
+  // Passing that object where the string belongs would make `!== 'v4'` true
+  // unconditionally and silently disable island scoping on both bridges.
+  const { name: bridgeName, bridge } = detectBridge();
   if (!bridge) return;
 
   const registry = createRegistry();
@@ -125,7 +149,8 @@ export function boot() {
     undefined,
     (host) => {
       if (host.state !== 'visible' || host.config.mode === 'freeze') return; // only re-render an already-showing, non-frozen skeleton
-      const boneTree = synthesizer.synthesize(host);
+      const region = regionForHost(host, bridgeName);
+      const boneTree = synthesizer.synthesize(host, region);
       if (boneTree) {
         renderer.renderBones(host, boneTree);
       } else {
@@ -158,11 +183,12 @@ export function boot() {
       if (host.config.mode === 'off' || host.config.ignore || host.config.keep) return;
       if (host.config.mode === 'freeze') { renderer.freeze(host); return; }
 
-      const boneTree = synthesizer.synthesize(host);
+      const region = regionForHost(host, bridgeName);
+      const boneTree = synthesizer.synthesize(host, region);
       if (!boneTree) { renderer.freeze(host); host.degraded = true; return; } // SPEC-SYN-16/17 degrade
 
       renderer.captureFocus(host); // SPEC-A11Y-03: before visibility: hidden forces a blur
-      renderer.mountLayer(host);
+      renderer.mountLayer(host, region?.rect);
       renderer.renderBones(host, boneTree);
       host.el.classList.add('gw-concealed');
     },
@@ -430,7 +456,7 @@ export function boot() {
         hosts.push(host);
         scheduler.messagePostPaint(host);
       }
-      const rects = hosts.map((host) => renderer.measureHostRect(host));
+      const rects = hosts.map((host) => renderer.measureHostRect(host, regionForHost(host, bridgeName)?.rect));
       hosts.forEach((host, i) => renderer.applyLayerRect(host, rects[i]));
     },
     onFinish(ctx) {

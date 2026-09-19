@@ -159,4 +159,98 @@ describe('synthesizer/index', () => {
 
     expect(typeof window.__ghostwireLastSynthesisMs).toBe('number');
   });
+
+  it('uses collectAndClassifyRange and the region rect when a region is passed to synthesize()', () => {
+    const registry = createRegistry();
+    const host = { el: document.createElement('div'), config: {} };
+    registry.attach(host.el, { id: 'c1' }, {});
+    // Stubbed (unlike the earlier revision of this test) so the whole-host
+    // path below also produces real bones — the point is now to compare
+    // WHAT each path includes, not null-vs-non-null.
+    host.el.getBoundingClientRect = () => ({ top: 0, left: 0, right: 300, bottom: 100, width: 300, height: 100 });
+    document.body.appendChild(host.el);
+
+    // A control OUTSIDE the island's start/end markers but still directly
+    // inside host.el: a whole-host synthesize must see it; a region-scoped
+    // one must not. This is the actual SPEC-INT-13 guarantee under test — a
+    // region narrower than the host excludes out-of-region content — not
+    // merely "the region path executes" or "an unstubbed host rect degrades
+    // to null" (both true of the previous revision, but incidental per
+    // review).
+    const outside = document.createElement('button');
+    outside.getBoundingClientRect = () => ({ top: 50, left: 210, right: 290, bottom: 70, width: 80, height: 20 });
+
+    // The island's markers and content live inside host.el (as they would in
+    // real Livewire output — an @island block nested within the component),
+    // so measure.js's computeClipRect() walk from the candidate up to
+    // host.el stays inside this subtree.
+    const start = document.createComment('[if FRAGMENT:type=island|name=t|token=t1|mode=morph]><![endif]');
+    const inner = document.createElement('div');
+    // inner's rect is deliberately huge so the ancestor-clip intersection in
+    // computeClipRect() is a no-op against either hostRect used below
+    // (host.el's or regionRect's), regardless of jsdom's incomplete overflow
+    // computed-style resolution for a plain element.
+    inner.getBoundingClientRect = () => ({ top: -1000, left: -1000, right: 1000, bottom: 1000, width: 2000, height: 2000 });
+    const text = document.createElement('p');
+    text.textContent = 'x';
+    text.getBoundingClientRect = () => ({ top: 10, left: 10, right: 90, bottom: 30, width: 80, height: 20 });
+    inner.appendChild(text);
+    const end = document.createComment('[if ENDFRAGMENT:type=island|name=t|token=t1|mode=morph]><![endif]');
+    host.el.append(outside, start, inner, end);
+
+    const regionRect = { top: 0, left: 0, right: 200, bottom: 100, width: 200, height: 100 };
+    const synthesizer = createSynthesizer(registry);
+
+    const boneTree = synthesizer.synthesize(host, { startNode: start, endNode: end, rect: regionRect });
+    const wholeHostTree = synthesizer.synthesize(host);
+
+    // Region-scoped: sees the island's own text, never the out-of-region control.
+    expect(boneTree).not.toBeNull();
+    expect(boneTree.some((bone) => bone.type === 'control')).toBe(false);
+    // Whole-host: sees the same control, proving it was reachable and the
+    // region path's omission of it is real exclusion, not a fluke.
+    expect(wholeHostTree.some((bone) => bone.type === 'control')).toBe(true);
+  });
+
+  // SPEC-LRN-01 + SPEC-INT-13. onSynthesized feeds the learning store, which
+  // keys on the COMPONENT name and whose entries ghost:export turns into a
+  // committed Blade @placeholder for the whole component. An island-scoped
+  // tree is measured against the island's rect and laid out from the island's
+  // origin, so persisting it would stand an island-sized skeleton in for the
+  // entire component — permanently, in an exported artifact a developer
+  // commits. Collection is dev-only; the artifact is not.
+  it('never reports an island-scoped tree to onSynthesized, only a whole-component one (SPEC-LRN-01)', () => {
+    const registry = createRegistry();
+    const onSynthesized = vi.fn();
+    const host = { el: document.createElement('div'), config: {} };
+    registry.attach(host.el, { id: 'c1' }, {});
+    host.el.getBoundingClientRect = () => ({ top: 0, left: 0, right: 300, bottom: 100, width: 300, height: 100 });
+    document.body.appendChild(host.el);
+
+    // Outside the markers: only the whole-host walk sees it, so the two paths
+    // produce different signatures and neither can be served from the cache.
+    const outside = document.createElement('button');
+    outside.getBoundingClientRect = () => ({ top: 50, left: 210, right: 290, bottom: 70, width: 80, height: 20 });
+
+    const start = document.createComment('[if FRAGMENT:type=island|name=t|token=t1|mode=morph]><![endif]');
+    const inner = document.createElement('div');
+    inner.getBoundingClientRect = () => ({ top: -1000, left: -1000, right: 1000, bottom: 1000, width: 2000, height: 2000 });
+    const text = document.createElement('p');
+    text.textContent = 'x';
+    text.getBoundingClientRect = () => ({ top: 10, left: 10, right: 90, bottom: 30, width: 80, height: 20 });
+    inner.appendChild(text);
+    const end = document.createComment('[if ENDFRAGMENT:type=island|name=t|token=t1|mode=morph]><![endif]');
+    host.el.append(outside, start, inner, end);
+
+    const synthesizer = createSynthesizer(registry, undefined, undefined, undefined, onSynthesized);
+    const regionRect = { top: 0, left: 0, right: 200, bottom: 100, width: 200, height: 100 };
+
+    expect(synthesizer.synthesize(host, { startNode: start, endNode: end, rect: regionRect })).not.toBeNull();
+    expect(onSynthesized).not.toHaveBeenCalled();
+
+    // Same host, whole-component path: still reported, with the host's own rect.
+    expect(synthesizer.synthesize(host)).not.toBeNull();
+    expect(onSynthesized).toHaveBeenCalledTimes(1);
+    expect(onSynthesized.mock.calls[0][3].width).toBe(300);
+  });
 });

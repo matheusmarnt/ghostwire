@@ -45,6 +45,11 @@ Route::get('/gallery/card-grid-strict-csp', function () {
 
 Route::view('/ghostwire-ghost-attribute-probe', 'ghostwire-fixtures::page', ['component' => 'ghost-attribute-probe']);
 
+// SPEC-INT-13 fixture for tests/Browser/Timing/IslandLifecycleTest.php:
+// a real Livewire 4 @island/@endisland block, proving island-scoped skeleton
+// sizing against the real framework and the real built runtime.
+Route::view('/ghostwire-island-demo', 'ghostwire-fixtures::page', ['component' => 'island-demo']);
+
 Route::view('/legacy/legacy-widget-one', 'ghostwire-fixtures::page', ['component' => 'legacy-widget-one']);
 Route::view('/legacy/legacy-widget-two', 'ghostwire-fixtures::page', ['component' => 'legacy-widget-two']);
 Route::view('/legacy/legacy-widget-three', 'ghostwire-fixtures::page', ['component' => 'legacy-widget-three']);

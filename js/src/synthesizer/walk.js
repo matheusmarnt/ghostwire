@@ -25,20 +25,40 @@ const REPEAT_HEIGHT_TOLERANCE = 0.15; // relative height variance allowed before
 export function collectAndClassify(host, registry, maxDepth = 12, repeatSampleSize = 3) {
   const candidates = [];
   const state = { groupSeq: 0 };
-  visit(host.el, registry, candidates, 0, maxDepth, repeatSampleSize, state, null, host.el);
+  visit(host.el, registry, candidates, 0, maxDepth, repeatSampleSize, state, null, host.el, undefined);
+  return candidates;
+}
+
+// SPEC-INT-13: candidates for an island-scoped skeleton come from the
+// island's own sibling range (js/src/islands.js finds the two boundary
+// comments) rather than a single host.el subtree. `host` is passed through
+// so visit()'s nested-host boundary check doesn't also stop at the very host
+// this walk is for — which typically sits *inside* the island rather than
+// *at* one of its top-level siblings — while any *other* nested host is
+// still correctly treated as a boundary.
+export function collectAndClassifyRange(startNode, endNode, host, registry, maxDepth = 12, repeatSampleSize = 3) {
+  const candidates = [];
+  const state = { groupSeq: 0 };
+  let node = startNode.nextSibling;
+  while (node && node !== endNode) {
+    if (node.nodeType === Node.ELEMENT_NODE && (!registry.hostFor(node) || node === host.el)) {
+      visit(node, registry, candidates, 0, maxDepth, repeatSampleSize, state, null, node, host.el);
+    }
+    node = node.nextSibling;
+  }
   return candidates;
 }
 
 // SPEC-SYN-13: depth and candidate-count are both hard-capped; exceeding
 // either degrades to one aggregated 'block' bone (see the count-cap branch
-// below: gated by out.capped so at most one is ever pushed, sized to the
-// whole host via rootEl — this is the Task 1 fix, preserved here).
+// below: gated by state.capped so at most one is ever pushed, sized to the
+// whole host via rootEl).
 // SPEC-SYN-11: a run of >= REPEAT_MIN_RUN uniform-height siblings sharing a
 // tag+class signature is sampled instead of walked in full.
-function visit(node, registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, rootEl) {
+function visit(node, registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, rootEl, exemptHostEl) {
   const children = [];
   for (const child of node.children) {
-    if (registry.hostFor(child)) continue; // SPEC-API-03: nested wire:ghost host is a boundary
+    if (registry.hostFor(child) && child !== exemptHostEl) continue; // SPEC-API-03: nested wire:ghost host is a boundary — except the host this walk is for
     if (child.getAttribute('aria-hidden') === 'true') continue;
     children.push(child);
   }
@@ -63,7 +83,7 @@ function visit(node, registry, out, depth, maxDepth, repeatSampleSize, state, re
       const groupId = state.groupSeq++;
       const sampleSize = Math.min(repeatSampleSize, runLength);
       for (let s = 0; s < sampleSize; s++) {
-        processChild(children[i + s], registry, out, depth, maxDepth, repeatSampleSize, state, { id: groupId, index: s }, rootEl);
+        processChild(children[i + s], registry, out, depth, maxDepth, repeatSampleSize, state, { id: groupId, index: s }, rootEl, exemptHostEl);
       }
       const extraCount = runLength - sampleSize;
       if (extraCount > 0) {
@@ -83,16 +103,16 @@ function visit(node, registry, out, depth, maxDepth, repeatSampleSize, state, re
       continue;
     }
 
-    processChild(children[i], registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, rootEl);
+    processChild(children[i], registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, rootEl, exemptHostEl);
     i += 1;
   }
 }
 
-function processChild(child, registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, rootEl) {
+function processChild(child, registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, rootEl, exemptHostEl) {
   const type = classify(child);
   if (type === 'container') {
     if (depth < maxDepth) {
-      visit(child, registry, out, depth + 1, maxDepth, repeatSampleSize, state, repeatGroup, rootEl);
+      visit(child, registry, out, depth + 1, maxDepth, repeatSampleSize, state, repeatGroup, rootEl, exemptHostEl);
     } else {
       const block = { type: 'block', el: child, depth: depth + 1 }; // SPEC-SYN-13
       if (repeatGroup) block.repeatGroup = repeatGroup;

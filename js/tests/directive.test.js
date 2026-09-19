@@ -37,9 +37,64 @@ vi.mock('../src/registry.js', async (importOriginal) => {
   };
 });
 
+// Spies on the two renderer/synthesizer entry points island regions are wired
+// into, so the .island tests below can assert on the exact arguments each
+// received. What these tests own is the region PLUMBING; the walk/measure/emit
+// pipeline behind synthesize() has its own tests, and is not re-proven here.
+vi.mock('../src/synthesizer/index.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  const instances = [];
+  return {
+    createSynthesizer: (...args) => {
+      const real = actual.createSynthesizer(...args);
+      const spied = {
+        ...real,
+        synthesize: vi.fn(real.synthesize),
+      };
+      instances.push(spied);
+      return spied;
+    },
+    __instances: instances,
+  };
+});
+
+vi.mock('../src/renderer.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  const instances = [];
+  return {
+    createRenderer: (...args) => {
+      const real = actual.createRenderer(...args);
+      const spied = {
+        ...real,
+        mountLayer: vi.fn(real.mountLayer),
+        measureHostRect: vi.fn(real.measureHostRect),
+      };
+      instances.push(spied);
+      return spied;
+    },
+    __instances: instances,
+  };
+});
+
+// SPEC-INT-22: `.island` is a permanent no-op on the v3 bridge, and the only
+// thing enforcing that is boot()'s `bridgeName !== 'v4'` check. Wrapping
+// detectBridge() lets one test below override just the NAME while keeping the
+// real bridge object, so it exercises that check and nothing else. Default
+// behavior is the real detectBridge(), so every other test is unaffected.
+vi.mock('../src/bridge/index.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    detectBridge: vi.fn(actual.detectBridge),
+    __realDetectBridge: actual.detectBridge,
+  };
+});
+
 import { boot } from '../src/index.js';
+import { detectBridge, __realDetectBridge } from '../src/bridge/index.js';
 import { __instances as schedulerInstances } from '../src/scheduler.js';
 import { __instances as registryInstances } from '../src/registry.js';
+import { __instances as synthesizerInstances } from '../src/synthesizer/index.js';
+import { __instances as rendererInstances } from '../src/renderer.js';
 
 describe('directive registration and modifier parsing', () => {
   let registeredCallback;
@@ -830,6 +885,271 @@ describe('directive registration and modifier parsing', () => {
       expect(registryInstances.at(-1).attach).toHaveBeenCalledTimes(1);
       const [attachedEl] = registryInstances.at(-1).attach.mock.calls.at(-1);
       expect(attachedEl).toBe(child);
+    });
+  });
+
+  describe('.island scoping into the show/reposition lifecycle (SPEC-INT-13)', () => {
+    function appendMarker(parent, kind, meta) {
+      parent.appendChild(document.createComment(`[if ${kind}:${meta}]><![endif]`));
+    }
+
+    // Places `el` (the wire:ghost host) as a direct sibling BETWEEN a
+    // FRAGMENT/ENDFRAGMENT comment pair, inside a wrapper appended to
+    // document.body. This is the structure closestIslandRange() actually
+    // looks for — it walks OUTWARD from el's own preceding siblings (and
+    // then each ancestor's), never into el's children (confirmed against
+    // islands.test.js's own fixtures) — so the markers must enclose el from
+    // outside, not live inside it.
+    function wrapInIsland(el) {
+      const meta = 'type=island|name=t|token=t1|mode=morph';
+      const wrapper = document.createElement('div');
+      appendMarker(wrapper, 'FRAGMENT', meta);
+      const start = wrapper.lastChild;
+      wrapper.appendChild(el);
+      appendMarker(wrapper, 'ENDFRAGMENT', meta);
+      const end = wrapper.lastChild;
+      document.body.appendChild(wrapper);
+      return { start, end };
+    }
+
+    it('sets config.island = true for the .island modifier (SPEC-INT-13)', () => {
+      boot();
+      const el = document.createElement('div');
+      document.body.appendChild(el);
+      const component = { id: 'c1', el };
+      registeredCallback({
+        el,
+        directive: { modifiers: ['island'], expression: '' },
+        component,
+        cleanup: () => {},
+      });
+
+      const registry = registryInstances.at(-1);
+      const host = registry.hostFor(el);
+
+      expect(host.config.island).toBe(true);
+    });
+
+    // De-wiring check: with the region plumbing removed (call sites reverted
+    // to synthesize(host)/mountLayer(host), no region argument at all), both
+    // assertions below fail — synthesize is recorded with only ONE argument
+    // (never matching a 2-arg toHaveBeenCalledWith), and mountLayer receives
+    // no rect at all rather than the island's. Confirmed empirically by
+    // temporarily reverting index.js's three call sites and re-running this
+    // file: this test and the two below it failed for exactly that reason,
+    // while every other test (including the config.island one above) still
+    // passed.
+    it('scopes the show path to the enclosing island: synthesize() gets the region, mountLayer() gets its rect, not the whole host (SPEC-INT-13)', () => {
+      vi.useFakeTimers();
+      const origRangeRect = Range.prototype.getBoundingClientRect;
+      try {
+        boot();
+        const el = document.createElement('div');
+        const { start, end } = wrapInIsland(el);
+
+        const islandRect = { top: 5, left: 5, right: 85, bottom: 25, width: 80, height: 20 };
+        Range.prototype.getBoundingClientRect = () => islandRect;
+
+        const component = { id: 'c1', el };
+        registeredCallback({
+          el,
+          directive: { modifiers: ['island'], expression: '' },
+          component,
+          cleanup: () => {},
+        });
+
+        const registry = registryInstances.at(-1);
+        const host = registry.hostFor(el);
+        const synthesizer = synthesizerInstances.at(-1);
+        const renderer = rendererInstances.at(-1);
+        // The walk/measure/emit pipeline has its own tests — stub a fixed,
+        // valid Bone Tree so this test's only concern is the region plumbing.
+        synthesizer.synthesize.mockReturnValue([{ type: 'text', x: 0, y: 0, width: 50, height: 10 }]);
+
+        interceptedCallback({
+          message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'save' }] },
+          onSuccess: () => {},
+          onError: () => {},
+          onFailure: () => {},
+          onCancel: () => {},
+          onFinish: () => {},
+        });
+        vi.advanceTimersByTime(120); // scheduler's default delay -> the real onShow fires
+
+        // The shape distinction: synthesize() gets the whole region object...
+        expect(synthesizer.synthesize).toHaveBeenCalledWith(host, { startNode: start, endNode: end, rect: islandRect });
+        // ...mountLayer() gets only its bare rect.
+        expect(renderer.mountLayer).toHaveBeenCalledWith(host, islandRect);
+      } finally {
+        // Both restores live in ONE finally spanning the whole test body
+        // (not just the interceptedCallback call), so a throw anywhere above
+        // — not only inside interceptedCallback — still restores the Range
+        // patch. vi.useRealTimers() also discards the host's still-pending
+        // fake timeoutTimer (scheduler.js's 15s hard cap, never reached in
+        // this test): a fake timer never fired by real-time advancement is
+        // simply dropped on uninstall, never converted into a real one, so
+        // nothing here can fire later against a since-restored Range patch
+        // (see the sibling onPostPaint test below for the real-timer version
+        // of this leak, and its fix).
+        Range.prototype.getBoundingClientRect = origRangeRect;
+        vi.useRealTimers();
+      }
+    });
+
+    it('scopes the onPostPaint reposition read to the enclosing island too (SPEC-INT-13)', () => {
+      // Fake timers here too, and not incidentally: onStart's
+      // scheduler.messageStart() arms a real ~120ms delayTimer regardless of
+      // whether this test ever cares about the show itself. Without fake
+      // timers, that delayTimer survives past this test's own teardown and
+      // fires for real later — invoking the genuine onShow -> regionForHost
+      // -> domRange.getBoundingClientRect() with THIS test's Range patch
+      // already restored (and jsdom's Range has no native
+      // getBoundingClientRect of its own), crashing as an uncaught exception
+      // in whatever test happens to be running (or none) when it fires.
+      // vi.useRealTimers() in the finally below discards that still-pending
+      // fake timer outright rather than letting it become a real one.
+      vi.useFakeTimers();
+      const origRangeRect = Range.prototype.getBoundingClientRect;
+      try {
+        boot();
+        const el = document.createElement('div');
+        wrapInIsland(el);
+
+        const islandRect = { top: 5, left: 5, right: 85, bottom: 25, width: 80, height: 20 };
+        Range.prototype.getBoundingClientRect = () => islandRect;
+
+        const component = { id: 'c1', el };
+        registeredCallback({
+          el,
+          directive: { modifiers: ['island'], expression: '' },
+          component,
+          cleanup: () => {},
+        });
+
+        const registry = registryInstances.at(-1);
+        const host = registry.hostFor(el);
+        const renderer = rendererInstances.at(-1);
+
+        // onSuccess -> onRender fires onPostPaint synchronously (mirrors the
+        // "method-level #[Ghost] override" tests above) — no timer advance
+        // needed since onPostPaint doesn't depend on the show delay; fake
+        // timers are only here to make the delayTimer armed by onStart inert
+        // (see comment above).
+        interceptedCallback({
+          message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'save' }] },
+          onSuccess: (cb) => cb({ payload: { effects: { html: '<div></div>' } }, onRender: (fn) => fn() }),
+          onError: () => {},
+          onFailure: () => {},
+          onCancel: () => {},
+          onFinish: () => {},
+        });
+
+        expect(renderer.measureHostRect).toHaveBeenCalledWith(host, islandRect);
+      } finally {
+        Range.prototype.getBoundingClientRect = origRangeRect;
+        vi.useRealTimers();
+      }
+    });
+
+    it('falls back to the whole-host skeleton when .island is set but no enclosing island exists (SPEC-INT-13 SHOULD, not MUST — must never throw)', () => {
+      vi.useFakeTimers();
+      try {
+        boot();
+        const el = document.createElement('div');
+        el.getBoundingClientRect = () => ({ top: 0, left: 0, right: 200, bottom: 50, width: 200, height: 50 });
+        document.body.appendChild(el); // no FRAGMENT/ENDFRAGMENT markers anywhere
+
+        const component = { id: 'c1', el };
+        registeredCallback({
+          el,
+          directive: { modifiers: ['island'], expression: '' },
+          component,
+          cleanup: () => {},
+        });
+
+        const registry = registryInstances.at(-1);
+        const host = registry.hostFor(el);
+        const synthesizer = synthesizerInstances.at(-1);
+        synthesizer.synthesize.mockReturnValue([{ type: 'text', x: 0, y: 0, width: 50, height: 10 }]);
+
+        expect(() => {
+          interceptedCallback({
+            message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'save' }] },
+            onSuccess: () => {},
+            onError: () => {},
+            onFailure: () => {},
+            onCancel: () => {},
+            onFinish: () => {},
+          });
+          vi.advanceTimersByTime(120);
+        }).not.toThrow();
+
+        // regionForHost() resolved cleanly to null (no enclosing island) and
+        // that null reached synthesize() unchanged — exactly pre-M9 behavior.
+        expect(synthesizer.synthesize).toHaveBeenCalledWith(host, null);
+        expect(host.layer).not.toBeNull();
+        expect(host.layer.style.top).toBe('0px'); // fell back to host.el's own rect
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    // SPEC-INT-22 regression guard. `.island` is a documented no-op on the v3
+    // bridge, permanently, and boot()'s `bridgeName !== 'v4'` check is the only
+    // thing enforcing it. That expression is reachable-wrong in both
+    // directions: comparing the wrong value against 'v4' disables scoping
+    // everywhere (a silent no-op on v4 too), and dropping the check enables a
+    // walk Livewire 3 can never satisfy. The v4 tests above cover the first
+    // direction; this one covers the second — delete the check and it fails.
+    it('is a documented no-op on the v3 bridge: .island never resolves a region there (SPEC-INT-22)', () => {
+      vi.useFakeTimers();
+      const origRangeRect = Range.prototype.getBoundingClientRect;
+      try {
+        // The real bridge object (window.Livewire.interceptMessage is what
+        // drives this test either way), reported under the v3 name — the name
+        // string is the single thing under test here.
+        detectBridge.mockImplementationOnce(() => ({ ...__realDetectBridge(), name: 'v3' }));
+        boot();
+
+        const el = document.createElement('div');
+        el.getBoundingClientRect = () => ({ top: 0, left: 0, right: 200, bottom: 50, width: 200, height: 50 });
+        wrapInIsland(el); // a genuine, resolvable island really does enclose the host
+
+        // Never reached while the check holds (regionForHost() returns before
+        // building a Range). Patched anyway so that a regression fails on the
+        // assertions below rather than throwing — jsdom's Range has no
+        // getBoundingClientRect of its own.
+        Range.prototype.getBoundingClientRect = () => ({ top: 5, left: 5, right: 85, bottom: 25, width: 80, height: 20 });
+
+        registeredCallback({
+          el,
+          directive: { modifiers: ['island'], expression: '' },
+          component: { id: 'c1', el },
+          cleanup: () => {},
+        });
+
+        const registry = registryInstances.at(-1);
+        const host = registry.hostFor(el);
+        const synthesizer = synthesizerInstances.at(-1);
+        synthesizer.synthesize.mockReturnValue([{ type: 'text', x: 0, y: 0, width: 50, height: 10 }]);
+
+        interceptedCallback({
+          message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'save' }] },
+          onSuccess: () => {},
+          onError: () => {},
+          onFailure: () => {},
+          onCancel: () => {},
+          onFinish: () => {},
+        });
+        vi.advanceTimersByTime(120);
+
+        expect(host.config.island).toBe(true); // the modifier still parses...
+        expect(synthesizer.synthesize).toHaveBeenCalledWith(host, null); // ...and still resolves to nothing
+        expect(host.layer.style.top).toBe('0px'); // whole-host rect, not the island's 5px top
+      } finally {
+        Range.prototype.getBoundingClientRect = origRangeRect;
+        vi.useRealTimers();
+      }
     });
   });
 });

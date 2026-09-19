@@ -1,7 +1,14 @@
 import { hasDirectText } from './walk.js';
 
-export function measure(host, candidates) {
-  const hostRect = host.el.getBoundingClientRect();
+// `clipRootEl` is where computeClipRect() stops walking up. It defaults to
+// host.el, which is correct for a whole-component skeleton: every candidate is
+// a descendant of the host. On the SPEC-INT-13 island path it is NOT — those
+// candidates come from the island's sibling range, so their ancestor chain may
+// never pass through host.el at all, and the caller passes the island's own
+// container instead (see synthesizer/index.js).
+export function measure(host, candidates, regionRect = null, clipRootEl = null) {
+  const hostRect = regionRect || host.el.getBoundingClientRect();
+  const clipRoot = clipRootEl || host.el;
   const hostStyle = window.getComputedStyle(host.el);
   const clipCache = new Map(); // ancestor element -> clip info, scoped to this measure() call only
 
@@ -14,7 +21,7 @@ export function measure(host, candidates) {
       rect: candidate.el.getBoundingClientRect(),
       visibility: style.visibility,
       transform: style.transform,
-      clipRect: computeClipRect(candidate.el, host.el, hostRect, clipCache),
+      clipRect: computeClipRect(candidate.el, clipRoot, hostRect, clipCache),
     };
     if (candidate.repeatGroup) entry.repeatGroup = candidate.repeatGroup;
     if (candidate.type === 'text') entry.lineRects = measureTextLines(candidate.el);
@@ -39,15 +46,21 @@ function measureTextLines(el) {
 }
 
 // SPEC-SYN-14: a scrollable or otherwise clipping ancestor between a
-// candidate and its host hides content outside its own box even though
-// getBoundingClientRect() still reports the (scrolled-out) coordinates.
-// Walk the plain DOM chain — no recursion, cheap — intersecting every such
-// ancestor's own rect into the host's, so emit() can exclude bones for
-// content the user cannot actually see.
-function computeClipRect(el, hostEl, hostRect, cache) {
+// candidate and the skeleton's root hides content outside its own box even
+// though getBoundingClientRect() still reports the (scrolled-out)
+// coordinates. Walk the plain DOM chain — no recursion, cheap — intersecting
+// every such ancestor's own rect into the root's, so emit() can exclude bones
+// for content the user cannot actually see.
+//
+// `rootEl` is the ceiling, and it must be an ancestor of every candidate: an
+// ancestor at or above it is outside the skeleton's own coordinate space and
+// must not clip it. Walking past the ceiling would fold a page shell's own
+// clipping (e.g. `html, body { overflow: hidden }` around a scrolling
+// `<main>`) into every bone and drop the ones currently out of viewport.
+function computeClipRect(el, rootEl, hostRect, cache) {
   let clip = hostRect;
   let ancestor = el.parentElement;
-  while (ancestor && ancestor !== hostEl) {
+  while (ancestor && ancestor !== rootEl) {
     let info;
     if (cache.has(ancestor)) {
       info = cache.get(ancestor);

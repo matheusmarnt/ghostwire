@@ -285,4 +285,41 @@ describe('renderer', () => {
 
     expect(host.savedFocus).toBeUndefined();
   });
+
+  it('mountLayer positions the layer at the given regionRect instead of host.el\'s own rect', () => {
+    const renderer = createRenderer();
+    const host = { el: document.createElement('div') };
+    document.body.appendChild(host.el);
+    const regionRect = { top: 11, left: 22, width: 33, height: 44 };
+
+    renderer.mountLayer(host, regionRect);
+
+    expect(host.layer.style.top).toBe('11px');
+    expect(host.layer.style.left).toBe('22px');
+    expect(host.layer.style.width).toBe('33px');
+    expect(host.layer.style.height).toBe('44px');
+  });
+
+  it('measureHostRect returns the given regionRect instead of re-measuring host.el', () => {
+    const renderer = createRenderer();
+    const host = { el: document.createElement('div') };
+    document.body.appendChild(host.el);
+    renderer.mountLayer(host);
+    const regionRect = { top: 1, left: 2, width: 3, height: 4 };
+
+    expect(renderer.measureHostRect(host, regionRect)).toBe(regionRect);
+  });
+
+  it('repositionLayer applies the given regionRect', () => {
+    const renderer = createRenderer();
+    const host = { el: document.createElement('div') };
+    document.body.appendChild(host.el);
+    renderer.mountLayer(host);
+    const regionRect = { top: 5, left: 6, width: 7, height: 8 };
+
+    renderer.repositionLayer(host, regionRect);
+
+    expect(host.layer.style.top).toBe('5px');
+    expect(host.layer.style.left).toBe('6px');
+  });
 });
