@@ -217,4 +217,39 @@ describe('synthesizer/measure', () => {
 
     expect(result.hostRect).toEqual(host.el.getBoundingClientRect());
   });
+
+  // SPEC-INT-13 + SPEC-SYN-14. An island-scoped candidate is a SIBLING of the
+  // host, not a descendant, so the clip walk would never reach host.el and
+  // would run all the way to <html>, folding an app shell's own
+  // `overflow: hidden` into every island bone and dropping the ones currently
+  // scrolled out of view. The island's container is the correct ceiling.
+  it('stops the clip walk at clipRootEl, so an island-scoped candidate is not clipped by ancestors above the island (SPEC-INT-13)', () => {
+    const host = makeHost(); // host.el is a sibling of the island content, not its parent
+
+    const appShell = document.createElement('div'); // stands in for a page shell with overflow:hidden
+    appShell.getBoundingClientRect = () => ({ top: 0, left: 0, right: 200, bottom: 40, width: 200, height: 40 });
+    const islandContainer = document.createElement('div');
+    const p = document.createElement('p');
+    p.getBoundingClientRect = () => ({ top: 60, left: 10, right: 90, bottom: 80, width: 80, height: 20 }); // below appShell's box
+    islandContainer.appendChild(p);
+    appShell.appendChild(islandContainer);
+    document.body.appendChild(appShell);
+
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((el) => {
+      if (el === appShell) return { overflow: 'hidden', overflowX: 'hidden', overflowY: 'hidden', transform: 'none', visibility: 'visible' };
+      return { overflow: 'visible', overflowX: 'visible', overflowY: 'visible', transform: 'none', visibility: 'visible' };
+    });
+
+    const regionRect = { top: 50, left: 0, right: 200, bottom: 100, width: 200, height: 50 };
+    const candidates = [{ el: p, type: 'text', depth: 0 }];
+
+    const scoped = measure(host, candidates, regionRect, islandContainer);
+    expect(scoped.results[0].clipRect).toEqual(regionRect); // ceiling honored — appShell never intersected
+
+    // Without the ceiling the walk escapes past the island and appShell clips
+    // the bone away entirely — the bug this parameter exists to prevent.
+    const unbounded = measure(host, candidates, regionRect);
+    expect(unbounded.results[0].clipRect.bottom).toBe(40);
+    expect(unbounded.results[0].clipRect.height).toBe(0);
+  });
 });

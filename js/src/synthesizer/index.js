@@ -30,14 +30,26 @@ export function createSynthesizer(registry, defaults = { maxDepth: 12, repeatSam
       return cached;
     }
 
-    const measured = measure(host, candidates, region ? region.rect : null);
+    // On the region path the candidates are the island's own siblings, not
+    // host.el's descendants, so the clip walk has to stop at the island's
+    // container — host.el is not on their ancestor chain at all.
+    const measured = region
+      ? measure(host, candidates, region.rect, region.startNode.parentElement)
+      : measure(host, candidates);
     const boneTree = emit(host, measured, host.config.rows);
 
     if (boneTree) {
       cache.set(host, signature, boneTree, () => onResize?.(host));
       // SPEC-LRN-01: the single point at which a fresh Bone Tree exists. The cached
       // path above returns early, so an unchanged tree is never re-persisted.
-      onSynthesized?.(host, signature, boneTree, measured.hostRect);
+      //
+      // Whole-component path only. An island-scoped tree is measured against the
+      // island's rect and laid out relative to the island's origin, so it is not a
+      // valid whole-component placeholder — the learning store keys on the
+      // component name, and ghost:export turns that entry into a committed Blade
+      // @placeholder. Persisting it would stand an island-sized skeleton in for the
+      // entire component, permanently, in the exported artifact.
+      if (!region) onSynthesized?.(host, signature, boneTree, measured.hostRect);
     } else {
       cache.invalidate(host);
     }
