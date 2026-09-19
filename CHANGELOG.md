@@ -54,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `php artisan ghost:export` (SPEC-LRN-03, SPEC-SEC-05): turns a tree collected by `Ghostwire.exportLearned()` (a user-initiated browser download; no headless browser anywhere in this path) into a static Blade partial usable as a `@placeholder`/`placeholder()`. The downloaded JSON is re-validated server-side independently of the browser's own checks; the destination is resolved canonically and refused outside `resources/views`, refused outright when it's a symlink (live or dangling) or an existing directory regardless of `--force`, and otherwise requires `--force` to overwrite an existing file at that destination.
 - Two new compact `data-ghost` keys, `g` and `n`, sent only for a request where learning is genuinely active (`learning.enabled`, `learning.store === 'local'`, non-production, and a component name matching `[a-z0-9.-]{1,64}`) — a client can never turn learning on for itself.
 - Learning stays opt-in and non-production-only end to end (SPEC-LRN-04): `learning.enabled` defaults to `false`, and collection is additionally refused server-side whenever `app()->isProduction()`, regardless of what the config says.
+- Island-scoped skeletons on the Livewire 4 bridge (SPEC-INT-13): a host declared with `wire:ghost.island` now synthesizes and mounts its skeleton scoped to its nearest enclosing `@island` block when one is present, instead of the whole component. Livewire 3 keeps `.island` as a documented no-op (SPEC-INT-22) — it has no island concept.
 
 ### Changed
 
