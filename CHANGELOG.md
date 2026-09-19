@@ -15,6 +15,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > The `[1.0.0]` section below predates that and is hand-curated. It stays as
 > written, including its `Scope` subsection recording what 1.0.0 ships without.
 
+## [1.0.1](https://github.com/matheusmarnt/ghostwire/compare/v1.0.0...v1.0.1) (2026-09-19)
+
+
+### Bug Fixes
+
+* **js:** re-synthesize through Ghostwire's own concealment on resize ([71c97d9](https://github.com/matheusmarnt/ghostwire/commit/71c97d9cfae359540749b112cb439611d6af0001)), closes [#21](https://github.com/matheusmarnt/ghostwire/issues/21)
+* **js:** reposition the Ghost Layer when a resized host re-synthesizes ([178d683](https://github.com/matheusmarnt/ghostwire/commit/178d683fd3d8e8796a05631b83090f858a83b99c)), closes [#21](https://github.com/matheusmarnt/ghostwire/issues/21)
+
+
+### Performance Improvements
+
+* **js:** finish every layout read of the show cycle before its first DOM write ([9a5811a](https://github.com/matheusmarnt/ghostwire/commit/9a5811a0237b47f856b7d00975279a25bf20ffb0)), closes [#18](https://github.com/matheusmarnt/ghostwire/issues/18)
+* **js:** minify the runtime bundle and gate it at the SPEC-PERF-08 budget ([9c31c54](https://github.com/matheusmarnt/ghostwire/commit/9c31c545683f909c342b9f55468a10440965a193)), closes [#18](https://github.com/matheusmarnt/ghostwire/issues/18)
+
 ## [1.0.0] - 2026-09-19
 
 ### Added
