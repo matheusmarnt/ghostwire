@@ -21,7 +21,7 @@ export function createRenderer() {
     ensureLiveRegion().textContent = message;
   }
 
-  function mountLayer(host) {
+  function mountLayer(host, regionRect = null) {
     const layer = document.createElement('div');
     layer.className = 'gw-layer';
     layer.setAttribute('aria-hidden', 'true');
@@ -32,11 +32,15 @@ export function createRenderer() {
     // ponytail: host's own border-radius/overflow can't change between mount
     // and unmount, so read them once here rather than on every
     // repositionLayer() call (SPEC-RND-02).
+    // ponytail: this still reads host.el's computed style even when regionRect
+    // scopes the layer to an island — an island's content is a sibling Range,
+    // not one element with its own CSS box, so there's no more precise single
+    // element to read border-radius/overflow from (SPEC-INT-13).
     const style = window.getComputedStyle(host.el);
     layer.style.borderRadius = style.borderRadius;
     layer.style.overflow = style.overflow === 'visible' ? 'visible' : 'hidden';
 
-    const rect = host.el.getBoundingClientRect();
+    const rect = regionRect || host.el.getBoundingClientRect();
     layer.style.top = `${rect.top}px`;
     layer.style.left = `${rect.left}px`;
     layer.style.width = `${rect.width}px`;
@@ -54,9 +58,9 @@ export function createRenderer() {
   // after host N's write in the same loop, forcing a synchronous reflow per
   // host after the first. repositionLayer stays as a single-host convenience
   // wrapper composing the two; no other caller needs to change.
-  function measureHostRect(host) {
+  function measureHostRect(host, regionRect = null) {
     if (!host.layer) return null;
-    return host.el.getBoundingClientRect();
+    return regionRect || host.el.getBoundingClientRect();
   }
 
   function applyLayerRect(host, rect) {
@@ -67,8 +71,8 @@ export function createRenderer() {
     host.layer.style.height = `${rect.height}px`;
   }
 
-  function repositionLayer(host) {
-    applyLayerRect(host, measureHostRect(host));
+  function repositionLayer(host, regionRect = null) {
+    applyLayerRect(host, measureHostRect(host, regionRect));
   }
 
   // SPEC-SEC-04: the only path that turns a Bone Tree into DOM, for both the
