@@ -37,11 +37,10 @@ vi.mock('../src/registry.js', async (importOriginal) => {
   };
 });
 
-// Task 6: spies on the two renderer/synthesizer entry points this task wires
-// island regions into, so the .island tests below can assert on the exact
-// arguments each received — the region PLUMBING is what Task 6 owns; the
-// walk/measure/emit pipeline behind synthesize() is Tasks 1/4/5's own tested
-// territory, not re-proven here.
+// Spies on the two renderer/synthesizer entry points island regions are wired
+// into, so the .island tests below can assert on the exact arguments each
+// received. What these tests own is the region PLUMBING; the walk/measure/emit
+// pipeline behind synthesize() has its own tests, and is not re-proven here.
 vi.mock('../src/synthesizer/index.js', async (importOriginal) => {
   const actual = await importOriginal();
   const instances = [];
@@ -77,7 +76,21 @@ vi.mock('../src/renderer.js', async (importOriginal) => {
   };
 });
 
+// SPEC-INT-22: `.island` is a permanent no-op on the v3 bridge, and the only
+// thing enforcing that is boot()'s `bridgeName !== 'v4'` check. Wrapping
+// detectBridge() lets one test below override just the NAME while keeping the
+// real bridge object, so it exercises that check and nothing else. Default
+// behavior is the real detectBridge(), so every other test is unaffected.
+vi.mock('../src/bridge/index.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    detectBridge: vi.fn(actual.detectBridge),
+    __realDetectBridge: actual.detectBridge,
+  };
+});
+
 import { boot } from '../src/index.js';
+import { detectBridge, __realDetectBridge } from '../src/bridge/index.js';
 import { __instances as schedulerInstances } from '../src/scheduler.js';
 import { __instances as registryInstances } from '../src/registry.js';
 import { __instances as synthesizerInstances } from '../src/synthesizer/index.js';
@@ -875,7 +888,7 @@ describe('directive registration and modifier parsing', () => {
     });
   });
 
-  describe('.island scoping into the show/reposition lifecycle (SPEC-INT-13, Task 6)', () => {
+  describe('.island scoping into the show/reposition lifecycle (SPEC-INT-13)', () => {
     function appendMarker(parent, kind, meta) {
       parent.appendChild(document.createComment(`[if ${kind}:${meta}]><![endif]`));
     }
@@ -949,9 +962,8 @@ describe('directive registration and modifier parsing', () => {
         const host = registry.hostFor(el);
         const synthesizer = synthesizerInstances.at(-1);
         const renderer = rendererInstances.at(-1);
-        // The walk/measure/emit pipeline is Tasks 1/4/5's own tested
-        // territory — stub a fixed, valid Bone Tree so this test's only
-        // concern is the region PLUMBING Task 6 adds.
+        // The walk/measure/emit pipeline has its own tests — stub a fixed,
+        // valid Bone Tree so this test's only concern is the region plumbing.
         synthesizer.synthesize.mockReturnValue([{ type: 'text', x: 0, y: 0, width: 50, height: 10 }]);
 
         interceptedCallback({
@@ -985,7 +997,7 @@ describe('directive registration and modifier parsing', () => {
     });
 
     it('scopes the onPostPaint reposition read to the enclosing island too (SPEC-INT-13)', () => {
-      // Fake timers here too (Bug fix, post-Task-6): onStart's
+      // Fake timers here too, and not incidentally: onStart's
       // scheduler.messageStart() arms a real ~120ms delayTimer regardless of
       // whether this test ever cares about the show itself. Without fake
       // timers, that delayTimer survives past this test's own teardown and
@@ -1078,6 +1090,64 @@ describe('directive registration and modifier parsing', () => {
         expect(host.layer).not.toBeNull();
         expect(host.layer.style.top).toBe('0px'); // fell back to host.el's own rect
       } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    // SPEC-INT-22 regression guard. `.island` is a documented no-op on the v3
+    // bridge, permanently, and boot()'s `bridgeName !== 'v4'` check is the only
+    // thing enforcing it. That expression is reachable-wrong in both
+    // directions: comparing the wrong value against 'v4' disables scoping
+    // everywhere (a silent no-op on v4 too), and dropping the check enables a
+    // walk Livewire 3 can never satisfy. The v4 tests above cover the first
+    // direction; this one covers the second — delete the check and it fails.
+    it('is a documented no-op on the v3 bridge: .island never resolves a region there (SPEC-INT-22)', () => {
+      vi.useFakeTimers();
+      const origRangeRect = Range.prototype.getBoundingClientRect;
+      try {
+        // The real bridge object (window.Livewire.interceptMessage is what
+        // drives this test either way), reported under the v3 name — the name
+        // string is the single thing under test here.
+        detectBridge.mockImplementationOnce(() => ({ ...__realDetectBridge(), name: 'v3' }));
+        boot();
+
+        const el = document.createElement('div');
+        el.getBoundingClientRect = () => ({ top: 0, left: 0, right: 200, bottom: 50, width: 200, height: 50 });
+        wrapInIsland(el); // a genuine, resolvable island really does enclose the host
+
+        // Never reached while the check holds (regionForHost() returns before
+        // building a Range). Patched anyway so that a regression fails on the
+        // assertions below rather than throwing — jsdom's Range has no
+        // getBoundingClientRect of its own.
+        Range.prototype.getBoundingClientRect = () => ({ top: 5, left: 5, right: 85, bottom: 25, width: 80, height: 20 });
+
+        registeredCallback({
+          el,
+          directive: { modifiers: ['island'], expression: '' },
+          component: { id: 'c1', el },
+          cleanup: () => {},
+        });
+
+        const registry = registryInstances.at(-1);
+        const host = registry.hostFor(el);
+        const synthesizer = synthesizerInstances.at(-1);
+        synthesizer.synthesize.mockReturnValue([{ type: 'text', x: 0, y: 0, width: 50, height: 10 }]);
+
+        interceptedCallback({
+          message: { isSkipped: () => false, component: { id: 'c1' }, getActions: () => [{ name: 'save' }] },
+          onSuccess: () => {},
+          onError: () => {},
+          onFailure: () => {},
+          onCancel: () => {},
+          onFinish: () => {},
+        });
+        vi.advanceTimersByTime(120);
+
+        expect(host.config.island).toBe(true); // the modifier still parses...
+        expect(synthesizer.synthesize).toHaveBeenCalledWith(host, null); // ...and still resolves to nothing
+        expect(host.layer.style.top).toBe('0px'); // whole-host rect, not the island's 5px top
+      } finally {
+        Range.prototype.getBoundingClientRect = origRangeRect;
         vi.useRealTimers();
       }
     });
