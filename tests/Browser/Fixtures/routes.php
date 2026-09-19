@@ -45,7 +45,7 @@ Route::get('/gallery/card-grid-strict-csp', function () {
 
 Route::view('/ghostwire-ghost-attribute-probe', 'ghostwire-fixtures::page', ['component' => 'ghost-attribute-probe']);
 
-// Task 7 DoD (tests/Browser/Timing/IslandLifecycleTest.php): SPEC-INT-13 —
+// SPEC-INT-13 fixture for tests/Browser/Timing/IslandLifecycleTest.php:
 // a real Livewire 4 @island/@endisland block, proving island-scoped skeleton
 // sizing against the real framework and the real built runtime.
 Route::view('/ghostwire-island-demo', 'ghostwire-fixtures::page', ['component' => 'island-demo']);

@@ -5,26 +5,24 @@
 // SPEC-INT-13 — proves an island-scoped skeleton mounts sized to the island's
 // own rect, not the whole page/component, against a real browser + real
 // Livewire 4 island update + the real built runtime
-// (resources/dist/ghostwire.js, rebuilt in the commit before this one —
-// Task 7a — after it was found to predate this whole feature). v4-only:
+// (resources/dist/ghostwire.js, which had to be rebuilt before this test
+// could pass — it was found to still predate the whole feature). v4-only:
 // Livewire 3 has no island concept at all (SPEC-INT-22), so this test is
 // skipped there.
 //
-// This version DIFFERS from the task brief's literal Step 4 snippet: the
-// brief's own two assertions (width-diff from the host's own rect, and
-// layer-top >= outside-island's bottom) are satisfied identically whether
-// real island-region scoping runs or the pre-M9 whole-host fallback runs,
-// because in this fixture wire:ghost.island sits directly on #island-host,
-// so the fallback (host.el's own rect) and the real island region share the
-// exact same top edge and full-container width regardless of scoping.
-// Confirmed empirically (see task-7-report.md) against the pre-Task-7a dist,
-// which had zero island-scoping code at all: the brief's exact two
-// assertions PASSED anyway — a false pass, the same "test passed for the
-// wrong reason" trap Task 4's first test fell into. The third assertion
-// below (layer bottom reaches the button's bottom, not just the host div's
-// own much shorter bottom) is the one that actually distinguishes real
-// scoping from the fallback — confirmed both ways: it failed against the
-// pre-rebuild dist (no scoping) and passes now (real scoping, post Task 7a).
+// The third assertion below is deliberate, and the reason is worth keeping.
+// The two more obvious assertions — width differs from the host's own rect,
+// and layer-top >= the outside-island content's bottom — are satisfied
+// identically whether real island-region scoping runs or the pre-M9
+// whole-host fallback runs, because in this fixture wire:ghost.island sits
+// directly on #island-host, so the fallback (host.el's own rect) and the
+// real island region share the exact same top edge and full-container width
+// regardless of scoping. Confirmed empirically against a dist containing
+// zero island-scoping code: both of those assertions PASSED anyway — a false
+// pass. The third assertion (layer bottom reaches the button's bottom, not
+// just the host div's own much shorter bottom) is the one that actually
+// distinguishes real scoping from the fallback — confirmed both ways: it
+// failed against the pre-rebuild dist, and passes against the rebuilt one.
 
 use Composer\InstalledVersions;
 

@@ -85,17 +85,11 @@ function regionForHost(host, bridgeName) {
 }
 
 export function boot() {
-  // NOTE (Task 6 root-cause fix): the task brief's Step 1 claimed `bridge`
-  // itself was already the bridge-name string ('v3'/'v4') in this scope.
-  // That's wrong for the code as it actually stands — detectBridge() (js/src/
-  // bridge/index.js) returns { name, bridge }, and this line previously
-  // destructured only `bridge` (the created bridge object, the thing
-  // `bridge.subscribe(...)` is called on below), discarding `name` entirely.
-  // regionForHost() needs the STRING to compare against 'v4'; passing the
-  // bridge object instead would make `bridgeName !== 'v4'` true unconditionally
-  // and silently disable island scoping on every message, on both bridges.
-  // Fixed by also capturing `name` here, aliased so it can't be confused with
-  // the pre-existing `bridge` object below.
+  // detectBridge() returns { name, bridge }. regionForHost() compares the
+  // NAME STRING against 'v4', so capture it here — aliased, so it can't be
+  // mistaken for the `bridge` object that `bridge.subscribe(...)` uses below.
+  // Passing that object where the string belongs would make `!== 'v4'` true
+  // unconditionally and silently disable island scoping on both bridges.
   const { name: bridgeName, bridge } = detectBridge();
   if (!bridge) return;
 

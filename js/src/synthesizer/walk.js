@@ -51,8 +51,8 @@ export function collectAndClassifyRange(startNode, endNode, host, registry, maxD
 
 // SPEC-SYN-13: depth and candidate-count are both hard-capped; exceeding
 // either degrades to one aggregated 'block' bone (see the count-cap branch
-// below: gated by out.capped so at most one is ever pushed, sized to the
-// whole host via rootEl — this is the Task 1 fix, preserved here).
+// below: gated by state.capped so at most one is ever pushed, sized to the
+// whole host via rootEl).
 // SPEC-SYN-11: a run of >= REPEAT_MIN_RUN uniform-height siblings sharing a
 // tag+class signature is sampled instead of walked in full.
 function visit(node, registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, rootEl, exemptHostEl) {
