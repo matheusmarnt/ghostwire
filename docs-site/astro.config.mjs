@@ -5,6 +5,14 @@ import starlight from '@astrojs/starlight';
 export default defineConfig({
   site: 'https://matheusmarnt.github.io',
   base: '/ghostwire/',
+  // GFM (tables, etc.) does not turn on by default for this
+  // Astro/Starlight/@astrojs/mdx version combo despite `extendMarkdownConfig`
+  // defaulting to true — every `.mdx` table in the docs rendered as a raw
+  // `| a | b |` paragraph until this was set explicitly. Root-caused by
+  // tracing @astrojs/mdx's resolved `gfm` option through its dependency
+  // chain; verified empirically (table tag present in the build output
+  // only with this line in place).
+  markdown: { gfm: true },
   integrations: [
     starlight({
       title: 'Ghostwire',
