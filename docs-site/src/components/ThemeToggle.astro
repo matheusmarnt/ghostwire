@@ -56,5 +56,8 @@
       // this page view, it just won't persist. Matches Starlight's own
       // toggle, which has the same unguarded localStorage.setItem call.
     }
+    // Lets any page react to the switch without polling data-theme
+    // itself — e.g. the playground's editor swaps its CodeMirror theme.
+    window.dispatchEvent(new CustomEvent('gw-theme-change', { detail: { theme: next } }));
   });
 </script>
