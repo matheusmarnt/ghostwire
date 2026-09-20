@@ -2,12 +2,12 @@
 
 // tests/Browser/Timing/IslandLifecycleTest.php
 //
-// SPEC-INT-13 — proves an island-scoped skeleton mounts sized to the island's
+// Proves an island-scoped skeleton mounts sized to the island's
 // own rect, not the whole page/component, against a real browser + real
 // Livewire 4 island update + the real built runtime
 // (resources/dist/ghostwire.js, which had to be rebuilt before this test
 // could pass — it was found to still predate the whole feature). v4-only:
-// Livewire 3 has no island concept at all (SPEC-INT-22), so this test is
+// Livewire 3 has no island concept at all, so this test is
 // skipped there.
 //
 // The third assertion below is deliberate, and the reason is worth keeping.
@@ -26,9 +26,9 @@
 
 use Composer\InstalledVersions;
 
-it('scopes the skeleton to the island, not the outside-island content, on a real island update (SPEC-INT-13)', function () {
+it('scopes the skeleton to the island, not the outside-island content, on a real island update', function () {
     if (! str_starts_with(InstalledVersions::getVersion('livewire/livewire'), '4.')) {
-        $this->markTestSkipped('Islands are a Livewire 4-only feature (SPEC-INT-22).');
+        $this->markTestSkipped('Islands are a Livewire 4-only feature.');
     }
 
     $page = visit('/ghostwire-island-demo');

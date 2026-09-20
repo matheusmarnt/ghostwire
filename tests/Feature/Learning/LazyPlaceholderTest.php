@@ -5,13 +5,13 @@ use Ghostwire\Tests\Browser\Fixtures\LazyDeclaredPlaceholder;
 use Ghostwire\Tests\Browser\Fixtures\LazyOrdersTable;
 use Livewire\Livewire;
 
-it('tags the lazy placeholder root with data-ghost-lazy (SPEC-LRN-02)', function () {
+it('tags the lazy placeholder root with data-ghost-lazy', function () {
     $html = Livewire::test(LazyOrdersTable::class, ['lazy' => true])->html();
 
     expect($html)->toContain('data-ghost-lazy="lazy-orders-table"');
 });
 
-it('leaves a developer-declared placeholder completely alone (SPEC-LRN-05, FR-56)', function () {
+it('leaves a developer-declared placeholder completely alone (FR-56)', function () {
     $html = Livewire::test(LazyDeclaredPlaceholder::class, ['lazy' => true])->html();
 
     expect($html)->toContain('my own placeholder')

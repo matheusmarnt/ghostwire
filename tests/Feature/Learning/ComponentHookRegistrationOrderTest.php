@@ -7,8 +7,8 @@ use Ghostwire\Tests\ReversedProviderOrderTestCase;
 use Livewire\Livewire;
 
 /**
- * Regression coverage for the componentHook() registration-order fix
- * (SPEC-LRN-02 commit): tests/TestCase.php pins Ghostwire-then-Livewire
+ * Regression coverage for the componentHook() registration-order fix:
+ * tests/TestCase.php pins Ghostwire-then-Livewire
  * provider order, which is the order that already worked even when
  * componentHook() was called from boot(). This is the only test in the
  * suite that boots Livewire's own provider first — the order that was

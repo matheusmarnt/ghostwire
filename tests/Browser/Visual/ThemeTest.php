@@ -2,7 +2,7 @@
 
 // tests/Browser/Visual/ThemeTest.php
 //
-// SPEC-RND-04/05, FR-51 — proves the animation-token wiring and automatic
+// FR-51 — proves the animation-token wiring and automatic
 // dark-mode swap added in Task 1 (js/src/style.css) render correctly against
 // a real browser and the real compiled runtime (resources/dist/ghostwire.css).
 //
@@ -10,7 +10,7 @@
 // pestphp/pest-plugin-browser v4.3.1 — confirmed by reading the real
 // vendor/pestphp/pest-plugin-browser/src/Api/PendingAwaitablePage.php source
 // (inDarkMode()/inLightMode()/locale()/timezone()/on() only, nothing for
-// reduced-motion). SPEC-RND-06 is covered instead by the static CSS-text
+// reduced-motion). That case is covered instead by the static CSS-text
 // assertion in tests/Feature/ThemeCssTest.php — a deliberate scope call, not
 // an oversight.
 

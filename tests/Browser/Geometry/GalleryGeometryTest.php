@@ -2,11 +2,11 @@
 
 // tests/Browser/Geometry/GalleryGeometryTest.php
 //
-// M2 Definition-of-Done gate (SDD §16: "Layouts 1 a 3 da galeria dentro da
-// tolerância"). Drives a real browser against the three gallery fixtures
-// Task 8 built and the real built runtime (resources/dist/ghostwire.js) to
-// prove SPEC-SYN's geometry contract: every synthesized bone must overlap
-// the real content element it stands in for, within a 2px tolerance.
+// M2 Definition-of-Done gate. Drives a real browser against the three
+// gallery fixtures Task 8 built and the real built runtime
+// (resources/dist/ghostwire.js) to prove the synthesizer's geometry
+// contract: every synthesized bone must overlap the real content element
+// it stands in for, within a 2px tolerance.
 //
 // Rather than asserting a weak "bones stay inside the host's bounds" check
 // (which would pass even for badly-placed bones, as long as nothing
@@ -131,7 +131,7 @@ function gwGeometryProbeScript(string $hostSelector): string
     JS;
 }
 
-test('SPEC-SYN geometry: bones overlap their source elements within 2px', function (string $route, string $triggerSelector, string $hostSelector) {
+test('geometry: bones overlap their source elements within 2px', function (string $route, string $triggerSelector, string $hostSelector) {
     $page = visit($route);
 
     $page->script(gwGeometryProbeScript($hostSelector));
@@ -149,7 +149,7 @@ test('SPEC-SYN geometry: bones overlap their source elements within 2px', functi
     expect($data['matched'])->toBeTrue();
 })->with('gallery_layouts');
 
-test('SPEC-MORPH-03: host content is concealed (visibility: hidden) while bones are shown', function () {
+test('host content is concealed (visibility: hidden) while bones are shown', function () {
     $page = visit('/gallery/card-grid');
 
     $page->script(<<<'JS'
@@ -175,7 +175,7 @@ test('SPEC-MORPH-03: host content is concealed (visibility: hidden) while bones 
     expect($page->script('window.__gwConcealedVisibility'))->toBe('hidden');
 });
 
-test('SPEC-PERF-10: bones introduce zero CLS for gallery layouts 1-3', function (string $route, string $triggerSelector, string $hostSelector) {
+test('bones introduce zero CLS for gallery layouts 1-3', function (string $route, string $triggerSelector, string $hostSelector) {
     $page = visit($route);
 
     // P1 (2026-09-12 gap-fix audit, re-derived by mutation): the browser's own

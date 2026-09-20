@@ -1,6 +1,6 @@
 <?php
 
-// M7 DoD gate (SDD §16: "Primeiro lazy com esqueleto correto, sem Chromium").
+// M7 DoD gate: "Primeiro lazy com esqueleto correto, sem Chromium".
 // "Sem Chromium" describes the export pipeline (ghost:export never launches a
 // browser); this gate itself is a real browser test, because only a real
 // browser can learn a tree and only a real browser can prove a lazy
@@ -22,7 +22,7 @@
 // the persisted geometry into a placeholder before Livewire's real content
 // exists — something no jsdom test (stubbed getBoundingClientRect) could show.
 
-it('learns a Bone Tree from a real render and persists it (SPEC-LRN-01)', function () {
+it('learns a Bone Tree from a real render and persists it', function () {
     $page = visit('/ghostwire-learn-demo');
 
     $page->script('window.Ghostwire.clearLearned();');
@@ -46,7 +46,7 @@ it('learns a Bone Tree from a real render and persists it (SPEC-LRN-01)', functi
     $page->assertNoJavaScriptErrors();
 });
 
-it('paints a learned skeleton into a lazy placeholder before any content exists (SPEC-LRN-02, M7 DoD)', function () {
+it('paints a learned skeleton into a lazy placeholder before any content exists (M7 DoD)', function () {
     // Phase 1 — render the lazy component for real, then record its own geometry
     // into the store. This is exactly the state a returning visitor's
     // localStorage would already be in.
@@ -148,7 +148,7 @@ it('paints a learned skeleton into a lazy placeholder before any content exists 
 
     // The skeleton is painted...
     expect($early['bones'])->toBe($expected['count']);
-    // ...before any content exists, which is SPEC-LRN-02's whole point...
+    // ...before any content exists, which is the whole point...
     expect($early['realContent'])->toBeFalse();
     // ...and it is the LEARNED geometry, not an invented one — all four
     // geometry axes paintLazyPlaceholders()/paintBones() actually write

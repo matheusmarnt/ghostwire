@@ -2,7 +2,7 @@
 
 // tests/Browser/Security/CspTest.php
 //
-// SPEC-SEC-06 DoD: "galeria verde sob CSP estrita". Scoped to one
+// CSP DoD: "galeria verde sob CSP estrita". Scoped to one
 // representative gallery fixture (card-grid) rather than duplicating a
 // CSP-enforcing route per layout — the mechanism under test (whether the
 // package's own assets/behavior survive a strict CSP) is identical across

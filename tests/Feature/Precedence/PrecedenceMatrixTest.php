@@ -49,20 +49,20 @@ it('resolves class-own field over inherited trait field over inherited base-clas
         ->and($resolved['hold'])->toBe(500);
 });
 
-it('lets mode:off at the method level terminate the host regardless of every lower-precedence level (SPEC-API-41)', function () {
+it('lets mode:off at the method level terminate the host regardless of every lower-precedence level', function () {
     $resolved = (new ConfigResolver)->resolve(MatrixConcreteOverridesMode::class, 'anyAction');
 
     expect($resolved['mode'])->toBe('off');
 });
 
-it('lets the concrete class override the inherited mode while keeping the inherited delay (SPEC-API-10/11 field independence)', function () {
+it('lets the concrete class override the inherited mode while keeping the inherited delay (field independence)', function () {
     $resolved = (new ConfigResolver)->resolve(MatrixConcreteOverridesMode::class);
 
     expect($resolved['mode'])->toBe('synthesize') // concrete class's own declaration wins
         ->and($resolved['delay'])->toBe(999);      // still falls through to the inherited base
 });
 
-it('lets an ancestor class field win over a same-field trait declaration, both present at once (SPEC-API-11 ordering)', function () {
+it('lets an ancestor class field win over a same-field trait declaration, both present at once (ordering)', function () {
     $resolved = (new ConfigResolver)->resolve(MatrixConcreteWithAncestorAndTraitConflict::class);
 
     expect($resolved['hold'])->toBe(400); // ancestor's own declared value, not the trait's

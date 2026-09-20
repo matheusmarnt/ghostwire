@@ -45,7 +45,7 @@ test('a host resized while its skeleton is showing gets its Ghost Layer repositi
     $layerBefore = gwClientRect($page, '.gw-layer');
     expect(abs($layerBefore['width'] - $hostBefore['width']))->toBeLessThan(2);
 
-    $page->resize(700, 800); // shrinks the host by ~500px — far past SPEC-SYN-21's 4px threshold
+    $page->resize(700, 800); // shrinks the host by ~500px — far past the 4px reposition threshold
     $page->wait(0.5); // ResizeObserver -> onResize; still inside the hold window
 
     $host = gwClientRect($page, '#resize-host');

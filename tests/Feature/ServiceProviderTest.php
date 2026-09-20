@@ -20,7 +20,7 @@ it('registers the assets publish group', function () {
     expect($paths)->toHaveCount(1);
 });
 
-it('renders @ghostwireStyles as a stylesheet link with no inline CSS (SPEC-SEC-06 baseline)', function () {
+it('renders @ghostwireStyles as a stylesheet link with no inline CSS (baseline)', function () {
     $html = Blade::render('@ghostwireStyles');
 
     expect($html)->toContain('<link')
@@ -28,7 +28,7 @@ it('renders @ghostwireStyles as a stylesheet link with no inline CSS (SPEC-SEC-0
         ->and($html)->not->toContain('<style>');
 });
 
-it('renders @ghostwireScripts as an external script tag with no inline JS (SPEC-SEC-06 baseline)', function () {
+it('renders @ghostwireScripts as an external script tag with no inline JS (baseline)', function () {
     $html = Blade::render('@ghostwireScripts');
 
     expect($html)->toContain('<script')

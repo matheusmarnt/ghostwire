@@ -2,7 +2,7 @@
 
 // tests/Feature/ApiSurfaceFreezeTest.php
 //
-// SPEC-API-50 / SPEC-PKG-11: the public API is frozen at v1.0. This test is
+// The public API is frozen at v1.0. This test is
 // the enforcement mechanism — it fails the moment any of the four public
 // surfaces below changes shape, forcing a deliberate, reviewed update here
 // (and a CHANGELOG/major-version decision) instead of a silent drift.

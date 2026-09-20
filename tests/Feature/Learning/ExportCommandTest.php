@@ -33,7 +33,7 @@ afterEach(function () {
     File::deleteDirectory(resource_path('views/livewire'));
 });
 
-it('writes a static Blade placeholder from a learned tree (SPEC-LRN-03)', function () {
+it('writes a static Blade placeholder from a learned tree', function () {
     $this->artisan('ghost:export', ['--component' => 'orders-table', '--breakpoint' => 'lg', '--from' => $this->source])
         ->assertSuccessful();
 
@@ -45,7 +45,7 @@ it('writes a static Blade placeholder from a learned tree (SPEC-LRN-03)', functi
         ->and($written)->toContain('width:960.00px');
 });
 
-it('emits nothing dynamic - no Blade echo, no PHP tag (SPEC-SEC-05)', function () {
+it('emits nothing dynamic - no Blade echo, no PHP tag', function () {
     $this->artisan('ghost:export', ['--component' => 'orders-table', '--breakpoint' => 'lg', '--from' => $this->source])
         ->assertSuccessful();
 
@@ -86,7 +86,7 @@ it('fails on a schema version it does not understand', function () {
         ->assertFailed();
 });
 
-it('clamps absurd geometry rather than writing it out verbatim (SPEC-SEC-05)', function () {
+it('clamps absurd geometry rather than writing it out verbatim', function () {
     // Ruling B: built as a full literal, not via learnedJson()'s array_replace_recursive,
     // which merges the `b` array by index and would leave the fixture's original
     // second bone in place alongside this one.
@@ -126,7 +126,7 @@ it('prints a view() hint matching the actual --output destination (Finding 9)', 
     }
 });
 
-it('drops a tree containing a bone type outside the whitelist (SPEC-SEC-05)', function () {
+it('drops a tree containing a bone type outside the whitelist', function () {
     // Ruling B: a full literal with exactly one bone. Via learnedJson()'s
     // array_replace_recursive merge, the fixture's original index-1 avatar bone
     // would survive alongside this one, and since one bad bone discards the

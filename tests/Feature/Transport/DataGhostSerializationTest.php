@@ -23,7 +23,7 @@ class ConfigDriftProbeComponent extends Component
     }
 }
 
-// One action method carries its own #[Ghost(...)] (SPEC-API-10 runtime
+// One action method carries its own #[Ghost(...)] (runtime
 // transport, #9) -> the rendered data-ghost payload must additionally carry
 // an "a" key mapping that method's name to its own compact-key fields.
 class MethodOverrideProbeComponent extends Component
@@ -41,7 +41,7 @@ class MethodOverrideProbeComponent extends Component
 // silently broke under a whole-suite GHOSTWIRE_LEARNING=true run — only the exact-equality
 // assertion below was strict enough to notice, but every test here shares the same baseline
 // assumption. Pinned off in each, matching LearningTransportTest.php's established shape.
-it('serializes only non-default fields, plus mode always, as compact keys (SPEC-API-30)', function () {
+it('serializes only non-default fields, plus mode always, as compact keys', function () {
     config(['ghostwire.learning.enabled' => false]);
     Livewire::component('data-ghost-probe', DataGhostProbeComponent::class);
 
@@ -55,7 +55,7 @@ it('serializes only non-default fields, plus mode always, as compact keys (SPEC-
         ->and($html)->not->toContain('&quot;r&quot;'); // rows never set -> omitted
 });
 
-it('never emits raw, unescaped quotes around the JSON payload (SPEC-SEC-01)', function () {
+it('never emits raw, unescaped quotes around the JSON payload', function () {
     config(['ghostwire.learning.enabled' => false]);
     Livewire::component('data-ghost-probe', DataGhostProbeComponent::class);
 
@@ -79,7 +79,7 @@ it('does not omit a field from data-ghost when it only matches config() override
     expect($html)->toContain('&quot;d&quot;:500'); // must be present, not omitted, even though 500 equals the live config default
 });
 
-it('carries a method-level #[Ghost] override in an "a" key, keyed by action name, compact-encoded (SPEC-API-10 runtime transport, #9)', function () {
+it('carries a method-level #[Ghost] override in an "a" key, keyed by action name, compact-encoded (runtime transport, #9)', function () {
     config(['ghostwire.learning.enabled' => false]);
     Livewire::component('method-override-probe', MethodOverrideProbeComponent::class);
 

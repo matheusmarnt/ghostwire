@@ -15,7 +15,7 @@ function ghostPayload(string $component): array
 // data-ghost carries), not activation — the bare probe fixture carries no
 // #[Ghost], so each needs 'global' to emit data-ghost at all under the
 // opt-in default.
-it('does not transport learning when the config flag is off (SPEC-LRN-04 default)', function () {
+it('does not transport learning when the config flag is off (default)', function () {
     config(['ghostwire.learning.enabled' => false]);
     config(['ghostwire.strategy' => 'global']);
 
@@ -40,7 +40,7 @@ it('transports the learning flag and component name when enabled outside product
         ->and($payload['n'])->toBe('ghost-attribute-probe');
 });
 
-it('refuses to transport learning in production, whatever the config says (SPEC-LRN-04)', function () {
+it('refuses to transport learning in production, whatever the config says', function () {
     config(['ghostwire.learning.enabled' => true]);
     config(['ghostwire.strategy' => 'global']);
     app()->detectEnvironment(fn () => 'production');

@@ -3,7 +3,7 @@
 use Ghostwire\Tests\Browser\Fixtures\GhostAttributeProbe;
 use Livewire\Livewire;
 
-it('injects a data-ghost attribute on the component root element (SPEC-API-31, pendency A9)', function () {
+it('injects a data-ghost attribute on the component root element', function () {
     // F10 (fix round 2): this file asserts an exact baseline payload and never mentioned
     // learning, so it silently broke under a whole-suite GHOSTWIRE_LEARNING=true run (the
     // env flag leaking in and adding g/n). Pinned off, matching LearningTransportTest.php's

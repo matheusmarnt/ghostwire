@@ -4,7 +4,7 @@
 //
 // M3 acceptance gate for the robustness synthesis pipeline (repeat sampling,
 // scroll clipping, sticky-header geometry) plus an extension of the
-// SPEC-PERF-10 zero-CLS gate to the three new M3 gallery fixtures Task 6
+// zero-CLS gate to the three new M3 gallery fixtures Task 6
 // built (RepeatList, ScrollableKanban, NodeCount).
 //
 // Follows the exact MutationObserver-at-first-sighting pattern established
@@ -13,7 +13,7 @@
 // wait, so the sample reflects what the scheduler actually measured at
 // show-time rather than a later (possibly already-morphed) layout.
 
-test('SPEC-SYN-11: repeat sampling preserves real item count and matches real geometry down to the last (cloned) row', function () {
+test('repeat sampling preserves real item count and matches real geometry down to the last (cloned) row', function () {
     $page = visit('/gallery/repeat-list');
 
     $page->script(<<<'JS'
@@ -87,7 +87,7 @@ test('SPEC-SYN-11: repeat sampling preserves real item count and matches real ge
     expect($data['widthMatched'])->toBeTrue(); // ...and it is that row's own real width ("Row 12"), not the sampled template's ("Row 3")
 });
 
-test('SPEC-SYN-14: scrollable containers limit synthesis to the visible area', function () {
+test('scrollable containers limit synthesis to the visible area', function () {
     $page = visit('/gallery/scrollable-kanban');
 
     $page->script(<<<'JS'
@@ -151,7 +151,7 @@ test('SPEC-SYN-14: scrollable containers limit synthesis to the visible area', f
     expect($data['actualBones'])->toBe($data['expectedBones']);
 });
 
-test('SPEC-SYN-15: a sticky header bone tracks its pinned viewport position after scrolling', function () {
+test('a sticky header bone tracks its pinned viewport position after scrolling', function () {
     $page = visit('/gallery/scrollable-kanban');
 
     $page->script("document.querySelector('#kanban-column').scrollTop = 300; true;"); // scroll well past several cards
@@ -187,7 +187,7 @@ dataset('m3_layouts', [
     'node count' => ['/gallery/node-count', '#refresh-btn'],
 ]);
 
-test('SPEC-PERF-10: bones introduce zero CLS for the M3 robustness layouts', function (string $route, string $triggerSelector) {
+test('bones introduce zero CLS for the M3 robustness layouts', function (string $route, string $triggerSelector) {
     $page = visit($route);
 
     $page->script('

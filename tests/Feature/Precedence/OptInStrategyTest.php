@@ -56,7 +56,7 @@ it('does stamp data-ghost on that same component under the global strategy', fun
     expect($html)->toContain('data-ghost=');
 });
 
-it('stamps data-ghost under opt-in when #[Ghost] is inherited from a base class (SPEC-API-12)', function () {
+it('stamps data-ghost under opt-in when #[Ghost] is inherited from a base class', function () {
     config()->set('ghostwire.strategy', 'opt-in');
 
     $html = Livewire::test(LegacyWidgetOne::class)->html();

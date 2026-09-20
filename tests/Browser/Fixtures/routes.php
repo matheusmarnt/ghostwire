@@ -12,10 +12,10 @@ Route::view('/gallery/repeat-list', 'ghostwire-fixtures::page', ['component' => 
 Route::view('/gallery/scrollable-kanban', 'ghostwire-fixtures::page', ['component' => 'scrollable-kanban']);
 Route::view('/gallery/node-count', 'ghostwire-fixtures::page', ['component' => 'node-count']);
 
-// SPEC-SEC-06 DoD: enforces a real, per-request-nonce CSP — the policy shape
-// SDD §13.4 names, at the strictest each Livewire line actually supports (see
-// the note inside the closure) — and passes that same nonce into the fixture
-// page, so @ghostwireStyles($nonce)/@ghostwireScripts($nonce) (Task 2) are
+// Enforces a real, per-request-nonce CSP, at the strictest each Livewire
+// line actually supports (see the note inside the closure) — and passes
+// that same nonce into the fixture page, so
+// @ghostwireStyles($nonce)/@ghostwireScripts($nonce) (Task 2) are
 // exercised end to end, not just in isolation.
 Route::get('/gallery/card-grid-strict-csp', function () {
     // Livewire evaluates wire:* expressions through Alpine's
@@ -45,7 +45,7 @@ Route::get('/gallery/card-grid-strict-csp', function () {
 
 Route::view('/ghostwire-ghost-attribute-probe', 'ghostwire-fixtures::page', ['component' => 'ghost-attribute-probe']);
 
-// SPEC-INT-13 fixture for tests/Browser/Timing/IslandLifecycleTest.php:
+// Fixture for tests/Browser/Timing/IslandLifecycleTest.php:
 // a real Livewire 4 @island/@endisland block, proving island-scoped skeleton
 // sizing against the real framework and the real built runtime.
 Route::view('/ghostwire-island-demo', 'ghostwire-fixtures::page', ['component' => 'island-demo']);
@@ -80,7 +80,7 @@ Route::get('/ghostwire-learn-demo', function () {
     // Task 2 (FR-04): demo-table carries no #[Ghost] anywhere, so under the
     // default 'opt-in' strategy GhostComponentHook would gate off the whole
     // data-ghost transport — including the 'g'/'n' learning keys this route
-    // exists to exercise (SPEC-LRN-01). Forced global for this route only,
+    // exists to exercise. Forced global for this route only,
     // same reasoning as the learning.enabled override above: this test is
     // about the learning subsystem, not about FR-04 activation itself.
     config(['ghostwire.strategy' => 'global']);
