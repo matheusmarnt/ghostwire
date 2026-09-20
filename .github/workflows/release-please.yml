@@ -17,4 +17,9 @@ jobs:
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # With GITHUB_TOKEN the release PR is authored by github-actions[bot] and the
+          # repository's Actions approval policy parks its CI in "action_required" until
+          # a maintainer approves it by hand (PR #25). RELEASE_PLEASE_TOKEN is a fine-
+          # grained PAT (this repo only, Contents + Pull requests read/write): with it the
+          # PR is user-authored and CI runs unattended. Without the secret, nothing changes.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
