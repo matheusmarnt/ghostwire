@@ -9,6 +9,18 @@ Ghostwire supports Livewire 3.6+ and 4.x from the same package. Bridge selection
 2. else, `Livewire.hook` present → Livewire 3 bridge
 3. neither → the runtime disables itself; the console warning for this (and every other developer diagnostic) fires only when the package's `<script>` tag carries `data-ghostwire-debug="1"`, which `@ghostwireScripts` adds automatically outside production
 
+The same three checks, as the actual detection logic:
+
+```js
+if (typeof Livewire.interceptMessage === 'function') {
+    // Livewire 4 bridge
+} else if (typeof Livewire.hook === 'function') {
+    // Livewire 3 bridge
+} else {
+    // Neither present — Ghostwire disables itself for this page
+}
+```
+
 ## Tier matrix
 
 | Tier | Capabilities |

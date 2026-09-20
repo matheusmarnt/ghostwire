@@ -50,6 +50,20 @@ For a component using Livewire's own lazy loading, `lazy: true` tells Ghostwire 
 
 This never applies if the component already has a placeholder of its own: a `placeholder()` method, a Livewire 4 `@placeholder` block, or a global default placeholder your app has configured (`livewire.component_placeholder` on Livewire 4, `livewire.lazy_placeholder` on Livewire 3). Any of those wins outright — Ghostwire only ever fills a placeholder that would otherwise be blank.
 
+Pairing Livewire's own lazy loading with Ghost's — no `placeholder()` method, so Ghostwire's learned skeleton fills the gap once one exists for this component and breakpoint:
+
+```php
+use Livewire\Attributes\Lazy;
+use Ghostwire\Attributes\Ghost;
+
+#[Lazy]
+#[Ghost(lazy: true)]
+class OrdersTable extends Component
+{
+    // ...
+}
+```
+
 ## Exporting a learned tree
 
 Turn what learning collected into a real, static Blade placeholder — no headless browser involved at any point:
