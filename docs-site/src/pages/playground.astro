@@ -20,6 +20,14 @@ const DEFAULT_MARKUP = `<div style="padding:16px;font-family:sans-serif;">
 ---
 <html lang="en">
 <head>
+  <script>
+    const storedTheme =
+      typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+    const theme =
+      storedTheme ||
+      (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+  </script>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Playground — Ghostwire</title>
