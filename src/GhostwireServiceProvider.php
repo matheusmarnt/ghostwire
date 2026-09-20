@@ -79,7 +79,7 @@ class GhostwireServiceProvider extends ServiceProvider
     }
 
     /**
-     * SPEC-LRN-02: tag the lazy placeholder root so the runtime can paint a
+     * Tag the lazy placeholder root so the runtime can paint a
      * learned skeleton into it before any content exists.
      *
      * 'render.placeholder' is the only mechanism present on both supported Livewire
@@ -98,7 +98,7 @@ class GhostwireServiceProvider extends ServiceProvider
 
             return function ($html, $replaceHtml, $viewContext) use ($name) {
                 // Only ever ADD an attribute. Replacing the markup would stomp a
-                // developer-declared placeholder, which SPEC-LRN-05 forbids.
+                // developer-declared placeholder, which is forbidden.
                 $replaceHtml(Utils::insertAttributesIntoHtmlRoot($html, [
                     'data-ghost-lazy' => $name,
                 ]));
@@ -116,7 +116,7 @@ class GhostwireServiceProvider extends ServiceProvider
             return false;
         }
 
-        // SPEC-LRN-05 / FR-56: a declared placeholder wins absolutely. This single
+        // FR-56: a declared placeholder wins absolutely. This single
         // predicate covers a hand-written placeholder() AND a Livewire 4
         // @placeholder block, which the compiler turns into a real method.
         if (method_exists($component, 'placeholder')) {

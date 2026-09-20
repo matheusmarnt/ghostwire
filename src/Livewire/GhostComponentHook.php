@@ -18,7 +18,7 @@ use Livewire\Drawer\Utils;
 // `Livewire\Drawer\Utils::insertAttributesIntoHtmlRoot($html, $attributes)`
 // (vendor/livewire/livewire/src/Drawer/Utils.php:13) — the same helper
 // Livewire itself uses to stamp `wire:id` onto every component root — so no
-// str_replace/string concatenation is needed here (SPEC-API-31).
+// str_replace/string concatenation is needed here.
 // Registration is the facade call `Livewire\Livewire::componentHook($hookClass)`
 // (vendor/livewire/livewire/src/LivewireManager.php:36), which forwards to
 // `Livewire\ComponentHookRegistry::register($hook)`
@@ -44,7 +44,7 @@ use Livewire\Drawer\Utils;
 // but anything else (our compact payload array) is first json_encode()'d and
 // *then* run through htmlspecialchars(..., ENT_QUOTES|ENT_SUBSTITUTE). So
 // passing the raw PHP array straight into insertAttributesIntoHtmlRoot()
-// below is itself the real, confirmed serialize+escape path (SPEC-SEC-01) —
+// below is itself the real, confirmed serialize+escape path —
 // no hand-rolled json_encode()/JSON_HEX_* call is needed or used here, since
 // that would just double-encode. The JSON's double quotes end up rendered as
 // `&quot;` in the raw HTML (correct, required escaping for a double-quoted
@@ -85,7 +85,7 @@ class GhostComponentHook extends ComponentHook
             // to — the real, confirmed way this hook knows "which component".
             // $method is always null here: this class-level resolve() call
             // stays the base layer only. Method-level #[Ghost] overrides
-            // (SPEC-API-10, #9) are a separate, additional transport below
+            // (#9) are a separate, additional transport below
             // — every action method's own declared fields are gathered via
             // ConfigResolver::methodOverrides() and sent as the compact "a"
             // map, merged client-side into the matching action's config for
@@ -110,8 +110,8 @@ class GhostComponentHook extends ComponentHook
     }
 
     /**
-     * Compact-key, defaults-omitted payload for the `data-ghost` attribute
-     * (SPEC-API-30). `m` (mode) is always present; every other key is
+     * Compact-key, defaults-omitted payload for the `data-ghost` attribute.
+     * `m` (mode) is always present; every other key is
      * emitted only when it differs from the package default, and `only`/
      * `except`/`rows` are omitted entirely while still null.
      *
@@ -171,7 +171,7 @@ class GhostComponentHook extends ComponentHook
     }
 
     /**
-     * SPEC-LRN-04: collection is opt-in and restricted to non-production
+     * Collection is opt-in and restricted to non-production
      * environments. Both gates are evaluated server-side, so a client can never
      * turn learning on for itself by editing the attribute — the runtime's own
      * closed schema rejects anything the server did not send.
