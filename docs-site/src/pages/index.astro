@@ -1,5 +1,8 @@
 ---
+import { Image } from 'astro:assets';
 import '../styles/landing.css';
+import ThemeToggle from '../components/ThemeToggle.astro';
+import ghostwireLogo from '../assets/ghostwire.png';
 const base = import.meta.env.BASE_URL;
 ---
 <html lang="en">
@@ -19,7 +22,9 @@ const base = import.meta.env.BASE_URL;
   <link rel="icon" href={`${base}favicon.svg`} />
 </head>
 <body>
+  <ThemeToggle />
   <section class="gw-hero">
+    <Image src={ghostwireLogo} alt="Ghostwire" class="gw-logo" width={288} height={96} />
     <h1>Skeleton loaders your Livewire app already deserves.</h1>
     <p>Add <code>wire:ghost</code> to any element. Ghostwire synthesizes a matching skeleton from your live DOM the instant a request starts — no hand-written placeholder markup, zero layout shift.</p>
     <div class="gw-cta">

@@ -3,10 +3,42 @@ title: Choosing directive vs. attribute
 description: When to use each mode — a decision page.
 ---
 
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
 **The directive decides *where*. The attribute decides *when*.**
 
 - Reach for **`wire:ghost`** when you're marking up a specific element and want the skeleton scoped to exactly that subtree — the common case for a single table, card grid, or panel.
 - Reach for **`#[Ghost]`** when you want a whole component's behavior configured without touching its view at all — ideal for bulk-migrating many existing components, or for method-level overrides tied to specific actions rather than specific markup.
+
+<Tabs>
+<TabItem label="wire:ghost directive">
+
+Scope the skeleton to one element's subtree, right in the view:
+
+```blade
+<div wire:ghost.delay.100ms>
+    <h2>{{ $product->name }}</h2>
+    <p>{{ $product->description }}</p>
+</div>
+```
+
+</TabItem>
+<TabItem label="#[Ghost] attribute">
+
+Configure the whole component from the class — no view changes:
+
+```php
+use Ghostwire\Attributes\Ghost;
+
+#[Ghost(mode: 'synthesize', delay: 100)]
+class ProductCard extends Component
+{
+    public Product $product;
+}
+```
+
+</TabItem>
+</Tabs>
 
 They compose: put `#[Ghost(mode: 'freeze')]` on the class as the default, then a `wire:ghost.delay.50ms` directive on one particularly slow-loading element inside it to override just that host's timing. The precedence cascade in [`/docs/ghost-attribute`](/ghostwire/docs/ghost-attribute/) resolves the combination.
 
