@@ -16,7 +16,7 @@ import { closestIslandRange } from './islands.js';
 // ), so `wire:ghost.hold.4000ms` arrives here as TWO tokens, ['hold', '4000ms']
 // — never as one 'hold.4000ms' token. A valued modifier therefore consumes the
 // token that follows it, and only when that token has the documented shape.
-// Issue #23. SPEC-API-50 pins this table's text in js/tests/apiSurface.test.js.
+// Issue #23. This table's text is pinned in js/tests/apiSurface.test.js.
 const VALUED_MODIFIERS = new Map([
   ['delay', { pattern: /^(\d+)ms$/, shape: '<N>ms' }],
   ['hold', { pattern: /^(\d+)ms$/, shape: '<N>ms' }],
@@ -26,17 +26,16 @@ const VALUED_MODIFIERS = new Map([
 // Only include a key when a modifier explicitly set it — never "declare"
 // mode/ignore/keep unconditionally. resolveHostConfig() spreads this object
 // over the attribute config, so an undeclared key here must stay absent
-// (not merely falsy) or it would stomp an explicit `#[Ghost(...)]` value
-// (SPEC-API-40).
+// (not merely falsy) or it would stomp an explicit `#[Ghost(...)]` value.
 function parseModifiers(modifiers) {
   const config = {};
   for (let i = 0; i < modifiers.length; i += 1) {
     const modifier = modifiers[i];
     if (modifier === 'freeze') config.mode = 'freeze';
-    else if (modifier === 'off') config.mode = 'off'; // SPEC-API-41: off is terminal, expressed as a mode value throughout
+    else if (modifier === 'off') config.mode = 'off'; // off is terminal, expressed as a mode value throughout
     else if (modifier === 'ignore') config.ignore = true;
     else if (modifier === 'keep') config.keep = true;
-    else if (modifier === 'island') config.island = true; // SPEC-INT-13: opt-in, resolved against the live DOM at show time by regionForHost()
+    else if (modifier === 'island') config.island = true; // opt-in, resolved against the live DOM at show time by regionForHost()
     else if (VALUED_MODIFIERS.has(modifier)) {
       const { pattern, shape } = VALUED_MODIFIERS.get(modifier);
       const value = String(modifiers[i + 1] ?? '').match(pattern);
@@ -44,7 +43,7 @@ function parseModifiers(modifiers) {
         config[modifier] = Number(value[1]);
         i += 1; // the value token belongs to this modifier
       } else if (isDebug()) {
-        // SPEC-API-01: visible in dev, ignored in prod. The next token is NOT
+        // Visible in dev, ignored in prod. The next token is NOT
         // consumed — it is parsed on its own on the next iteration.
         console.warn(`[ghostwire] wire:ghost modifier ".${modifier}" has no value token (expected ".${modifier}.${shape}") — ignored`);
       }
@@ -58,12 +57,12 @@ function parseModifiers(modifiers) {
 // Mirrors v3.js's isPolledMethod wire:poll check, including its
 // whole-subtree scan (root plus every descendant via querySelectorAll('*'))
 // — needed for the identical reason isPolledMethod needs it: wire:ghost is
-// SPEC-API-03/SPEC-API-13 legal on any descendant of the component root, not
+// legal on any descendant of the component root, not
 // just the root itself (e.g. tests/Browser/Fixtures/views/demo-table.blade.php
 // puts wire:ghost.freeze/wire:ghost on #summary/#list, never on the root).
 // Checking only the root's own attributes missed that case and let
 // component.init auto-attach a spurious extra root host alongside the real
-// directive-created descendant host(s), violating SPEC-API-13.
+// directive-created descendant host(s).
 //
 // Also still needed for the root-itself case: Livewire fires "component.init"
 // strictly before it processes that same element's own directive.init pass
@@ -85,14 +84,14 @@ function hasGhostDirective(root) {
   });
 }
 
-// SPEC-INT-13: resolves the region a host's skeleton should be scoped to for
+// Resolves the region a host's skeleton should be scoped to for
 // this show/reposition. Only hosts explicitly opted in via wire:ghost.island
 // attempt island scoping, and only on the v4 bridge (v3 never emits the
 // comment markers closestIslandRange looks for, so this would always return
 // null there too — the explicit check just avoids a wasted DOM walk on every
 // v3 show). Returns null — meaning "use the whole host, unchanged" — whenever
-// the host isn't `.island`-configured, isn't on v4, or (SPEC-INT-13's
-// accepted degradation) isn't currently inside a live island fragment.
+// the host isn't `.island`-configured, isn't on v4, or (accepted degradation)
+// isn't currently inside a live island fragment.
 function regionForHost(host, bridgeName) {
   if (!host.config.island || bridgeName !== 'v4') return null;
   const range = closestIslandRange(host.el);
@@ -127,11 +126,11 @@ export function boot() {
 
   const learningStore = createLearningStore({ storage, quotaBytes: 256 * 1024 });
 
-  // SPEC-LRN-02: paints a persisted skeleton into a lazy placeholder root
+  // Paints a persisted skeleton into a lazy placeholder root
   // BEFORE Livewire ever renders real content into it (Task 1's
   // 'render.placeholder' listener is what tags the root with
   // data-ghost-lazy in the first place — never present when the developer
-  // declared their own placeholder, SPEC-LRN-05). data-ghost-lazy-painted
+  // declared their own placeholder). data-ghost-lazy-painted
   // makes this idempotent per element, since it runs again on every morph
   // (a lazy component can be inserted anywhere by another component's
   // morph) and must not re-touch a root it already resolved.
@@ -175,14 +174,14 @@ export function boot() {
         // island's) CURRENT rect, so the layer must move to that same rect in
         // this same task — otherwise they paint against the stale origin the
         // layer was mounted at until the next onPostPaint happens to fix it.
-        // SPEC-PERF-01/02: repositionLayer's one read lands here, right after
+        // repositionLayer's one read lands here, right after
         // synthesize()'s reads and before renderBones' first DOM write.
         renderer.repositionLayer(host, region?.rect);
         renderer.renderBones(host, boneTree);
       } else {
         renderer.removeLayer(host);
         host.el.classList.remove('gw-concealed');
-        renderer.restoreFocus(host); // SPEC-A11Y-03: leaving .gw-concealed here too (mid-cycle degrade to freeze)
+        renderer.restoreFocus(host); // leaving .gw-concealed here too (mid-cycle degrade to freeze)
         renderer.freeze(host);
         host.degraded = true;
       }
@@ -192,7 +191,7 @@ export function boot() {
       if (!host.config.learning || !host.config.name) return;
 
       const persisted = learningStore.put(host.config.name, signature, bandFor(window.innerWidth), hostRect, boneTree);
-      // put() fails silently by design (Task 2, SPEC-SEC-04) on any validation
+      // put() fails silently by design (Task 2) on any validation
       // path — the most likely one in practice is a component's real bone count
       // exceeding MAX_BONES (emit.js fans out per text line and per repeated
       // row, well past walk.js's MAX_CANDIDATES cap). A dev-only warning here
@@ -204,40 +203,40 @@ export function boot() {
   );
   const scheduler = createScheduler({
     onShow(host) {
-      // SPEC-PERF-01/02: every layout read of the show cycle (regionForHost,
+      // Every layout read of the show cycle (regionForHost,
       // synthesize, prepareLayer) happens before its first DOM write.
       // markBusy IS a write (aria-busy on the host, the live region's text),
       // so on the synthesize path it moves below the read phase — same task,
-      // same paint, invisible to assistive technology; SPEC-A11Y-01 (busy
-      // regardless of render mode) still holds on every branch below.
+      // same paint, invisible to assistive technology; the busy state
+      // (regardless of render mode) still holds on every branch below.
       if (host.config.mode === 'off' || host.config.ignore || host.config.keep) { renderer.markBusy(host); return; }
       if (host.config.mode === 'freeze') { renderer.markBusy(host); renderer.freeze(host); return; }
 
       const region = regionForHost(host, bridgeName);
       const boneTree = synthesizer.synthesize(host, region);
-      if (!boneTree) { renderer.markBusy(host); renderer.freeze(host); host.degraded = true; return; } // SPEC-SYN-16/17 degrade
+      if (!boneTree) { renderer.markBusy(host); renderer.freeze(host); host.degraded = true; return; } // degrade
       const layer = renderer.prepareLayer(host, region?.rect); // the cycle's last reads
 
       renderer.markBusy(host); // first write of the cycle
-      renderer.captureFocus(host); // SPEC-A11Y-03: before visibility: hidden forces a blur (reads activeElement only — not layout)
+      renderer.captureFocus(host); // before visibility: hidden forces a blur (reads activeElement only — not layout)
       renderer.attachLayer(host, layer);
       renderer.renderBones(host, boneTree);
       host.el.classList.add('gw-concealed');
     },
     onHide(host) {
-      renderer.clearBusy(host); // SPEC-A11Y-01
+      renderer.clearBusy(host);
 
       if (host.config.mode === 'off' || host.config.ignore || host.config.keep) return;
       if (host.config.mode === 'freeze' || host.degraded) { renderer.unfreeze(host); host.degraded = false; return; }
       renderer.removeLayer(host);
       host.el.classList.remove('gw-concealed');
-      renderer.restoreFocus(host); // SPEC-A11Y-03
+      renderer.restoreFocus(host);
     },
   });
 
   window.Ghostwire = window.Ghostwire || {};
 
-  // SPEC-SEC-09 / FR-43: the only way learned data leaves the browser is this
+  // FR-43: the only way learned data leaves the browser is this
   // user-initiated file download. No network call exists anywhere in this path.
   window.Ghostwire.exportLearned = function exportLearned() {
     const json = JSON.stringify(learningStore.all(), null, 2);
@@ -268,9 +267,9 @@ export function boot() {
 
   window.Livewire.directive('ghost', ({ el, directive, component, cleanup }) => {
     const directiveConfig = parseModifiers(directive.modifiers);
-    // SPEC-API-30: data-ghost lives on the component's own root, not
+    // data-ghost lives on the component's own root, not
     // necessarily on `el` (whichever element wire:ghost was written on —
-    // SPEC-API-03 nested-host case). `component.el` is a real property on
+    // nested-host case). `component.el` is a real property on
     // both bridges' Component class (v3.js's isPolledMethod already reads
     // it; confirmed directly in vendor/livewire/livewire/dist/livewire.esm.js
     // for both the installed v4.4.3 and v3.8.7, checked for this task).
@@ -278,7 +277,7 @@ export function boot() {
     const config = resolveHostConfig(directiveConfig, attributeConfig);
     if (config.mode === 'off') { cleanup(() => {}); return; }
 
-    // SPEC-API §10.1 grammar level 2: wire:ghost="actionA, actionB" targets
+    // Grammar level 2: wire:ghost="actionA, actionB" targets
     // only those actions; a bare wire:ghost (no expression) is unfiltered.
     const targetActions = directive.expression
       ? directive.expression.split(',').map((name) => name.trim()).filter(Boolean)
@@ -295,14 +294,14 @@ export function boot() {
       synthesizer.forget(host);
       renderer.removeLayer(host);
       renderer.unfreeze(host);
-      renderer.clearBusy(host); // SPEC-A11Y-04: a host torn down mid-visible would otherwise leak busyCount forever, silencing every later announcement page-wide
+      renderer.clearBusy(host); // a host torn down mid-visible would otherwise leak busyCount forever, silencing every later announcement page-wide
       host.el.classList.remove('gw-concealed');
       el.classList.remove('gw-kept');
       registry.detach(host);
     });
   });
 
-  // SPEC-API-12/13: a host must exist even when there's no wire:ghost
+  // A host must exist even when there's no wire:ghost
   // directive anywhere on the component (attribute-only auto-attach).
   //
   // Hook name and payload confirmed empirically, not guessed: grepped
@@ -332,7 +331,7 @@ export function boot() {
   // directive already tears itself down, and needs no separate hook lookup.
   window.Livewire.hook('component.init', ({ component, cleanup }) => {
     const root = component.el;
-    // SPEC-API-13: a directive-created host already owns this element.
+    // A directive-created host already owns this element.
     // hasGhostDirective() is the real guard (see its comment above);
     // registry.hostFor(root) is kept as a defensive second check.
     if (hasGhostDirective(root) || registry.hostFor(root)) return;
@@ -342,7 +341,7 @@ export function boot() {
 
     // No gw-kept handling here: `keep` has no data-ghost/attribute-config
     // equivalent (attributeConfig.js's compact-key schema has no "keep"
-    // key) — SPEC-API reserves .keep to the directive only.
+    // key) — .keep is reserved to the directive only.
     const host = registry.attach(root, component, attributeConfig);
     host.actionOverrides = attributeConfig.actionOverrides ?? null;
     host.directiveConfig = {};
@@ -352,7 +351,7 @@ export function boot() {
       synthesizer.forget(host);
       renderer.removeLayer(host);
       renderer.unfreeze(host);
-      renderer.clearBusy(host); // SPEC-A11Y-04: same busyCount leak as the directive cleanup above
+      renderer.clearBusy(host); // same busyCount leak as the directive cleanup above
       host.el.classList.remove('gw-concealed');
       registry.detach(host);
     });
@@ -381,11 +380,11 @@ export function boot() {
   window.Livewire.hook('morphed', ({ component }) => {
     for (const host of registry.hostsFor(component.id)) {
       if (host.state !== 'visible') continue;
-      renderer.markBusy(host); // SPEC-A11Y-01
+      renderer.markBusy(host);
       if (host.config.mode === 'freeze') {
         renderer.freeze(host);
       } else if (host.layer) {
-        // SPEC-MORPH-03: truthy host.layer means attachLayer() ran and
+        // Truthy host.layer means attachLayer() ran and
         // removeLayer() hasn't — i.e. this host really is on the concealed
         // synthesize path right now, and its bones are covering content that
         // would otherwise be live and clickable underneath them.
@@ -395,10 +394,10 @@ export function boot() {
     paintLazyPlaceholders(); // a lazy component can be inserted by another component's morph
   });
 
-  // SPEC-API-20/21/22: the bridges (js/src/bridge/v3.js, v4.js) now only
+  // The bridges (js/src/bridge/v3.js, v4.js) now only
   // report isSync/isPoll/isRenderless as facts on ctx — they no longer
   // unilaterally swallow a message. Silence is decided here, per host, so
-  // host.config.sync/poll (SPEC-API-30 data-ghost overrides, already
+  // host.config.sync/poll (data-ghost overrides, already
   // resolved by attributeConfig.js) can opt a specific host back in.
   //
   // ctx.isRenderless can be corrected from false to true *after* onStart
@@ -429,7 +428,7 @@ export function boot() {
   // after ctx is built, so (unlike isRenderless) checking it live in all
   // three handlers is safe and needs no snapshot.
   //
-  // host.config.only/except (SPEC-API-23) are the same shape again: fixed
+  // host.config.only/except are the same shape again: fixed
   // per-host config, never mutated after ctx is built, so all three
   // handlers gate on them live, right next to the targetActions check.
   // only activates when the triggering action IS in the list; except
@@ -437,7 +436,7 @@ export function boot() {
   // filtering) and PHP-side validation guarantees they never coexist, but
   // the two checks are independent and correct regardless.
   //
-  // host.config.mode === 'off' DOES need mirroring here (Task 2, SPEC-API-10
+  // host.config.mode === 'off' DOES need mirroring here (Task 2,
   // runtime transport, #9). It didn't used to: the directive and the
   // attribute-only auto-attach path both refuse to ever call
   // registry.attach() for a statically mode:'off' host, so at attach time
@@ -462,9 +461,9 @@ export function boot() {
       for (const host of registry.hostsFor(ctx.component.id)) {
         applyActionOverride(host, ctx);
         if (host.config.mode === 'off') continue;
-        if (ctx.isRenderless) continue; // SPEC-API-22: no configurable exception, either line
-        if (ctx.isSync && !host.config.sync) continue; // SPEC-API-20 default silence, overridable
-        if (ctx.isPoll && !host.config.poll) continue; // SPEC-API-21 default silence, overridable
+        if (ctx.isRenderless) continue; // no configurable exception, either line
+        if (ctx.isSync && !host.config.sync) continue; // default silence, overridable
+        if (ctx.isPoll && !host.config.poll) continue; // default silence, overridable
         if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
         if (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name))) continue;
         if (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name))) continue;
@@ -472,7 +471,7 @@ export function boot() {
       }
     },
     onPostPaint(ctx) {
-      // SPEC-PERF-01/02: collect every eligible host first, then measure all
+      // Collect every eligible host first, then measure all
       // of them before writing any of them — a component with 2+ hosts must
       // not have host N+1's read land right after host N's write in the same
       // cycle (forced synchronous reflow). messagePostPaint only flips a flag
@@ -520,7 +519,7 @@ export function boot() {
   paintLazyPlaceholders();
 }
 
-// Per-message action-scoped override (SPEC-API-10 method-level #[Ghost]).
+// Per-message action-scoped override (method-level #[Ghost]).
 // Temporarily mutates host.config for the lifetime of one message
 // (onStart..onFinish) rather than threading a parallel "effective config"
 // through every downstream reader (scheduler/renderer/synthesizer all

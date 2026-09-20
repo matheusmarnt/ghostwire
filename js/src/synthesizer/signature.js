@@ -1,4 +1,4 @@
-const RESIZE_THRESHOLD_PX = 4; // SPEC-SYN-21 default
+const RESIZE_THRESHOLD_PX = 4; // default
 
 export function createSignatureCache() {
   const cache = new WeakMap(); // host.el -> { signature, boneTree, observer, width }

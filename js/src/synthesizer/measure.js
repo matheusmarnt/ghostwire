@@ -2,7 +2,7 @@ import { hasDirectText } from './walk.js';
 
 // `clipRootEl` is where computeClipRect() stops walking up. It defaults to
 // host.el, which is correct for a whole-component skeleton: every candidate is
-// a descendant of the host. On the SPEC-INT-13 island path it is NOT — those
+// a descendant of the host. On the island path it is NOT — those
 // candidates come from the island's sibling range, so their ancestor chain may
 // never pass through host.el at all, and the caller passes the island's own
 // container instead (see synthesizer/index.js).
@@ -11,12 +11,12 @@ export function measure(host, candidates, regionRect = null, clipRootEl = null) 
   const clipRoot = clipRootEl || host.el;
   const hostStyle = window.getComputedStyle(host.el);
   const clipCache = new Map(); // ancestor element -> clip info, scoped to this measure() call only
-  // Issue #21: a SPEC-SYN-21 resize re-synthesis runs while the skeleton is
+  // Issue #21: a resize re-synthesis runs while the skeleton is
   // showing — host.el (or, for a nested host, an ancestor host) carries
   // .gw-concealed, whose visibility: hidden every candidate inherits. That
-  // hidden-ness is ours, not the author's, so it must not trip SPEC-SYN-12's
-  // filter in emit.js, or every resize degrades the host to freeze. closest()
-  // is a DOM-tree read, not a layout read (SPEC-PERF-01/02 unaffected).
+  // hidden-ness is ours, not the author's, so it must not trip the filter in
+  // emit.js, or every resize degrades the host to freeze. closest()
+  // is a DOM-tree read, not a layout read (unaffected).
   // ponytail: the see-through is not scoped to the resize path — closest()
   // governs ANY measure() run under a concealed ancestor, which also covers
   // a nested inner host synthesizing at show time while an outer host is
@@ -63,7 +63,7 @@ function measureTextLines(el) {
   return rects;
 }
 
-// SPEC-SYN-14: a scrollable or otherwise clipping ancestor between a
+// A scrollable or otherwise clipping ancestor between a
 // candidate and the skeleton's root hides content outside its own box even
 // though getBoundingClientRect() still reports the (scrolled-out)
 // coordinates. Walk the plain DOM chain — no recursion, cheap — intersecting
@@ -102,7 +102,7 @@ function intersectRects(a, b) {
   return { left, top, right, bottom, width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
 }
 
-// SPEC-SYN-11: pitch is the real measured spacing between the last two
+// Pitch is the real measured spacing between the last two
 // sampled siblings, so cloned "extra" bones land where the real items would
 // be — not at a guessed uniform offset.
 function measureRepeat(repeatExtra) {
@@ -117,7 +117,7 @@ function measureRepeat(repeatExtra) {
   return { count: repeatExtra.count, pitch, itemRect: last, extraTextBones };
 }
 
-// SPEC-SYN-11/SPEC-SYN-10: a cloned repeat bone approximates a repeat item's
+// A cloned repeat bone approximates a repeat item's
 // geometry from its sampled template, EXCEPT text — real content width
 // varies row-to-row, so text is measured directly for every occurrence, the
 // same way it already is for sampled items, never geometrically

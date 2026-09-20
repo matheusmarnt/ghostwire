@@ -1,4 +1,4 @@
-// SPEC-LRN-01 + SPEC-SEC-04: the local Bone Tree store.
+// The local Bone Tree store.
 //
 // Everything read back out of here is treated as hostile input: it may have been
 // hand-edited, downgraded, or corrupted between page loads. Reads validate the
@@ -94,7 +94,7 @@ function validEnvelope(raw) {
     if (!match || !BAND_NAMES.includes(match[2])) continue;
 
     const valid = validEntry(entry);
-    if (valid === null) continue; // silent discard + re-synthesis, per SPEC-SEC-04
+    if (valid === null) continue; // silent discard + re-synthesis
 
     envelope.e[key] = valid;
     envelope.c[`${valid.n}|${match[2]}`] = match[1];

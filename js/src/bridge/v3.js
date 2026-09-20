@@ -1,6 +1,6 @@
 function isPolledMethod(component, methodName) {
   const root = component.el;
-  if (!root) return true; // SPEC-INT-21: on uncertainty, default to silence (treat as polled)
+  if (!root) return true; // On uncertainty, default to silence (treat as polled)
   const elements = [root, ...Array.from(root.querySelectorAll('*'))];
   return elements.some((el) => {
     for (const attr of el.attributes) {
@@ -25,17 +25,17 @@ export function createV3Bridge() {
       const actionNames = commit.calls.map((call) => call.method);
       const isSync = actionNames.length === 0;
 
-      // A12 (SPEC-INT-21): no payload marker distinguishes a poll-triggered
+      // A12: no payload marker distinguishes a poll-triggered
       // commit from any other in Livewire 3. Heuristic: every call name
       // resolves to an element carrying a matching wire:poll directive in
-      // the component root -> treat as polling and silence (SPEC-API-21
-      // default). Any call name with no matching wire:poll element falls
+      // the component root -> treat as polling and silence (default).
+      // Any call name with no matching wire:poll element falls
       // through as "not polling". Reported as a fact on ctx now (Task 6) --
       // index.js's per-host loop decides silence, this bridge no longer
       // unilaterally swallows the message.
       const looksLikePoll = actionNames.length > 0 && actionNames.every((name) => isPolledMethod(component, name));
 
-      // SPEC-API-22: v3's commit.calls carries no per-call metadata at all
+      // v3's commit.calls carries no per-call metadata at all
       // (confirmed: each entry is only {path, method, params} -- grepped the
       // installed livewire/livewire ^3.6 dist/livewire.esm.js (resolved to
       // v3.8.7) for "renderless"/"Renderless": zero matches anywhere in the
