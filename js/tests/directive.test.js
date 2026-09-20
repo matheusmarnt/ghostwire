@@ -96,6 +96,7 @@ import { __instances as schedulerInstances } from '../src/scheduler.js';
 import { __instances as registryInstances } from '../src/registry.js';
 import { __instances as synthesizerInstances } from '../src/synthesizer/index.js';
 import { __instances as rendererInstances } from '../src/renderer.js';
+import { setDebugForTests } from '../src/debug.js';
 
 describe('directive registration and modifier parsing', () => {
   let registeredCallback;
@@ -400,18 +401,130 @@ describe('directive registration and modifier parsing', () => {
     expect(el.classList.contains('gw-kept')).toBe(false);
   });
 
-  it('parses the .rows.N modifier into config.rows without throwing', () => {
+  it('parses the .rows.N modifier from Livewire\'s two tokens (["rows", "4"]) into config.rows (issue #23)', () => {
     boot();
     const el = document.createElement('div');
     document.body.appendChild(el);
     let cleanupFn;
     expect(() => registeredCallback({
       el,
-      directive: { modifiers: ['rows.4'], expression: '' },
+      // Livewire splits `wire:ghost.rows.4` on '.', so the runtime receives
+      // ['rows', '4'] — never a joined 'rows.4' token (issue #23).
+      directive: { modifiers: ['rows', '4'], expression: '' },
       component: { id: 'c1', el },
       cleanup: (fn) => { cleanupFn = fn; },
     })).not.toThrow();
     expect(cleanupFn).toBeTypeOf('function');
+
+    const [, , config] = registryInstances.at(-1).attach.mock.calls.at(-1);
+    expect(config.rows).toBe(4);
+  });
+
+  it('parses the .hold.<N>ms modifier from Livewire\'s two tokens (["hold", "4000ms"]) into config.hold (issue #23)', () => {
+    boot();
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    registeredCallback({
+      el,
+      directive: { modifiers: ['hold', '4000ms'], expression: '' },
+      component: { id: 'c1', el },
+      cleanup: () => {},
+    });
+
+    const [, , config] = registryInstances.at(-1).attach.mock.calls.at(-1);
+    expect(config.hold).toBe(4000);
+    // parseModifiers() only sets explicitly-parsed keys; resolveHostConfig() always
+    // spreads attributeConfig.js's DEFAULTS underneath (no data-ghost attribute here),
+    // so an unset 'delay' surfaces as that untouched default, never a fabricated value.
+    expect(config.delay).toBe(120);
+  });
+
+  it('composes valued modifiers with flags: wire:ghost.freeze.delay.200ms.hold.1000ms (docs: "Modifiers compose")', () => {
+    boot();
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    registeredCallback({
+      el,
+      directive: { modifiers: ['freeze', 'delay', '200ms', 'hold', '1000ms'], expression: '' },
+      component: { id: 'c1', el },
+      cleanup: () => {},
+    });
+
+    const [, , config] = registryInstances.at(-1).attach.mock.calls.at(-1);
+    expect(config).toMatchObject({ mode: 'freeze', delay: 200, hold: 1000 });
+  });
+
+  it('a valued modifier with no value token sets nothing, warns in debug mode, and leaves the next token to be parsed on its own (SPEC-API-01)', () => {
+    boot();
+    setDebugForTests(true);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const el = document.createElement('div');
+      document.body.appendChild(el);
+      registeredCallback({
+        el,
+        // `wire:ghost.hold.freeze`: hold is missing its <N>ms token; freeze must still apply.
+        directive: { modifiers: ['hold', 'freeze'], expression: '' },
+        component: { id: 'c1', el },
+        cleanup: () => {},
+      });
+
+      const [, , config] = registryInstances.at(-1).attach.mock.calls.at(-1);
+      expect(config.hold).toBe(300); // untouched default (attributeConfig.js DEFAULTS) — never set by the malformed directive
+      expect(config.mode).toBe('freeze');
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('".hold" has no value token'));
+    } finally {
+      warn.mockRestore();
+      setDebugForTests(false);
+    }
+  });
+
+  it('a value token of the wrong shape is not consumed: ["delay", "200"] (no "ms") sets no delay and both tokens warn in debug mode', () => {
+    boot();
+    setDebugForTests(true);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const el = document.createElement('div');
+      document.body.appendChild(el);
+      registeredCallback({
+        el,
+        directive: { modifiers: ['delay', '200'], expression: '' },
+        component: { id: 'c1', el },
+        cleanup: () => {},
+      });
+
+      const [, , config] = registryInstances.at(-1).attach.mock.calls.at(-1);
+      expect(config.delay).toBe(120); // untouched default (attributeConfig.js DEFAULTS) — neither token was consumed
+      expect(warn).toHaveBeenCalledTimes(2);
+      expect(warn).toHaveBeenNthCalledWith(1, expect.stringContaining('".delay" has no value token'));
+      expect(warn).toHaveBeenNthCalledWith(2, expect.stringContaining('unknown wire:ghost modifier ".200"'));
+    } finally {
+      warn.mockRestore();
+      setDebugForTests(false);
+    }
+  });
+
+  it('a valued modifier without its value warns nothing outside debug mode (SPEC-API-01: ignored in production)', () => {
+    boot();
+    setDebugForTests(false);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const el = document.createElement('div');
+      document.body.appendChild(el);
+      registeredCallback({
+        el,
+        directive: { modifiers: ['hold'], expression: '' },
+        component: { id: 'c1', el },
+        cleanup: () => {},
+      });
+
+      const [, , config] = registryInstances.at(-1).attach.mock.calls.at(-1);
+      expect(config.hold).toBe(300); // untouched default (attributeConfig.js DEFAULTS) — never set by the valueless directive
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('cleanup() leaves the element ready for a fresh attach (no leaked synthesizer state blocks re-registration)', () => {
@@ -662,14 +775,14 @@ describe('directive registration and modifier parsing', () => {
       expect(config.hold).toBe(900);
     });
 
-    it("an explicit directive .delay(N)ms wins over the attribute's delay value (SPEC-API-40)", () => {
+    it("an explicit directive .delay.<N>ms wins over the attribute's delay value (SPEC-API-40)", () => {
       boot();
       const el = document.createElement('div');
       el.setAttribute('data-ghost', '{"d":50}');
       document.body.appendChild(el);
       registeredCallback({
         el,
-        directive: { modifiers: ['delay.200ms'], expression: '' },
+        directive: { modifiers: ['delay', '200ms'], expression: '' },
         component: { id: 'c1', el },
         cleanup: () => {},
       });
