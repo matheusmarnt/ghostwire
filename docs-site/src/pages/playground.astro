@@ -26,31 +26,31 @@ import tailwindCss from '../styles/tailwind.css?inline';
 // prefers-color-scheme, disconnected from this site's own toggle).
 import tokensCss from '../styles/tokens.css?raw';
 const base = import.meta.env.BASE_URL;
-const DEFAULT_MARKUP = `<div class="max-w-sm rounded-2xl border border-slate-200 bg-white p-5 font-sans shadow-sm">
+const DEFAULT_MARKUP = `<div class="max-w-sm rounded-2xl border border-slate-200 bg-white p-5 font-sans shadow-sm dark:border-slate-700 dark:bg-slate-900">
   <div class="mb-4 flex items-center justify-between">
     <div>
-      <h2 class="text-lg font-bold text-slate-900">Order #4821</h2>
-      <p class="text-xs text-slate-500">Placed 3 minutes ago</p>
+      <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100">Order #4821</h2>
+      <p class="text-xs text-slate-500 dark:text-slate-400">Placed 3 minutes ago</p>
     </div>
-    <span class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">Processing</span>
+    <span class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">Processing</span>
   </div>
-  <div class="mb-4 flex items-center gap-2.5 border-b border-slate-100 pb-4">
-    <span class="flex h-8 w-8 items-center justify-center rounded-full bg-violet-100 text-xs font-semibold text-violet-700">JC</span>
-    <span class="text-sm font-medium text-slate-700">Jane Cooper</span>
+  <div class="mb-4 flex items-center gap-2.5 border-b border-slate-100 pb-4 dark:border-slate-800">
+    <span class="flex h-8 w-8 items-center justify-center rounded-full bg-violet-100 text-xs font-semibold text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">JC</span>
+    <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Jane Cooper</span>
   </div>
   <div class="space-y-2.5">
     <div class="flex items-center justify-between text-sm">
-      <span class="text-slate-600">Widget A &times; 2</span>
-      <span class="font-medium text-slate-900">$12.00</span>
+      <span class="text-slate-600 dark:text-slate-400">Widget A &times; 2</span>
+      <span class="font-medium text-slate-900 dark:text-slate-100">$12.00</span>
     </div>
     <div class="flex items-center justify-between text-sm">
-      <span class="text-slate-600">Widget B &times; 1</span>
-      <span class="font-medium text-slate-900">$8.50</span>
+      <span class="text-slate-600 dark:text-slate-400">Widget B &times; 1</span>
+      <span class="font-medium text-slate-900 dark:text-slate-100">$8.50</span>
     </div>
   </div>
-  <div class="mt-4 flex items-center justify-between border-t border-slate-100 pt-4">
-    <span class="text-sm font-semibold text-slate-900">Total</span>
-    <span class="text-lg font-bold text-slate-900">$20.50</span>
+  <div class="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 dark:border-slate-800">
+    <span class="text-sm font-semibold text-slate-900 dark:text-slate-100">Total</span>
+    <span class="text-lg font-bold text-slate-900 dark:text-slate-100">$20.50</span>
   </div>
 </div>`;
 ---
@@ -165,7 +165,7 @@ const DEFAULT_MARKUP = `<div class="max-w-sm rounded-2xl border border-slate-200
       const doc = frame.contentDocument;
       const theme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
       doc.open();
-      doc.write(`<!doctype html><html data-theme="${theme}"><head><meta charset="utf-8"><style>${tokensCss}</style><style>${tailwindCss}</style><style>${ghostwireCss}</style></head><body style="margin:0;padding:16px;">${markup}</body></html>`);
+      doc.write(`<!doctype html><html data-theme="${theme}"><head><meta charset="utf-8"><style>${tokensCss}</style><style>${tailwindCss}</style><style>${ghostwireCss}</style></head><body class="m-0 bg-slate-50 p-4 dark:bg-slate-950">${markup}</body></html>`);
       doc.close();
     }
 
