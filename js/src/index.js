@@ -9,7 +9,19 @@ import { bandFor } from './learning/bands.js';
 import { isDebug } from './debug.js';
 import { closestIslandRange } from './islands.js';
 
-const TIMED_MODIFIER_PATTERN = /^(delay|hold)\.(\d+)ms$/;
+// Livewire tokenizes a directive by splitting the attribute name on '.'
+// (vendor/livewire/livewire/dist/livewire.esm.js, identical on the 3.x and
+// 4.x lines:
+//   let [value, ...modifiers] = name.replace(new RegExp("wire:"), "").split(".");
+// ), so `wire:ghost.hold.4000ms` arrives here as TWO tokens, ['hold', '4000ms']
+// — never as one 'hold.4000ms' token. A valued modifier therefore consumes the
+// token that follows it, and only when that token has the documented shape.
+// Issue #23. SPEC-API-50 pins this table's text in js/tests/apiSurface.test.js.
+const VALUED_MODIFIERS = new Map([
+  ['delay', { pattern: /^(\d+)ms$/, shape: '<N>ms' }],
+  ['hold', { pattern: /^(\d+)ms$/, shape: '<N>ms' }],
+  ['rows', { pattern: /^(\d+)$/, shape: '<N>' }],
+]);
 
 // Only include a key when a modifier explicitly set it — never "declare"
 // mode/ignore/keep unconditionally. resolveHostConfig() spreads this object
@@ -18,19 +30,26 @@ const TIMED_MODIFIER_PATTERN = /^(delay|hold)\.(\d+)ms$/;
 // (SPEC-API-40).
 function parseModifiers(modifiers) {
   const config = {};
-  for (const modifier of modifiers) {
+  for (let i = 0; i < modifiers.length; i += 1) {
+    const modifier = modifiers[i];
     if (modifier === 'freeze') config.mode = 'freeze';
     else if (modifier === 'off') config.mode = 'off'; // SPEC-API-41: off is terminal, expressed as a mode value throughout
     else if (modifier === 'ignore') config.ignore = true;
     else if (modifier === 'keep') config.keep = true;
     else if (modifier === 'island') config.island = true; // SPEC-INT-13: opt-in, resolved against the live DOM at show time by regionForHost()
-    else {
-      const timed = modifier.match(TIMED_MODIFIER_PATTERN);
-      if (timed) config[timed[1]] = Number(timed[2]);
-      else if (modifier.startsWith('rows.')) config.rows = Number(modifier.slice('rows.'.length));
-      else if (isDebug()) {
-        console.warn(`[ghostwire] unknown wire:ghost modifier ".${modifier}" — ignored`);
+    else if (VALUED_MODIFIERS.has(modifier)) {
+      const { pattern, shape } = VALUED_MODIFIERS.get(modifier);
+      const value = String(modifiers[i + 1] ?? '').match(pattern);
+      if (value) {
+        config[modifier] = Number(value[1]);
+        i += 1; // the value token belongs to this modifier
+      } else if (isDebug()) {
+        // SPEC-API-01: visible in dev, ignored in prod. The next token is NOT
+        // consumed — it is parsed on its own on the next iteration.
+        console.warn(`[ghostwire] wire:ghost modifier ".${modifier}" has no value token (expected ".${modifier}.${shape}") — ignored`);
       }
+    } else if (isDebug()) {
+      console.warn(`[ghostwire] unknown wire:ghost modifier ".${modifier}" — ignored`);
     }
   }
   return config;

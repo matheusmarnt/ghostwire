@@ -7,14 +7,10 @@ use Livewire\Component;
 
 // Issue #21 fixture for tests/Browser/Geometry/ResizeRepositionTest.php.
 //
-// `hold` is declared via #[Ghost(...)] rather than a wire:ghost.hold.4000ms
-// modifier because that modifier form is dead code (issue #23): Livewire's
-// own tokenizer (vendor/livewire/livewire/dist/livewire.esm.js) reads
-//   let [value, ...modifiers] = name.replace(new RegExp("wire:"), "").split(".");
-// which splits "hold.4000ms" into TWO modifier tokens, "hold" and "4000ms" —
-// neither matches parseModifiers' TIMED_MODIFIER_PATTERN (js/src/index.js),
-// which expects them combined as one token. #[Ghost(...)]'s data-ghost
-// transport reaches the same `hold` config correctly.
+// `hold` is declared via #[Ghost(...)] so this fixture exercises the attribute
+// transport on its own; the directive form of the same override
+// (wire:ghost.hold.<N>ms, broken until issue #23) is proven separately by
+// tests/Browser/Timing/DirectiveModifierTest.php.
 //
 // The long hold keeps the skeleton visible across a viewport resize with no
 // message in flight, so the resize path is the ONLY thing that can move the

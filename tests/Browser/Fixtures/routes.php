@@ -54,6 +54,10 @@ Route::view('/ghostwire-island-demo', 'ghostwire-fixtures::page', ['component' =
 // a long-hold host whose skeleton stays up across a viewport resize.
 Route::view('/ghostwire-resize-probe', 'ghostwire-fixtures::page', ['component' => 'resize-probe']);
 
+// Issue #23 fixture for tests/Browser/Timing/DirectiveModifierTest.php: a host
+// whose delay and hold come ONLY from wire:ghost.delay.600ms.hold.2000ms.
+Route::view('/ghostwire-directive-timing-probe', 'ghostwire-fixtures::page', ['component' => 'directive-timing-probe']);
+
 Route::view('/legacy/legacy-widget-one', 'ghostwire-fixtures::page', ['component' => 'legacy-widget-one']);
 Route::view('/legacy/legacy-widget-two', 'ghostwire-fixtures::page', ['component' => 'legacy-widget-two']);
 Route::view('/legacy/legacy-widget-three', 'ghostwire-fixtures::page', ['component' => 'legacy-widget-three']);

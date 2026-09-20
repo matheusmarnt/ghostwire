@@ -17,10 +17,13 @@ describe('API surface freeze', () => {
     const modifiers = [...src.matchAll(/modifier === '([a-z]+)'/g)].map((m) => m[1]);
     expect(modifiers.sort()).toEqual(['freeze', 'ignore', 'island', 'keep', 'off'].sort());
 
-    // delay.<N>ms / hold.<N>ms / rows.<N> are pattern-matched, not literal —
-    // assert the patterns themselves are still present, unchanged.
-    expect(src).toContain("TIMED_MODIFIER_PATTERN = /^(delay|hold)\\.(\\d+)ms$/");
-    expect(src).toContain("modifier.startsWith('rows.')");
+    // delay.<N>ms / hold.<N>ms / rows.<N> are valued modifiers: Livewire
+    // splits the attribute name on '.', so each name token is matched against
+    // the token that follows it (issue #23). Assert the table itself is still
+    // present, unchanged.
+    expect(src).toContain("['delay', { pattern: /^(\\d+)ms$/, shape: '<N>ms' }]");
+    expect(src).toContain("['hold', { pattern: /^(\\d+)ms$/, shape: '<N>ms' }]");
+    expect(src).toContain("['rows', { pattern: /^(\\d+)$/, shape: '<N>' }]");
   });
 
   it('freezes the data-ghost compact-key map', () => {
