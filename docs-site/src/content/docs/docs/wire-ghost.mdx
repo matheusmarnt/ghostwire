@@ -20,40 +20,6 @@ description: Modifier catalog, each with a demo.
 
 Modifiers compose: `wire:ghost.freeze.delay.200ms` is valid.
 
-## Examples
-
-```blade
-{/* Default: synthesize a skeleton from this element's own markup */}
-<div wire:ghost>
-    <h2>{{ $order->title }}</h2>
-    <p>{{ $order->summary }}</p>
-</div>
-
-{/* Freeze the live content in place instead of synthesizing */}
-<table wire:ghost.freeze>
-    @foreach ($rows as $row)
-        <tr>{{ $row->label }}</tr>
-    @endforeach
-</table>
-
-{/* Custom timing: wait 200ms before showing, stay up at least 500ms */}
-<div wire:ghost.delay.200ms.hold.500ms>
-    {{ $widget }}
-</div>
-
-{/* Only activate for this specific action */}
-<div wire:ghost="loadMore">
-    @foreach ($items as $item)
-        <x-item :item="$item" />
-    @endforeach
-</div>
-
-{/* Excluded from the parent host's walk entirely */}
-<div wire:ghost.off>
-    <x-static-sidebar />
-</div>
-```
-
 ## Try it
 
 Every modifier above is demonstrated live in the [playground](/ghostwire/playground/) and the [gallery](/ghostwire/gallery/).
