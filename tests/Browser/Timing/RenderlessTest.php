@@ -2,7 +2,7 @@
 
 // tests/Browser/Timing/RenderlessTest.php
 //
-// SPEC-API-22 — a Renderless-triggered commit must not activate a host,
+// A Renderless-triggered commit must not activate a host,
 // "no configurable exception, either line."
 //
 // Investigation (Task 6, mirrors A9/A12's empirical discipline — full
@@ -43,7 +43,7 @@
 // consequence: the host may show briefly, but always recovers within the
 // generous configured window -- never left stuck.
 
-it('never activates a host for a `.renderless`-modified commit, even when the response is slower than the show delay (SPEC-API-22, synchronous detection)', function () {
+it('never activates a host for a `.renderless`-modified commit, even when the response is slower than the show delay (synchronous detection)', function () {
     $page = visit('/ghostwire-test-page');
 
     $page->script('
@@ -85,7 +85,7 @@ it('never activates a host for a `.renderless`-modified commit, even when the re
     expect($data['everFrozen'])->toBeFalse();
 });
 
-it('always resolves back to non-frozen for a plain #[Renderless] PHP-attribute action with no directive modifier, even if it briefly activates (SPEC-API-22, confirmed post-response-only signal, no stuck-host regression)', function () {
+it('always resolves back to non-frozen for a plain #[Renderless] PHP-attribute action with no directive modifier, even if it briefly activates (confirmed post-response-only signal, no stuck-host regression)', function () {
     $page = visit('/ghostwire-test-page');
 
     $page->script('

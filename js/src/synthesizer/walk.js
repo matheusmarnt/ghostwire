@@ -1,6 +1,6 @@
 const LEAF_TAGS_MEDIA = ['IMG', 'VIDEO', 'PICTURE', 'CANVAS'];
 const LEAF_TAGS_CONTROL = ['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'];
-const MAX_CANDIDATES = 300; // SPEC-SYN-13 raw safety cap; block-aggregation degrade is M3 scope
+const MAX_CANDIDATES = 300; // raw safety cap; block-aggregation degrade is M3 scope
 
 export function classify(el) {
   if (el.tagName === 'svg' || el.tagName === 'SVG') return 'icon';
@@ -19,7 +19,7 @@ export function hasDirectText(el) {
   return false;
 }
 
-const REPEAT_MIN_RUN = 3; // SPEC-SYN-11: "≥ 3 ocorrências"
+const REPEAT_MIN_RUN = 3; // "≥ 3 ocorrências"
 const REPEAT_HEIGHT_TOLERANCE = 0.15; // relative height variance allowed before a same-tag/class run is judged non-uniform and walked in full — protects fixtures like the M2 CardGrid, whose cards deliberately have unequal heights
 
 export function collectAndClassify(host, registry, maxDepth = 12, repeatSampleSize = 3) {
@@ -29,7 +29,7 @@ export function collectAndClassify(host, registry, maxDepth = 12, repeatSampleSi
   return candidates;
 }
 
-// SPEC-INT-13: candidates for an island-scoped skeleton come from the
+// Candidates for an island-scoped skeleton come from the
 // island's own sibling range (js/src/islands.js finds the two boundary
 // comments) rather than a single host.el subtree. `host` is passed through
 // so visit()'s nested-host boundary check doesn't also stop at the very host
@@ -49,16 +49,16 @@ export function collectAndClassifyRange(startNode, endNode, host, registry, maxD
   return candidates;
 }
 
-// SPEC-SYN-13: depth and candidate-count are both hard-capped; exceeding
+// Depth and candidate-count are both hard-capped; exceeding
 // either degrades to one aggregated 'block' bone (see the count-cap branch
 // below: gated by state.capped so at most one is ever pushed, sized to the
 // whole host via rootEl).
-// SPEC-SYN-11: a run of >= REPEAT_MIN_RUN uniform-height siblings sharing a
+// A run of >= REPEAT_MIN_RUN uniform-height siblings sharing a
 // tag+class signature is sampled instead of walked in full.
 function visit(node, registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, rootEl, exemptHostEl) {
   const children = [];
   for (const child of node.children) {
-    if (registry.hostFor(child) && child !== exemptHostEl) continue; // SPEC-API-03: nested wire:ghost host is a boundary — except the host this walk is for
+    if (registry.hostFor(child) && child !== exemptHostEl) continue; // nested wire:ghost host is a boundary — except the host this walk is for
     if (child.getAttribute('aria-hidden') === 'true') continue;
     children.push(child);
   }
@@ -114,7 +114,7 @@ function processChild(child, registry, out, depth, maxDepth, repeatSampleSize, s
     if (depth < maxDepth) {
       visit(child, registry, out, depth + 1, maxDepth, repeatSampleSize, state, repeatGroup, rootEl, exemptHostEl);
     } else {
-      const block = { type: 'block', el: child, depth: depth + 1 }; // SPEC-SYN-13
+      const block = { type: 'block', el: child, depth: depth + 1 };
       if (repeatGroup) block.repeatGroup = repeatGroup;
       out.push(block);
     }
@@ -141,13 +141,13 @@ function normalizeClassName(className) {
   return String(className).trim().split(/\s+/).filter(Boolean).sort().join(' ');
 }
 
-// SPEC-SYN-11 sampling is only safe when the run is visually uniform — two
+// Sampling is only safe when the run is visually uniform — two
 // same-tag/same-class siblings can still render at very different heights
 // (e.g. a card whose body text wraps to more lines than its neighbor's).
 // This is a deliberate, bounded exception to "layout reads live only in
 // measure.js": reading a run's heights up front is strictly cheaper than the
 // alternative (walking and fully measuring every sibling individually), and
-// it happens before any DOM write anywhere in the pipeline, so SPEC-SYN-01's
+// it happens before any DOM write anywhere in the pipeline, so the
 // read-before-write ordering still holds.
 function isUniformHeightRun(children, start, runLength) {
   let min = Infinity;

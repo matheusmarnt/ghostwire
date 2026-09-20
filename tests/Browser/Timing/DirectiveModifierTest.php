@@ -12,7 +12,7 @@
 // Same in-browser recording pattern as FreezeLifecycleTest.php: timestamps
 // captured by a MutationObserver with performance.now(), asserted as measured
 // deltas — never a snapshot at a guessed offset. The Ghost Layer is appended to
-// document.body (SPEC-MORPH-01, js/src/renderer.js), so a non-subtree childList
+// document.body (js/src/renderer.js), so a non-subtree childList
 // observer on body sees exactly its mount and its unmount.
 //
 // $page->wait() takes SECONDS (pest-plugin-browser InteractsWithTab::wait).
@@ -22,7 +22,7 @@
 // ~1500ms; hide at ~2600ms because the hold counts from the show (default
 // hold 300ms would hide at ~1500ms, i.e. a ~900ms measured hold).
 
-it('honours wire:ghost.delay.600ms.hold.2000ms written as a directive (SPEC-TIME-03, issue #23)', function () {
+it('honours wire:ghost.delay.600ms.hold.2000ms written as a directive (issue #23)', function () {
     $page = visit('/ghostwire-directive-timing-probe');
 
     $page->script('

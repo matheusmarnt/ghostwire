@@ -27,11 +27,26 @@ Automatic via `prefers-color-scheme: dark` — the `-dark` token variants apply 
 
 ## Overriding
 
-Set any token on `:root` (or scoped to a container) in your own CSS, after Ghostwire's stylesheet loads:
+Set any token on `:root` (or scoped to a container) in your own CSS, after Ghostwire's stylesheet loads. Override both the light and dark pair together — overriding only the light value leaves dark mode on Ghostwire's own default, which may no longer match your palette:
 
 ```css
 :root {
   --ghostwire-bone-color: #e2e8f0;
   --ghostwire-animation: pulse;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ghostwire-bone-color: #1e293b;
+  }
+}
+```
+
+Scoped to one part of your app instead of the whole page:
+
+```css
+.dashboard-widgets {
+  --ghostwire-bone-radius: 9999px;
+  --ghostwire-animation: wave;
 }
 ```

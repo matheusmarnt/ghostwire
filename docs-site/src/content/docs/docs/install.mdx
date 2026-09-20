@@ -22,7 +22,7 @@ Add the directive to any element inside a Livewire component:
 </div>
 ```
 
-Trigger any Livewire update on that component (an action call, `wire:model.live`, etc.) — Ghostwire synthesizes a matching skeleton from the live DOM automatically, no further markup required. First visible effect: under 60 seconds from `composer require` (PRD §8.2 target).
+Trigger any Livewire update on that component (an action call, `wire:model.live`, etc.) — Ghostwire synthesizes a matching skeleton from the live DOM automatically, no further markup required. First visible effect: under 60 seconds from `composer require`.
 
 Don't want the loading strategy applied everywhere? `config/ghostwire.php`'s `strategy` key defaults to `'opt-in'`: a component is instrumented when `#[Ghost]` is declared on it, on an ancestor, on a trait it uses, or on one of its action methods — or when any element in its view carries `wire:ghost` — or when `strategy` is set to `'global'`. Flip `strategy` to `'global'` to apply the loading strategy to every Livewire component, opt-out per component with `wire:ghost.off` or `#[Ghost(mode: 'off')]`.
 

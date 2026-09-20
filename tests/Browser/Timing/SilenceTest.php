@@ -2,7 +2,7 @@
 
 // tests/Browser/Timing/SilenceTest.php
 //
-// SPEC-API-20 — a sync-only commit (a property write with no action call)
+// A sync-only commit (a property write with no action call)
 // must never activate/freeze a host.
 //
 // Trigger mechanism, and why it differs from the plan snippet:
@@ -24,9 +24,9 @@
 // populates exactly one `calls` entry ($set/$commit/$refresh) for
 // bookkeeping/promise-resolution, never zero. This is a real gap this test
 // found in js/src/bridge/v4.js's original `isSync: message.getActions()
-// .length === 0` check (SDD-ghostwire.md:559 defines SPEC-API-20 as "payload
-// de calls vazio", but no client-triggered property sync in this Livewire
-// version ever produces one) — fixed there by also treating an all-$set
+// .length === 0` check (silence requires a literal empty calls list, but no
+// client-triggered property sync in this Livewire version ever produces
+// one) — fixed there by also treating an all-$set
 // actions list as sync (see the comment on `isSync` in v4.js). `.set()`
 // remains the trigger here since it's the closest representative of "a
 // property write with no user-defined action call" without modifying the
@@ -35,8 +35,8 @@
 // A fetch delay is added (client-side only, not a fixture/js/src change) so
 // the round trip genuinely exceeds the 120ms show delay — without it, a fast
 // local response finishes before the delay elapses regardless of whether
-// SPEC-API-20 silence is implemented, which would make this assertion pass
-// vacuously via SPEC-TIME-01 alone rather than proving silence.
+// silence handling is implemented, which would make this assertion pass
+// vacuously via the show-delay window alone rather than proving silence.
 //
 // Recording (not a fixed-offset snapshot) follows the same technique as
 // FreezeLifecycleTest.php and Task 10's tests/Browser/Morph/GhostLayerMorphTest.php:
@@ -45,7 +45,7 @@
 // during a generous window — not just whether it's absent at one sampled
 // instant.
 
-it('does not activate any host for a sync-only message with no action calls (SPEC-API-20)', function () {
+it('does not activate any host for a sync-only message with no action calls', function () {
     $page = visit('/ghostwire-test-page');
 
     $page->script('
@@ -71,7 +71,7 @@ it('does not activate any host for a sync-only message with no action calls (SPE
             // Delay only the underlying network call (not Livewire\'s own
             // dispatch), so the round trip genuinely exceeds the 120ms show
             // delay and this test cannot pass merely because the response
-            // was fast enough for SPEC-TIME-01 to mask the question.
+            // was fast enough for the show-delay window to mask the question.
             return new Promise((resolve) => {
                 setTimeout(() => resolve(origFetch(...args)), 250);
             });
@@ -91,7 +91,7 @@ it('does not activate any host for a sync-only message with no action calls (SPE
     expect($data['everFrozen'])->toBeFalse();
 });
 
-it('does not activate a host for a real wire:model.live keystroke sync, the actual named regression (SPEC-API-20)', function () {
+it('does not activate a host for a real wire:model.live keystroke sync, the actual named regression', function () {
     // The `.set()` test above proves isSync recognizes the $set magic
     // action, but the real-world scenario this spec exists for is typing
     // into a wire:model.live-bound input — which syncs via $commit, not

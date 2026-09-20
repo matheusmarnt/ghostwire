@@ -10,7 +10,7 @@ export function detectBridge() {
     return { name: 'v3', bridge: createV3Bridge() };
   }
   if (isDebug()) {
-    console.warn('[ghostwire] neither Livewire.interceptMessage nor Livewire.hook was found — disabling (SPEC-INT-20)');
+    console.warn('[ghostwire] neither Livewire.interceptMessage nor Livewire.hook was found — disabling');
   }
   return { name: null, bridge: null };
 }

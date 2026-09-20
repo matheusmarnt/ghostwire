@@ -17,7 +17,7 @@ class InspectProbeComponent extends Component
     }
 }
 
-it('lists every registered component with its resolved config and detected Livewire line (SPEC-API-42)', function () {
+it('lists every registered component with its resolved config and detected Livewire line', function () {
     Livewire::component('inspect-probe', InspectProbeComponent::class);
 
     $this->artisan('ghost:inspect')

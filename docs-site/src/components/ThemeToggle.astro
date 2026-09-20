@@ -1,0 +1,63 @@
+---
+// Theme toggle button for the four custom pages (index/about/gallery/
+// playground), which don't get Starlight's own header toggle. Reads and
+// writes the same `starlight-theme` localStorage key and `data-theme`
+// attribute the theme-init script (in each page's <head>) already
+// applies on load, and the same key Starlight's own toggle uses — so
+// switching here stays in sync with the doc pages.
+---
+
+<button type="button" id="gw-theme-toggle" class="gw-theme-toggle" aria-label="Toggle light/dark theme">
+  <svg class="gw-theme-icon gw-theme-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="4"></circle>
+    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+  </svg>
+  <svg class="gw-theme-icon gw-theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"></path>
+  </svg>
+</button>
+
+<style>
+  .gw-theme-toggle {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 20;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--gw-border);
+    background: var(--gw-panel-bg);
+    color: var(--gw-fg);
+    cursor: pointer;
+    transition: border-color 160ms ease, color 160ms ease;
+  }
+  .gw-theme-toggle:hover {
+    border-color: var(--sl-color-accent);
+    color: var(--sl-color-accent);
+  }
+  .gw-theme-icon-sun { display: none; }
+  .gw-theme-icon-moon { display: block; }
+  :root[data-theme='light'] .gw-theme-icon-sun { display: block; }
+  :root[data-theme='light'] .gw-theme-icon-moon { display: none; }
+</style>
+
+<script is:inline>
+  document.getElementById('gw-theme-toggle')?.addEventListener('click', () => {
+    const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+    document.documentElement.dataset.theme = next;
+    try {
+      localStorage.setItem('starlight-theme', next);
+    } catch {
+      // Safari private mode / storage disabled — theme still flips for
+      // this page view, it just won't persist. Matches Starlight's own
+      // toggle, which has the same unguarded localStorage.setItem call.
+    }
+    // Lets any page react to the switch without polling data-theme
+    // itself — e.g. the playground's editor swaps its CodeMirror theme.
+    window.dispatchEvent(new CustomEvent('gw-theme-change', { detail: { theme: next } }));
+  });
+</script>

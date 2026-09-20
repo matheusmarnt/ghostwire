@@ -1,9 +1,20 @@
 ---
+import { Image } from 'astro:assets';
 import '../styles/landing.css';
+import ThemeToggle from '../components/ThemeToggle.astro';
+import ghostwireLogo from '../assets/ghostwire.png';
 const base = import.meta.env.BASE_URL;
 ---
 <html lang="en">
 <head>
+  <script is:inline>
+    const storedTheme =
+      typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+    const theme =
+      storedTheme ||
+      (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+  </script>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Ghostwire — automatic runtime skeleton loaders for Livewire</title>
@@ -11,7 +22,9 @@ const base = import.meta.env.BASE_URL;
   <link rel="icon" href={`${base}favicon.svg`} />
 </head>
 <body>
+  <ThemeToggle />
   <section class="gw-hero">
+    <Image src={ghostwireLogo} alt="Ghostwire" class="gw-logo" width={288} height={96} />
     <h1>Skeleton loaders your Livewire app already deserves.</h1>
     <p>Add <code>wire:ghost</code> to any element. Ghostwire synthesizes a matching skeleton from your live DOM the instant a request starts — no hand-written placeholder markup, zero layout shift.</p>
     <div class="gw-cta">
@@ -28,7 +41,7 @@ const base = import.meta.env.BASE_URL;
       <div class="gw-latency-panel">
         <h3>Without Ghostwire</h3>
         <div id="blank-panel">
-          <p style="color:#5a5a70;font-size:0.9rem;">(blank while loading — then content pops in)</p>
+          <p style="color:var(--gw-muted);font-size:0.9rem;">(blank while loading — then content pops in)</p>
         </div>
       </div>
       <div class="gw-latency-panel">
@@ -68,7 +81,7 @@ const base = import.meta.env.BASE_URL;
     function render(level) {
       label.textContent = level.text;
       clearTimeout(timer);
-      blankPanel.innerHTML = '<p style="color:#5a5a70;font-size:0.9rem;">(blank while loading…)</p>';
+      blankPanel.innerHTML = '<p style="color:var(--gw-muted);font-size:0.9rem;">(blank while loading…)</p>';
       timer = setTimeout(() => {
         blankPanel.innerHTML = '<div class="gw-row content w60"></div><div class="gw-row content w80"></div><div class="gw-row content w40"></div>';
       }, level.ms);

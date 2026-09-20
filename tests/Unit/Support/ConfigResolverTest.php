@@ -76,21 +76,21 @@ it('keeps the lazy package default false even when learning.enabled is on, so #[
     expect($resolved['lazy'])->toBeFalse();
 });
 
-it('inherits a base class attribute field by field (SPEC-API-11)', function () {
+it('inherits a base class attribute field by field', function () {
     $resolved = (new ConfigResolver)->resolve(GhostConcreteNoOwnAttribute::class);
 
     expect($resolved['except'])->toBe(['refreshBadge'])
         ->and($resolved['mode'])->toBe('synthesize'); // not declared anywhere -> package default
 });
 
-it('lets the concrete class override an inherited field, keeping the rest inherited (SPEC-API-10/11)', function () {
+it('lets the concrete class override an inherited field, keeping the rest inherited', function () {
     $resolved = (new ConfigResolver)->resolve(GhostConcreteOverridesMode::class);
 
     expect($resolved['mode'])->toBe('off')       // concrete class's own declared field wins
         ->and($resolved['except'])->toBe(['refreshBadge']); // not redeclared on concrete class -> inherited
 });
 
-it('lets a method attribute override the class, field by field, without discarding undeclared fields (SPEC-API-10)', function () {
+it('lets a method attribute override the class, field by field, without discarding undeclared fields', function () {
     $resolved = (new ConfigResolver)->resolve(GhostConcreteOverridesMode::class, 'applyFilters');
 
     expect($resolved['rows'])->toBe(15)          // declared on the method
@@ -98,24 +98,24 @@ it('lets a method attribute override the class, field by field, without discardi
         ->and($resolved['except'])->toBe(['refreshBadge']); // still inherited past both method and class
 });
 
-it('lets a different method declare its own mode independently (SPEC-API-10)', function () {
+it('lets a different method declare its own mode independently', function () {
     $resolved = (new ConfigResolver)->resolve(GhostConcreteOverridesMode::class, 'save');
 
     expect($resolved['mode'])->toBe('freeze');
 });
 
-it('rejects only+except coexisting on the same resolved config (SPEC-API-23)', function () {
+it('rejects only+except coexisting on the same resolved config', function () {
     (new ConfigResolver)->resolve(GhostInvalidBothFilters::class);
 })->throws(InvalidArgumentException::class);
 
-it('inherits a trait-level attribute when nothing in the class chain declares its own (SPEC-API-11)', function () {
+it('inherits a trait-level attribute when nothing in the class chain declares its own', function () {
     $resolved = (new ConfigResolver)->resolve(GhostUsesTraitPolicy::class);
 
     expect($resolved['mode'])->toBe('freeze')
         ->and($resolved['delay'])->toBe(50);
 });
 
-it('reports which precedence level decided each field (SPEC-API-42)', function () {
+it('reports which precedence level decided each field', function () {
     $result = (new ConfigResolver)->resolveWithProvenance(GhostProvenanceConcrete::class, 'refresh');
 
     expect($result['rows'])->toBe(['value' => 7, 'level' => 'method'])       // declared on the method
@@ -124,7 +124,7 @@ it('reports which precedence level decided each field (SPEC-API-42)', function (
         ->and($result['delay'])->toBe(['value' => config('ghostwire.timing.delay'), 'level' => 'default']); // never declared
 });
 
-it('collects only the method-transport fields each action method declared for itself (SPEC-API-10 runtime transport, #9)', function () {
+it('collects only the method-transport fields each action method declared for itself (runtime transport, #9)', function () {
     $overrides = (new ConfigResolver)->methodOverrides(GhostMethodOverridesFixture::class);
 
     expect($overrides)->toBe([

@@ -2,24 +2,23 @@
 
 // tests/Browser/Performance/ComplexityTest.php
 //
-// Original spec wording (verbatim) and the ruling that reinterpreted it
+// The ruling that reinterpreted the original wall-clock thresholds
 // structurally, so a future auditor can trace what changed and why:
-//   SPEC-PERF-03 (SDD §11.1): "Complexidade sub-quadrática — Fixtures de
-//   100/200/400/800 nós; razão entre tempos abaixo de 2,5" — enforced here
-//   as the same fixtures, same doublings, same 2.5 threshold, applied to
-//   layout-read counts instead of times.
-//   SPEC-PERF-04 (SDD §11.1): "Nenhuma tarefa longa — PerformanceObserver:
-//   nada acima de 50 ms atribuível à síntese" — enforced here in its
-//   structural form: work is bounded by the SPEC-SYN-13 candidate cap
-//   (reads at 800 nodes equal reads at 400), so no host can make a
-//   synthesis arbitrarily long; SPEC-PERF-07's adaptive freeze remains the
+//   Sub-quadratic complexity — fixtures of 100/200/400/800 nodes; ratio
+//   between reads below 2.5 — enforced here as the same fixtures, same
+//   doublings, same 2.5 threshold, applied to layout-read counts instead
+//   of times.
+//   No long task — nothing above 50ms attributable to synthesis —
+//   enforced here in its structural form: work is bounded by the
+//   candidate cap (reads at 800 nodes equal reads at 400), so no host can
+//   make a synthesis arbitrarily long; the adaptive freeze remains the
 //   user-facing guard against a genuinely slow synthesis.
 //   Authority: controller ruling R2 of 2026-09-19, recorded in the
-//   maintainers' local plan (gitignored, not shipped), per ADR-007 and
+//   maintainers' local plan (gitignored, not shipped), per
 //   issue #18's analysis that median-of-3/5/7 wall-clock samples all still
 //   flaked.
 //
-// SPEC-PERF-03 / SPEC-PERF-04, enforced as structural invariants (ADR-007:
+// Both tests below enforce this as structural invariants (
 // "o orçamento deixou de ser cronométrico"). The measured quantity is the
 // number of layout reads (getBoundingClientRect / getComputedStyle /
 // Range.getClientRects) the runtime performs in the synchronous show burst —
@@ -33,16 +32,16 @@
 // (issue #18).
 //
 // The wall-clock signal itself is not gone: js/src/synthesizer/index.js still
-// records window.__ghostwireLastSynthesisMs (it feeds SPEC-PERF-07's adaptive
+// records window.__ghostwireLastSynthesisMs (it feeds the adaptive
 // freeze and is useful under a profiler). It is just no longer a CI gate.
 //
 // Against the /gallery/node-count?nodes=N fixture (unique per-item classes,
-// so SPEC-SYN-11 sampling never engages) the expected shape is: reads grow
-// ~linearly up to SPEC-SYN-13's 300-candidate cap and are then flat —
+// so repeat sampling never engages) the expected shape is: reads grow
+// ~linearly up to the 300-candidate cap and are then flat —
 // 400 and 800 nodes cost exactly the same, because walk.js stops collecting
 // at the cap and measure.js only ever sees collected candidates.
 
-test('SPEC-PERF-03: layout reads per show cycle grow sub-quadratically with host node count', function () {
+test('layout reads per show cycle grow sub-quadratically with host node count', function () {
     $reads = [];
     foreach ([100, 200, 400, 800] as $count) {
         $reads[$count] = gwShowBurst("/gallery/node-count?nodes={$count}")['reads'];
@@ -54,11 +53,11 @@ test('SPEC-PERF-03: layout reads per show cycle grow sub-quadratically with host
     }
 });
 
-test('SPEC-PERF-04: synthesis work is bounded by the SPEC-SYN-13 candidate cap — 800 nodes cost exactly what 400 nodes cost', function () {
+test('synthesis work is bounded by the candidate cap — 800 nodes cost exactly what 400 nodes cost', function () {
     $at400 = gwShowBurst('/gallery/node-count?nodes=400')['reads'];
     $at800 = gwShowBurst('/gallery/node-count?nodes=800')['reads'];
 
-    // Capture floor: 300 capped candidates (SPEC-SYN-13, walk.js MAX_CANDIDATES)
+    // Capture floor: 300 capped candidates (walk.js MAX_CANDIDATES)
     // x 3 reads each (getComputedStyle + getBoundingClientRect + Range.getClientRects
     // for a text candidate) is the minimum a burst that actually contains synthesis
     // can measure. Those 3 reads per text candidate are an ASSUMPTION about the

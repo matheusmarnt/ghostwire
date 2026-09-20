@@ -16,7 +16,7 @@ class InspectCommand extends Command
 {
     protected $signature = 'ghost:inspect';
 
-    protected $description = 'Show every registered Livewire component\'s resolved Ghostwire configuration and, per field, which #[Ghost] precedence level decided it (SPEC-API-42). Directive-level wire:ghost modifier/expression overrides only exist in the rendered DOM at runtime and are outside what this command can see.';
+    protected $description = 'Show every registered Livewire component\'s resolved Ghostwire configuration and, per field, which #[Ghost] precedence level decided it. Directive-level wire:ghost modifier/expression overrides only exist in the rendered DOM at runtime and are outside what this command can see.';
 
     public function handle(ConfigResolver $resolver): int
     {
@@ -40,7 +40,7 @@ class InspectCommand extends Command
         // A $this->table() row concatenates name + class + mode + except into
         // ONE doWrite() call, so when a component's name, class and except list
         // are all independently asserted via expectsOutputToContain() (exactly
-        // what SPEC-API-42's test does), only one of those assertions is ever
+        // what this command's test does), only one of those assertions is ever
         // consumed and the others report as "missing" even though they're
         // genuinely printed. Verified by re-creating Laravel's own
         // mockConsoleOutput() mock and dumping the real doWrite() call

@@ -9,7 +9,7 @@ use Ghostwire\Tests\Browser\Fixtures\Legacy\LegacyWidgetThree;
 use Ghostwire\Tests\Browser\Fixtures\Legacy\LegacyWidgetTwo;
 use Livewire\Livewire;
 
-it('ghosts every legacy component through a shared base #[Ghost], with zero wire:ghost in any of their views (SPEC-API-12, milestone DoD)', function (string $class) {
+it('ghosts every legacy component through a shared base #[Ghost], with zero wire:ghost in any of their views (milestone DoD)', function (string $class) {
     $html = Livewire::test($class)->html();
 
     expect($html)->toContain('data-ghost=')

@@ -3,9 +3,9 @@ export function createV4Bridge() {
     return window.Livewire.interceptMessage(({ message, onSuccess, onError, onFailure, onCancel, onFinish }) => {
       if (message.isSkipped()) return;
 
-      // SPEC-API-21 default silence: wire:poll sets metadata.type === 'poll'
+      // Default silence: wire:poll sets metadata.type === 'poll'
       // on its action (confirmed by capturing a real poll-triggered message —
-      // see js/tests/bridge-v4.test.js). Unlike v3 (SPEC-INT-21/A12, no
+      // see js/tests/bridge-v4.test.js). Unlike v3 (A12, no
       // payload marker so it needs a DOM-origin heuristic), v4 exposes this
       // natively, so no heuristic is needed here — a clean metadata check.
       // Reported as a fact on ctx now (Task 6) — index.js's per-host loop
@@ -15,7 +15,7 @@ export function createV4Bridge() {
         && message.getActions().every((action) => action.metadata?.type === 'poll');
 
       const actionNames = message.getActions().map((action) => action.name);
-      // SPEC-API-20: a literal empty-actions message is sync. Livewire 4's
+      // A literal empty-actions message is sync. Livewire 4's
       // own client API for a bare property write (Livewire.find(id).set(...),
       // and wire:model.live's internal $commit() call) never produces one —
       // it always wraps the write in a magic action ($set here; $commit is
@@ -26,7 +26,7 @@ export function createV4Bridge() {
       // of these magic sync markers as sync too.
       const isSync = actionNames.length === 0 || actionNames.every((name) => name === '$set' || name === '$commit');
 
-      // SPEC-API-22: two confirmed signals, combined.
+      // Two confirmed signals, combined.
       // (1) Synchronous, dispatch-time: a `wire:click.renderless="method"`
       // directive modifier sets action.metadata.renderless = true on the
       // client before the request is even sent (confirmed: grepped the

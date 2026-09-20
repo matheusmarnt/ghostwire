@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+/* Ties Tailwind's `dark:` variant to this site's own `data-theme`
+   attribute (set by the theme-init script + ThemeToggle component)
+   instead of Tailwind's default `prefers-color-scheme`/`.dark` class —
+   so gallery examples switch in lockstep with the rest of the site. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));

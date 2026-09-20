@@ -3,20 +3,20 @@ import { measure } from './measure.js';
 import { emit } from './emit.js';
 import { createSignatureCache } from './signature.js';
 
-const LONG_SYNTHESIS_THRESHOLD_MS = 50; // SPEC-PERF-07: a synthesis that takes this long, twice in a row, is treated as structurally too expensive to repeat, and freezes instead
-const SLOW_STREAK_LIMIT = 2; // SPEC-PERF-07: two consecutive slow syntheses, not one — a lone sample can be dominated by GC/engine jitter rather than being genuinely structural (see ComplexityTest.php's own median-of-7 rationale)
+const LONG_SYNTHESIS_THRESHOLD_MS = 50; // a synthesis that takes this long, twice in a row, is treated as structurally too expensive to repeat, and freezes instead
+const SLOW_STREAK_LIMIT = 2; // two consecutive slow syntheses, not one — a lone sample can be dominated by GC/engine jitter rather than being genuinely structural (see ComplexityTest.php's own median-of-7 rationale)
 
 export function createSynthesizer(registry, defaults = { maxDepth: 12, repeatSampleSize: 3 }, onResize, now = () => performance.now(), onSynthesized) {
   const cache = createSignatureCache();
-  const slowStreak = new WeakMap(); // host -> consecutive slow-synthesis count; SPEC-PERF-07 adaptive freeze trigger
+  const slowStreak = new WeakMap(); // host -> consecutive slow-synthesis count; adaptive freeze trigger
 
   function synthesize(host, region = null) {
-    // Monotonic by design (SPEC-PERF-07): a host that synthesised too slowly stays
+    // Monotonic by design: a host that synthesised too slowly stays
     // degraded until teardown. Re-testing it on every commit is exactly how flicker is
     // produced — the cost that made it slow is a property of its subtree, not of the
     // one commit that measured it. Recovery, if ever wanted, belongs on a
     // viewport-change signal (the cost is width-dependent), not on the commit path.
-    if ((slowStreak.get(host) || 0) >= SLOW_STREAK_LIMIT) return null; // SPEC-PERF-07: skip straight to freeze
+    if ((slowStreak.get(host) || 0) >= SLOW_STREAK_LIMIT) return null; // skip straight to freeze
 
     const startedAt = now();
     const candidates = region
@@ -40,7 +40,7 @@ export function createSynthesizer(registry, defaults = { maxDepth: 12, repeatSam
 
     if (boneTree) {
       cache.set(host, signature, boneTree, () => onResize?.(host));
-      // SPEC-LRN-01: the single point at which a fresh Bone Tree exists. The cached
+      // The single point at which a fresh Bone Tree exists. The cached
       // path above returns early, so an unchanged tree is never re-persisted.
       //
       // Whole-component path only. An island-scoped tree is measured against the
@@ -64,7 +64,7 @@ export function createSynthesizer(registry, defaults = { maxDepth: 12, repeatSam
     } else {
       slowStreak.delete(host); // a fast synthesis resets the streak — isolated jitter never accumulates toward freeze
     }
-    if (typeof window !== 'undefined') window.__ghostwireLastSynthesisMs = ms; // debug bridge for the SPEC-PERF-03/04 browser perf suite — unaffected by the streak logic, always the raw measured duration
+    if (typeof window !== 'undefined') window.__ghostwireLastSynthesisMs = ms; // debug bridge for the browser perf suite — unaffected by the streak logic, always the raw measured duration
   }
 
   function forget(host) {

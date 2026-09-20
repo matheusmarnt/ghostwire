@@ -1,4 +1,4 @@
-/* Public token contract — SPEC-RND-04. */
+/* Public token contract. */
 :root {
   --ghostwire-bone-color: oklch(0.92 0.005 250);
   --ghostwire-bone-color-dark: oklch(0.28 0.01 250);
@@ -11,7 +11,7 @@
   --ghostwire-fade-duration: 150ms;
 }
 
-/* FR-51: automatic dark mode — no manual toggle class, OS/browser preference only.
+/* Automatic dark mode — no manual toggle class, OS/browser preference only.
    The highlight must swap alongside the base color: the sheen is a *live,
    animated* element (`.gw-bone::after` peaks at opacity: 1 every
    --ghostwire-animation-speed), so leaving it at the light near-white
@@ -25,10 +25,10 @@
   }
 }
 
-/* SPEC-RND-05: every keyframe below touches only transform/opacity — never a
+/* Every keyframe below touches only transform/opacity — never a
    layout-triggering property — so the sweep runs on the compositor thread,
-   consistent with this package's zero-forced-reflow performance budget
-   (SPEC-PERF-01/02). All three animate .gw-bone::after (a sheen overlay),
+   consistent with this package's zero-forced-reflow performance budget.
+   All three animate .gw-bone::after (a sheen overlay),
    never .gw-bone itself, so a single mechanism (this pseudo-element) covers
    every mode uniformly; --ghostwire-animation: none falls back to the
    pseudo-element's own static opacity: 0 below (no animation needed for the
@@ -55,7 +55,7 @@
   z-index: 2147483000;
 }
 
-/* SPEC-LRN-02: the lazy placeholder root itself — bones inside it are
+/* The lazy placeholder root itself — bones inside it are
    position: absolute (see .gw-bone), so this only needs a positioning
    context, not any of .gw-layer's fixed/viewport-relative behaviour. */
 .gw-lazy {
@@ -108,7 +108,7 @@
   pointer-events: auto;
 }
 
-/* Visually-hidden-but-announced live region — SPEC-A11Y-04 (Task 3). */
+/* Visually-hidden-but-announced live region. */
 .gw-sr-only {
   position: absolute;
   width: 1px;

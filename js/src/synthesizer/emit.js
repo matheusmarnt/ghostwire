@@ -1,21 +1,21 @@
 export function emit(host, measured, rowsHint) {
-  if (isNonAxisAligned(measured.hostTransform)) return null; // SPEC-SYN-16: degrade to freeze
+  if (isNonAxisAligned(measured.hostTransform)) return null; // degrade to freeze
 
   const bones = [];
   const templatesByGroup = new Map(); // "groupId:index" -> Bone[]
 
   for (const entry of measured.results) {
     if (entry.type === 'repeat-extra') continue; // handled in the second pass, once every template is collected
-    if (!isVisible(entry)) continue; // SPEC-SYN-12
-    if (!rectIntersectsHost(entry.rect, entry.clipRect || measured.hostRect)) continue; // SPEC-SYN-12/14
-    if (isNonAxisAligned(entry.transform)) continue; // SPEC-SYN-16: skip just this one bone
+    if (!isVisible(entry)) continue;
+    if (!rectIntersectsHost(entry.rect, entry.clipRect || measured.hostRect)) continue;
+    if (isNonAxisAligned(entry.transform)) continue; // skip just this one bone
 
     const produced = [];
     if (entry.type === 'text') {
       const lines = (entry.lineRects || []).filter((r) => r.width > 0 && r.height > 0);
       for (const rect of lines) produced.push(toBone('text', rect, measured.hostRect));
     } else if (entry.type === 'block') {
-      produced.push(toBone('block', entry.rect, measured.hostRect)); // SPEC-SYN-13
+      produced.push(toBone('block', entry.rect, measured.hostRect));
     } else {
       const type = entry.type === 'media' && isAvatar(entry) ? 'avatar' : entry.type;
       produced.push(toBone(type, entry.rect, measured.hostRect));
@@ -27,8 +27,8 @@ export function emit(host, measured, rowsHint) {
       templatesByGroup.get(key).push(...produced); // unfiltered: each clone re-checks its own translated position against clip in the second pass below, regardless of whether this template instance was itself clipped
     }
 
-    // SPEC-SYN-14: an ancestor clip (e.g. a scrollable container between this
-    // candidate and the host) has no CSS analog on the ghost layer — SPEC-RND-02
+    // An ancestor clip (e.g. a scrollable container between this
+    // candidate and the host) has no CSS analog on the ghost layer — the render layer
     // only replicates the HOST's own overflow — so, unlike the host's own
     // boundary, it isn't caught by rendering alone and must be enforced here
     // per bone (a multi-line text entry can straddle it), exactly like the
@@ -44,7 +44,7 @@ export function emit(host, measured, rowsHint) {
     bones.push(...visible);
   }
 
-  // SPEC-SYN-11: clone the sampled template's bones for every unsampled
+  // Clone the sampled template's bones for every unsampled
   // sibling, translated by the real measured pitch — preserving both the
   // real item count and real spacing without individually walking them.
   for (const entry of measured.results) {
@@ -70,12 +70,12 @@ export function emit(host, measured, rowsHint) {
         if (templateBone.type === 'text') {
           const real = extraTextRects[textCursor++];
           if (real) {
-            // SPEC-SYN-10/11: text width varies with real content even across
+            // Text width varies with real content even across
             // otherwise-identical repeat items, so a cloned text bone is
             // measured directly from its own real element rather than
             // pitch-translated from the template — the only way to satisfy
-            // both "preserve real count/spacing" (SPEC-SYN-11) and "the real
-            // width" (SPEC-SYN-10) at once.
+            // both "preserve real count/spacing" and "the real
+            // width" at once.
             const bone = { type: 'text', x: real.left - measured.hostRect.left, y: real.top - measured.hostRect.top, width: real.width, height: real.height };
             if (relativeRectIntersects(bone, clip)) bones.push(bone);
             continue;
@@ -85,14 +85,14 @@ export function emit(host, measured, rowsHint) {
           // same as every other bone type.
         }
         const bone = { type: templateBone.type, x: templateBone.x + dx, y: templateBone.y + dy, width: templateBone.width, height: templateBone.height };
-        if (relativeRectIntersects(bone, clip)) bones.push(bone); // SPEC-SYN-14
+        if (relativeRectIntersects(bone, clip)) bones.push(bone);
       }
     }
   }
 
   if (bones.length > 0) return bones;
-  if (rowsHint > 0) return syntheticRows(measured.hostRect, rowsHint); // SPEC-SYN-17
-  return null; // SPEC-SYN-17: empty host, no hint -> degrade to freeze
+  if (rowsHint > 0) return syntheticRows(measured.hostRect, rowsHint);
+  return null; // empty host, no hint -> degrade to freeze
 }
 
 function relativeClip(clipRect, hostRect) {
@@ -111,7 +111,7 @@ function relativeRectIntersects(bone, clip) {
 
 // Distinguishes "clipped only by the host's own bounds" (clipRect defaults to
 // hostRect itself — see measure.js's computeClipRect) from a real ancestor
-// clip narrower than the host — see the SPEC-SYN-14 comment above.
+// clip narrower than the host — see the ancestor-clip comment above.
 function isHostRect(rect, hostRect) {
   return rect.left === hostRect.left && rect.top === hostRect.top &&
     rect.right === hostRect.right && rect.bottom === hostRect.bottom;

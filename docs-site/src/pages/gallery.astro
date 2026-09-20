@@ -4,28 +4,50 @@ import '../styles/landing.css';
 // structurally correct but completely unstyled (no color, no shimmer). Pure
 // CSS, framework-agnostic, safe to import directly into a plain Astro page.
 import '../../../js/src/style.css';
+// Only this page uses Tailwind — the fixture examples below want modern,
+// realistic app UI (badges, avatars, cards) faster to build in utility
+// classes than by hand; the rest of the site stays on tokens.css.
+import '../styles/tailwind.css';
+import ThemeToggle from '../components/ThemeToggle.astro';
 const base = import.meta.env.BASE_URL;
 ---
 <html lang="en">
 <head>
+  <script is:inline>
+    const storedTheme =
+      typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+    const theme =
+      storedTheme ||
+      (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+  </script>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Gallery — Ghostwire</title>
   <link rel="icon" href={`${base}favicon.svg`} />
-  <style>
-    .gw-gallery-item { max-width: 720px; margin: 2rem auto; padding: 0 1.5rem; }
-    .gw-gallery-item h2 { font-size: 1.1rem; }
-    .gw-gallery-stage { border: 1px solid #26263a; border-radius: 0.75rem; padding: 1rem; background: #121220; position: relative; min-height: 80px; }
-    .gw-toggle { margin-bottom: 0.75rem; }
-    .gw-toggle button { background: #7c3aed; color: #fff; border: none; padding: 0.4rem 0.9rem; border-radius: 0.4rem; cursor: pointer; font-size: 0.85rem; }
+  <style is:global>
+    .gw-gallery-intro { max-width: 1100px; margin: 0 auto 2rem; padding: 0 1.5rem; }
+    .gw-gallery-list { max-width: 1100px; margin: 0 auto; padding: 0 1.5rem; display: flex; flex-direction: column; gap: 2rem; }
+    .gw-gallery-item { border: 1px solid var(--gw-border); border-radius: 1rem; background: var(--gw-panel-bg); overflow: hidden; }
+    .gw-gallery-item-header { padding: 1rem 1.25rem; border-bottom: 1px solid var(--gw-border); display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    .gw-gallery-item-header h2 { margin: 0; font-size: 1.05rem; }
+    .gw-gallery-badge { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gw-muted); border: 1px solid var(--gw-border); border-radius: 999px; padding: 0.2rem 0.6rem; white-space: nowrap; }
+    .gw-gallery-compare { display: grid; grid-template-columns: 1fr 1fr; }
+    @media (max-width: 700px) { .gw-gallery-compare { grid-template-columns: 1fr; } }
+    .gw-gallery-pane { padding: 1.25rem; }
+    .gw-gallery-pane + .gw-gallery-pane { border-left: 1px solid var(--gw-border); }
+    @media (max-width: 700px) { .gw-gallery-pane + .gw-gallery-pane { border-left: none; border-top: 1px solid var(--gw-border); } }
+    .gw-gallery-pane-label { display: block; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gw-muted); margin-bottom: 0.75rem; }
+    .gw-gallery-stage { position: relative; min-height: 80px; }
   </style>
 </head>
 <body>
+  <ThemeToggle />
   <section class="gw-hero">
     <h1>Gallery</h1>
-    <p>Real layouts, real synthesis — toggle each one between its live content and Ghostwire's synthesized skeleton.</p>
+    <p>Real layouts, real synthesis — live content and Ghostwire's synthesized skeleton, side by side.</p>
   </section>
-  <div id="gallery-root"></div>
+  <div id="gallery-root" class="gw-gallery-list"></div>
   <nav class="gw-footer-nav"><a href={`${base}`}>Home</a> <a href={`${base}playground/`}>Playground</a></nav>
 
   <script>
@@ -38,39 +60,64 @@ const base = import.meta.env.BASE_URL;
     const registry = createRegistry();
     const synthesizer = createSynthesizer(registry);
     const renderer = createRenderer();
+    // Ghost Layers mount to document.body positioned from a one-time
+    // getBoundingClientRect() read (see renderer.js) — correct for the
+    // real product's actual use (a skeleton visible only for a brief
+    // loading window, never scrolled under). This gallery is the one
+    // place a layer stays mounted indefinitely while the whole page
+    // scrolls, so — unlike any real host — it needs to keep repositioning
+    // itself. repositionLayer() is the renderer's own public, designed-
+    // to-be-recalled API for exactly this.
+    const mountedHosts = [];
 
     for (const fixture of FIXTURES) {
       const item = document.createElement('div');
       item.className = 'gw-gallery-item';
       item.innerHTML = `
-        <h2>${fixture.label}</h2>
-        <div class="gw-toggle"><button type="button">Show skeleton</button></div>
-        <div class="gw-gallery-stage"><div class="gw-content">${fixture.html}</div></div>
+        <div class="gw-gallery-item-header">
+          <h2>${fixture.label}</h2>
+          <span class="gw-gallery-badge">Live synthesis</span>
+        </div>
+        <div class="gw-gallery-compare">
+          <div class="gw-gallery-pane">
+            <span class="gw-gallery-pane-label">Live content</span>
+            <div class="gw-gallery-stage"><div class="gw-content">${fixture.html}</div></div>
+          </div>
+          <div class="gw-gallery-pane">
+            <span class="gw-gallery-pane-label">Ghostwire skeleton</span>
+            <div class="gw-gallery-stage"><div class="gw-content">${fixture.html}</div></div>
+          </div>
+        </div>
       `;
       root.appendChild(item);
 
-      const stage = item.querySelector('.gw-gallery-stage');
-      const contentEl = item.querySelector('.gw-content');
-      const button = item.querySelector('button');
-      let host = null;
-      let showingSkeleton = false;
+      const stages = item.querySelectorAll('.gw-gallery-stage');
+      const skeletonContentEl = stages[1].querySelector('.gw-content');
 
-      button.addEventListener('click', () => {
-        showingSkeleton = !showingSkeleton;
-        if (showingSkeleton) {
-          host = registry.attach(contentEl, { id: fixture.id }, { rows: null });
-          renderer.mountLayer(host);
-          const boneTree = synthesizer.synthesize(host);
-          if (boneTree) renderer.renderBones(host, boneTree);
-          contentEl.style.visibility = 'hidden';
-          button.textContent = 'Show content';
-        } else {
-          contentEl.style.visibility = 'visible';
-          if (host) { renderer.removeLayer(host); registry.detach(host); host = null; }
-          button.textContent = 'Show skeleton';
-        }
-      });
+      const host = registry.attach(skeletonContentEl, { id: fixture.id }, { rows: null });
+      renderer.mountLayer(host);
+      const boneTree = synthesizer.synthesize(host);
+      if (boneTree) renderer.renderBones(host, boneTree);
+      skeletonContentEl.style.visibility = 'hidden';
+      mountedHosts.push(host);
     }
+
+    let repositionQueued = false;
+    function repositionAll() {
+      repositionQueued = false;
+      for (const host of mountedHosts) renderer.repositionLayer(host);
+    }
+    function queueReposition() {
+      if (repositionQueued) return;
+      repositionQueued = true;
+      requestAnimationFrame(repositionAll);
+    }
+    window.addEventListener('scroll', queueReposition, { passive: true });
+    window.addEventListener('resize', queueReposition);
+    // Inter/JetBrains Mono load via tokens.css's @import and swap in after
+    // bones were first measured — the resulting reflow can drift a layer
+    // out from under its host without this.
+    document.fonts?.ready.then(queueReposition);
   </script>
 </body>
 </html>

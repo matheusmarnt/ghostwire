@@ -13,8 +13,8 @@ use Livewire\Component;
 // ['delay', '600ms', 'hold', '2000ms'] (see parseModifiers in js/src/index.js).
 //
 // refresh() sleeps longer than the view's 600ms directive delay on purpose: a
-// response that lands before the delay elapses must produce no skeleton at all
-// (SPEC-TIME-01), which would make the delay unmeasurable here.
+// response that lands before the delay elapses must produce no skeleton at
+// all, which would make the delay unmeasurable here.
 class DirectiveTimingProbe extends Component
 {
     public bool $refreshed = false;

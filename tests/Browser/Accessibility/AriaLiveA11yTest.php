@@ -2,21 +2,22 @@
 
 // tests/Browser/Accessibility/AriaLiveA11yTest.php
 //
-// SPEC-A11Y-01/03/04 (behavioral) and the M5 DoD gate "axe-core sem achado"
-// (SDD §16). The behavioral tests follow the same MutationObserver +
-// performance.now() recording pattern tests/Browser/Timing/FreezeLifecycleTest.php
-// already established for this codebase — a point-in-time snapshot at a
-// guessed wait offset was empirically flaky there; recording real transition
-// timestamps/booleans is not.
+// Covers the M5 DoD gate "axe-core sem achado" plus the behavioral
+// aria-busy/focus/live-region assertions below. The behavioral tests follow
+// the same MutationObserver + performance.now() recording pattern
+// tests/Browser/Timing/FreezeLifecycleTest.php already established for this
+// codebase — a point-in-time snapshot at a guessed wait offset was
+// empirically flaky there; recording real transition timestamps/booleans is
+// not.
 //
-// assertNoAccessibilityIssues(3) (not the default of 1): SDD's M5 DoD text is
-// "axe-core sem achado" — zero findings of ANY severity, not just
+// assertNoAccessibilityIssues(3) (not the default of 1): the M5 DoD
+// requirement is "axe-core sem achado" — zero findings of ANY severity, not just
 // critical+serious. Level 3 is the strictest available (confirmed against
 // vendor/pestphp/pest-plugin-browser/src/Enums/AccessibilityIssueLevel.php:
 // 0=critical .. 3=minor, and MakesConsoleAssertions::assertNoAccessibilityIssues()
 // keeps violations at or more severe than the given level).
 
-it('SPEC-A11Y-01: #list (synthesize) gets aria-busy while its ghost is visible, cleared once settled', function () {
+it('#list (synthesize) gets aria-busy while its ghost is visible, cleared once settled', function () {
     $page = visit('/ghostwire-test-page');
 
     $page->script('
@@ -58,7 +59,7 @@ it('SPEC-A11Y-01: #list (synthesize) gets aria-busy while its ghost is visible, 
 // listener — and therefore its reapply — has already run by the time this one
 // samples. That makes this a real mid-visible-window, post-morph observation
 // rather than a fixed-offset guess at when the morph might land.
-it('SPEC-A11Y-01/SPEC-MORPH-03: aria-busy and .gw-concealed survive the morph that lands mid-visible-window', function () {
+it('aria-busy and .gw-concealed survive the morph that lands mid-visible-window', function () {
     $page = visit('/ghostwire-test-page');
 
     $page->script('
@@ -102,7 +103,7 @@ it('SPEC-A11Y-01/SPEC-MORPH-03: aria-busy and .gw-concealed survive the morph th
     expect($page->script('document.getElementById("list").classList.contains("gw-concealed")'))->toBeFalse();
 });
 
-it('SPEC-A11Y-01: #summary (freeze) also gets aria-busy while visible', function () {
+it('#summary (freeze) also gets aria-busy while visible', function () {
     $page = visit('/ghostwire-test-page');
 
     $page->script('
@@ -121,7 +122,7 @@ it('SPEC-A11Y-01: #summary (freeze) also gets aria-busy while visible', function
 });
 
 // G1 (2026-09-12 gap-fix audit): this file's own header has claimed
-// SPEC-A11Y-04 browser coverage since it was written, but no test in it ever
+// live-region browser coverage since it was written, but no test in it ever
 // asserted anything about the announcement region itself — confirmed by
 // `grep -n 'aria-live\|announce\|role="status"'` on this file matching
 // nothing before this test was added. js/src/renderer.js's announce()
@@ -131,7 +132,7 @@ it('SPEC-A11Y-01: #summary (freeze) also gets aria-busy while visible', function
 // the region's text as it transitions, the same "record the real transition,
 // don't trust a point-in-time guess" technique this file already applies to
 // aria-busy/focus.
-it('SPEC-A11Y-04: the live region announces Loading then Content updated', function () {
+it('the live region announces Loading then Content updated', function () {
     $page = visit('/ghostwire-test-page');
 
     $page->script('
@@ -158,7 +159,7 @@ it('SPEC-A11Y-04: the live region announces Loading then Content updated', funct
     expect($data['seenUpdatedAfterLoading'])->toBeTrue();
 });
 
-// SPEC-A11Y-03 (fix round 1): the original version of this test lived on
+// (fix round 1): the original version of this test lived on
 // /ghostwire-test-page and focused #list via a client-only tabindex="-1" —
 // #list has no naturally-focusable content, and #refresh-btn there is a
 // SIBLING of #list/#summary, not a descendant, so the click itself stole
@@ -183,7 +184,7 @@ it('SPEC-A11Y-04: the live region announces Loading then Content updated', funct
 // instant, the same "measure the real transition, don't trust a
 // point-in-time guess" principle FreezeLifecycleTest.php already established
 // for this codebase's morph/class races.
-it('SPEC-A11Y-03: focus inside a concealed host is restored after the ghost hides', function () {
+it('focus inside a concealed host is restored after the ghost hides', function () {
     $page = visit('/gallery/card-grid');
 
     $page->script('
@@ -236,7 +237,7 @@ it('SPEC-A11Y-03: focus inside a concealed host is restored after the ghost hide
     expect($data['refocused'])->toBeTrue();
 });
 
-test('SPEC-A11Y DoD: demo table has no axe-core findings, at rest and while ghosted', function () {
+test('accessibility DoD: demo table has no axe-core findings, at rest and while ghosted', function () {
     $page = visit('/ghostwire-test-page');
     $page->assertNoAccessibilityIssues(3);
 
@@ -246,7 +247,7 @@ test('SPEC-A11Y DoD: demo table has no axe-core findings, at rest and while ghos
     $page->assertNoAccessibilityIssues(3);
 });
 
-test('SPEC-A11Y DoD: gallery layouts have no axe-core findings', function (string $route) {
+test('accessibility DoD: gallery layouts have no axe-core findings', function (string $route) {
     $page = visit($route);
     $page->assertNoAccessibilityIssues(3);
 })->with([

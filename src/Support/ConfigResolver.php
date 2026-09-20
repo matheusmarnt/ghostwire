@@ -47,7 +47,7 @@ final class ConfigResolver
 
     /**
      * Same resolution as resolve(), but returns each field alongside which precedence
-     * level decided it, for `ghost:inspect` (SPEC-API-42). Only levels visible to a
+     * level decided it, for `ghost:inspect`. Only levels visible to a
      * static PHP inspection are distinguishable: 'method' (the action method's own
      * #[Ghost]), 'class' (the concrete component class's own #[Ghost]), 'inherited'
      * (anything picked up from an ancestor class or trait), and 'default' — SDD's
@@ -92,7 +92,7 @@ final class ConfigResolver
 
     /**
      * Every action method's own declared #[Ghost] fields, keyed by method name —
-     * NOT the full resolved config (SPEC-API-10 is a field-by-field override,
+     * NOT the full resolved config (this is a field-by-field override,
      * and the runtime needs to know exactly what was declared vs. inherited to
      * merge correctly at commit time, client-side). `only`/`except` are
      * intentionally excluded: they gate WHICH commits activate a host at all
@@ -121,7 +121,7 @@ final class ConfigResolver
     }
 
     /**
-     * FR-04 / SPEC-API-12: is this component opted in at all? True when #[Ghost]
+     * Is this component opted in at all? True when #[Ghost]
      * is declared anywhere reachable from the class — on the class itself, on any
      * ancestor, on any trait used anywhere in the chain, or on any public method.
      *
@@ -274,7 +274,7 @@ final class ConfigResolver
     /**
      * Everything classChain() merges EXCEPT the class's own declared attribute —
      * i.e. what the class would inherit if it declared #[Ghost] with no arguments
-     * at all. Used by resolveWithProvenance() (SPEC-API-42) to tell "declared on
+     * at all. Used by resolveWithProvenance() to tell "declared on
      * this class" apart from "picked up from an ancestor class or trait".
      *
      * @return array<string, mixed>
@@ -340,7 +340,7 @@ final class ConfigResolver
     /**
      * ReflectionAttribute::getArguments() returns only what was textually written at the
      * call site — unlike newInstance(), it never fills in the Ghost constructor's own
-     * defaults. That distinction is what makes "field not declared -> inherit" (SPEC-API-10)
+     * defaults. That distinction is what makes "field not declared -> inherit"
      * possible at all: newInstance()->poll would always read false, even when the attribute
      * usage never mentioned poll.
      *
@@ -364,7 +364,7 @@ final class ConfigResolver
     {
         if ($resolved['only'] !== null && $resolved['except'] !== null) {
             throw new InvalidArgumentException(
-                'Ghostwire: #[Ghost] "only" and "except" cannot both be set on the same resolved config (SPEC-API-23). Resolved: '.json_encode($resolved)
+                'Ghostwire: #[Ghost] "only" and "except" cannot both be set on the same resolved config. Resolved: '.json_encode($resolved)
             );
         }
     }

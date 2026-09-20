@@ -31,7 +31,7 @@ function treeEnvelope(array $bones, array $entryOverrides = []): string
     ]);
 }
 
-it('keeps ViewportBands::NAMES in sync with bands.js (SPEC-SEC-05 constraint 9)', function () {
+it('keeps ViewportBands::NAMES in sync with bands.js', function () {
     preg_match('/BAND_NAMES = \[([^\]]+)\]/', jsLearningSource('bands.js'), $match);
     expect($match)->not->toBeEmpty();
 
@@ -130,7 +130,7 @@ it('accepts a component name at exactly 64 characters and rejects 65 (Ruling C)'
         ->and(preg_match(LearnedTree::NAME_PATTERN, str_repeat('a', 65)))->toBe(0);
 });
 
-it('rejects a bone carrying a sixth key, so nothing smuggled survives (SPEC-SEC-04)', function () {
+it('rejects a bone carrying a sixth key, so nothing smuggled survives', function () {
     $json = treeEnvelope([
         ['type' => 'text', 'x' => 0, 'y' => 0, 'width' => 10, 'height' => 10, 'onclick' => 'alert(1)'],
     ]);
@@ -165,7 +165,7 @@ it('rejects one more than MAX_BONES bones', function () {
     expect(LearnedTree::fromJson(treeEnvelope($bones), 'orders-table', 'lg'))->toBeNull();
 });
 
-it('clamps bone coordinates at the boundary in both directions (SPEC-SEC-05)', function () {
+it('clamps bone coordinates at the boundary in both directions', function () {
     $json = treeEnvelope([
         ['type' => 'text', 'x' => -25000, 'y' => 25000, 'width' => -100, 'height' => 25000],
         ['type' => 'text', 'x' => -20000, 'y' => 20000, 'width' => 0, 'height' => 20000],
@@ -236,7 +236,7 @@ it('discards a JSON root that decodes to something other than an object (Finding
         ->and(LearnedTree::fromJson('null', 'orders-table', 'lg'))->toBeNull();
 });
 
-it('emits fully static markup with no Blade echo and no PHP tag (SPEC-SEC-05)', function () {
+it('emits fully static markup with no Blade echo and no PHP tag', function () {
     $blade = LearnedTree::toBlade([
         'width' => 100.0,
         'height' => 50.0,

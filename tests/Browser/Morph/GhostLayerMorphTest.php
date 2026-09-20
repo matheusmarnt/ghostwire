@@ -2,7 +2,7 @@
 
 // tests/Browser/Morph/GhostLayerMorphTest.php
 //
-// Risk-critical: SDD-ghostwire.md §5 — "Falha aqui produz corrupção visual de
+// Risk-critical: "Falha aqui produz corrupção visual de
 // DOM, pior que a ausência do produto." These tests drive a real browser
 // (Playwright/Chromium) against a real Livewire component and the real built
 // runtime (resources/dist/ghostwire.js) to prove the Ghost Layer never
@@ -25,9 +25,9 @@
 // all. Recording every relevant event over one generous 1s window (>3x the
 // observed cycle length) and asserting on the recording removes that
 // flakiness entirely and lets each test unambiguously report whether the
-// SPEC-MORPH property genuinely held.
+// guarantee under test genuinely held.
 
-it('leaves the host outerHTML byte-identical after a full show/hide cycle (SPEC-MORPH-03)', function () {
+it('leaves the host outerHTML byte-identical after a full show/hide cycle', function () {
     $page = visit('/ghostwire-test-page');
 
     $before = $page->script('document.getElementById("summary").outerHTML.replace(/\\s*class="[^"]*"/, "")');
@@ -47,7 +47,7 @@ it('leaves the host outerHTML byte-identical after a full show/hide cycle (SPEC-
     expect($after)->toBe($before);
 });
 
-it('never inserts the Ghost Layer inside the reconciled host subtree (SPEC-MORPH-01)', function () {
+it('never inserts the Ghost Layer inside the reconciled host subtree', function () {
     $page = visit('/ghostwire-test-page');
 
     $page->script('
@@ -95,14 +95,14 @@ it('never inserts the Ghost Layer inside the reconciled host subtree (SPEC-MORPH
     expect($layerEverInsideReconciledTree)->toBeFalse();
 });
 
-it('registers morph.updating and morph.removing handlers that call skip() for Ghost Layer nodes (SPEC-MORPH-02)', function () {
+it('registers morph.updating and morph.removing handlers that call skip() for Ghost Layer nodes', function () {
     $page = visit('/ghostwire-test-page');
 
     // Fix 1 means the real Ghost Layer mounts to document.body and never
     // normally reaches the morphed tree, so this defensive line can't be
     // exercised by normal operation any more. This simulates "a Ghost Layer
     // node somehow ended up inside the reconciled tree" — the scenario
-    // SPEC-MORPH-02 exists to guard against — by injecting a real
+    // this defensive handling exists to guard against — by injecting a real
     // `.gw-layer` div into #list before the refresh.
     //
     // Traced (Fix 3) why a single morph.updating listener isn't enough:
@@ -157,7 +157,7 @@ it('registers morph.updating and morph.removing handlers that call skip() for Gh
     expect($probeSurvived)->toBeTrue();
 });
 
-it('reuses the same Ghost Layer element across a morph rather than recreating it (SPEC-MORPH-04)', function () {
+it('reuses the same Ghost Layer element across a morph rather than recreating it', function () {
     $page = visit('/ghostwire-test-page');
 
     // Stash a reference to the exact node object the first time a

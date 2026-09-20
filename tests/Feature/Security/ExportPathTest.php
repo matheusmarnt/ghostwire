@@ -36,7 +36,7 @@ afterEach(function () {
     }
 });
 
-it('rejects a component name outside [a-z0-9.-] (SPEC-SEC-05)', function (string $name) {
+it('rejects a component name outside [a-z0-9.-]', function (string $name) {
     // assertFailed() alone can't tell a deliberate refusal from a crash that also
     // exits non-zero (Ruling D) - expectsOutputToContain() pins it to the actual
     // charset-refusal message, not merely "something went wrong".
@@ -53,7 +53,7 @@ it('rejects a component name outside [a-z0-9.-] (SPEC-SEC-05)', function (string
     "orders-table\n", // Finding 3: PCRE $ without /D matches before a trailing "\n"
 ]);
 
-it('refuses any --output that escapes resources/views (SPEC-SEC-05)', function (string $output) {
+it('refuses any --output that escapes resources/views', function (string $output) {
     // Same reasoning as the component-charset test above: pin the refusal to the
     // path-traversal message so a future regression that merely crashes instead
     // of refusing does not slip this test (Ruling D).
@@ -69,7 +69,7 @@ it('refuses any --output that escapes resources/views (SPEC-SEC-05)', function (
     'livewire/../../../escaped.blade.php',
 ]);
 
-it('refuses to overwrite an existing view without --force (SPEC-SEC-05)', function () {
+it('refuses to overwrite an existing view without --force', function () {
     $target = resource_path('views/livewire/orders-table-placeholder.blade.php');
     File::ensureDirectoryExists(dirname($target));
     File::put($target, 'ORIGINAL');
@@ -84,7 +84,7 @@ it('refuses to overwrite an existing view without --force (SPEC-SEC-05)', functi
     expect(File::get($target))->toBe('ORIGINAL');
 });
 
-it('overwrites an existing view when --force is given (SPEC-SEC-05)', function () {
+it('overwrites an existing view when --force is given', function () {
     $target = resource_path('views/livewire/orders-table-placeholder.blade.php');
     File::ensureDirectoryExists(dirname($target));
     File::put($target, 'ORIGINAL');

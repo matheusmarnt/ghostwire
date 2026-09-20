@@ -12,7 +12,7 @@ export function createRenderer() {
     return liveRegion;
   }
 
-  // SPEC-A11Y-04: "traduzível e desativável" — window.Ghostwire is this
+  // "traduzível e desativável" — window.Ghostwire is this
   // package's only global config surface (deliberately not a Laravel config
   // key: announcements are a client-only concern, and this keeps the PHP
   // config file untouched by M5).
@@ -21,7 +21,7 @@ export function createRenderer() {
     ensureLiveRegion().textContent = message;
   }
 
-  // SPEC-PERF-01/02: mounting is split into a read half (prepareLayer — the
+  // Mounting is split into a read half (prepareLayer — the
   // host's computed style and rect, applied to a still-detached element;
   // writes to a detached node never dirty document layout) and a write half
   // (attachLayer — the single DOM-tree insertion), so js/src/index.js's
@@ -34,11 +34,11 @@ export function createRenderer() {
 
     // ponytail: host's own border-radius/overflow can't change between mount
     // and unmount, so read them once here rather than on every
-    // repositionLayer() call (SPEC-RND-02).
+    // repositionLayer() call.
     // ponytail: this still reads host.el's computed style even when regionRect
     // scopes the layer to an island — an island's content is a sibling Range,
     // not one element with its own CSS box, so there's no more precise single
-    // element to read border-radius/overflow from (SPEC-INT-13).
+    // element to read border-radius/overflow from.
     const style = window.getComputedStyle(host.el);
     layer.style.borderRadius = style.borderRadius;
     layer.style.overflow = style.overflow === 'visible' ? 'visible' : 'hidden';
@@ -52,7 +52,7 @@ export function createRenderer() {
   }
 
   function attachLayer(host, layer) {
-    document.body.appendChild(layer); // SPEC-MORPH-01: mounted outside the reconciled tree entirely; the ONLY DOM-tree write of the mount
+    document.body.appendChild(layer); // mounted outside the reconciled tree entirely; the ONLY DOM-tree write of the mount
     host.layer = layer;
     return layer;
   }
@@ -61,7 +61,7 @@ export function createRenderer() {
     return attachLayer(host, prepareLayer(host, regionRect));
   }
 
-  // SPEC-PERF-01/02: split into an independent read (measure) and write
+  // Split into an independent read (measure) and write
   // (apply) half so a caller looping over several hosts on the same
   // component (js/src/index.js's onPostPaint) can measure every host first
   // and only then write any of them — otherwise host N+1's read lands right
@@ -85,7 +85,7 @@ export function createRenderer() {
     applyLayerRect(host, measureHostRect(host, regionRect));
   }
 
-  // SPEC-SEC-04: the only path that turns a Bone Tree into DOM, for both the
+  // The only path that turns a Bone Tree into DOM, for both the
   // Ghost Layer (renderBones, live-synthesized) and a lazy placeholder root
   // (js/src/index.js's paintLazyPlaceholders, painted from persisted data).
   // Every write is createElement + a numeric style property — bone.type is
@@ -126,7 +126,7 @@ export function createRenderer() {
     host.el.classList.remove('gw-frozen');
   }
 
-  // SPEC-A11Y-01: busy-ness tracks the scheduler's own VISIBLE state,
+  // Busy-ness tracks the scheduler's own VISIBLE state,
   // independent of render mode — freeze/synthesize/keep/ignore hosts all
   // reach onShow/onHide (js/src/index.js), so all of them get aria-busy.
   // Only mode: 'off' hosts never call this at all (onStart skips
@@ -143,7 +143,7 @@ export function createRenderer() {
   //     (which would strand busyCount above 0 forever and kill every future
   //     announcement) or re-announce "Loading". The same flag makes clearBusy
   //     safe to call unconditionally from teardown, whether or not the host was
-  //     ever busy (SPEC-A11Y-04).
+  //     ever busy.
   function markBusy(host) {
     host.el.setAttribute('aria-busy', 'true');
     if (host.busy) return;
@@ -160,8 +160,8 @@ export function createRenderer() {
     if (busyCount === 0) announce(window.Ghostwire?.messages?.idle ?? 'Content updated');
   }
 
-  // SPEC-A11Y-03: only the concealed (visibility: hidden) path needs this —
-  // freeze uses opacity/pointer-events only (SPEC-MORPH-03), which never
+  // Only the concealed (visibility: hidden) path needs this —
+  // freeze uses opacity/pointer-events only, which never
   // forces the browser to blur an already-focused descendant, so freeze has
   // nothing to restore. A visibility: hidden host DOES force a blur, so the
   // focused element is captured right before .gw-concealed is applied and

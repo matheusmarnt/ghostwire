@@ -1,6 +1,6 @@
 ---
 title: Livewire 3/4 compatibility
-description: The Tier A/B/C matrix, bridge detection, and documented degradations (FR-81, SPEC-INT-20..25).
+description: The Tier A/B/C matrix, bridge detection, and documented degradations.
 ---
 
 Ghostwire supports Livewire 3.6+ and 4.x from the same package. Bridge selection happens at `livewire:init`, by **runtime feature detection** — never a version string:
@@ -8,6 +8,18 @@ Ghostwire supports Livewire 3.6+ and 4.x from the same package. Bridge selection
 1. `typeof Livewire.interceptMessage === 'function'` → Livewire 4 bridge
 2. else, `Livewire.hook` present → Livewire 3 bridge
 3. neither → the runtime disables itself; the console warning for this (and every other developer diagnostic) fires only when the package's `<script>` tag carries `data-ghostwire-debug="1"`, which `@ghostwireScripts` adds automatically outside production
+
+The same three checks, as the actual detection logic:
+
+```js
+if (typeof Livewire.interceptMessage === 'function') {
+    // Livewire 4 bridge
+} else if (typeof Livewire.hook === 'function') {
+    // Livewire 3 bridge
+} else {
+    // Neither present — Ghostwire disables itself for this page
+}
+```
 
 ## Tier matrix
 
@@ -27,4 +39,4 @@ Both the contract test suite and the full browser test suite run against both Li
 
 ## Detection, not sniffing
 
-Version-string sniffing is explicitly disallowed by the package's own design (SPEC-INT-20) — a future Livewire patch release that changes internals without changing its public hooks should never require a Ghostwire update just because a string comparison broke.
+Version-string sniffing is explicitly disallowed by the package's own design — a future Livewire patch release that changes internals without changing its public hooks should never require a Ghostwire update just because a string comparison broke.

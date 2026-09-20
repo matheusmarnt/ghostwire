@@ -1,4 +1,4 @@
-// SPEC-INT-13: island scoping is Tier C (Livewire 4 only). Livewire wraps
+// Island scoping is Tier C (Livewire 4 only). Livewire wraps
 // every `@island`/`@endisland` block in a pair of HTML comments
 // (vendor/livewire/livewire/src/Features/SupportIslands/HandlesIslands.php,
 // wrapWithFragmentMarkers()): `<!--[if FRAGMENT:type=island|name=...|token=...|

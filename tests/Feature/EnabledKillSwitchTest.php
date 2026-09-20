@@ -13,7 +13,7 @@ use Livewire\Livewire;
 
 it('stamps no data-ghost on any component when disabled', function () {
     config()->set('ghostwire.enabled', false);
-    // Task 2 (FR-04): this test is about the enabled guard, not activation —
+    // Task 2: this test is about the enabled guard, not activation —
     // the bare probe fixture carries no #[Ghost], so under the opt-in default
     // the gate below would suppress data-ghost on its own, making this test
     // pass whether or not the enabled guard exists. Forced global so only

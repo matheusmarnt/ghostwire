@@ -17,7 +17,7 @@ class ExportCommand extends Command
         {--output= : Destination path relative to resources/views}
         {--force : Overwrite an existing view}';
 
-    protected $description = 'Export a learned Bone Tree as a static Blade view usable as a Livewire @placeholder (SPEC-LRN-03). Reads a JSON file downloaded from the browser - no headless browser is involved at any point.';
+    protected $description = 'Export a learned Bone Tree as a static Blade view usable as a Livewire @placeholder. Reads a JSON file downloaded from the browser - no headless browser is involved at any point.';
 
     public function handle(): int
     {
@@ -112,7 +112,7 @@ class ExportCommand extends Command
     }
 
     /**
-     * SPEC-SEC-05: refuse any write outside resources/views. The lexical check
+     * Refuse any write outside resources/views. The lexical check
      * below (before any path is built) refuses ".." segments and absolute
      * paths outright; the canonical check after it (once the parent directory
      * exists) refuses anything where a symlinked parent segment resolves

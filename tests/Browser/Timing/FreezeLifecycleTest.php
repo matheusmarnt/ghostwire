@@ -2,7 +2,7 @@
 
 // tests/Browser/Timing/FreezeLifecycleTest.php
 //
-// SPEC-TIME-01 / SPEC-TIME-02 — proves the freeze mode's show delay (120ms)
+// Proves the freeze mode's show delay (120ms)
 // and visible hold (300ms) are genuinely enforced by the runtime, against a
 // real browser + real Livewire commit + the real built runtime
 // (resources/dist/ghostwire.js), not a mocked/fake-timer harness.
@@ -23,9 +23,9 @@
 // was empirically flaky here, whereas recording the real transition
 // timestamps and asserting on the *measured* deltas is deterministic
 // regardless of scheduling jitter. All three tests below share this
-// recording setup; each covers a distinct SPEC-TIME property.
+// recording setup; each covers a distinct timing property.
 
-it('does not become frozen before the 120ms delay elapses (SPEC-TIME-01)', function () {
+it('does not become frozen before the 120ms delay elapses', function () {
     $page = visit('/ghostwire-test-page');
 
     $page->script('
@@ -93,7 +93,7 @@ it('becomes frozen shortly after the delay elapses', function () {
     expect($delayMs)->toBeLessThan(700);
 });
 
-it('holds visible for at least 300ms after becoming visible, even though the request finishes sooner (SPEC-TIME-02)', function () {
+it('holds visible for at least 300ms after becoming visible, even though the request finishes sooner', function () {
     $page = visit('/ghostwire-test-page');
 
     // A first pass at this test measured the class-removal timestamp naively
