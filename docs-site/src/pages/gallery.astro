@@ -4,6 +4,10 @@ import '../styles/landing.css';
 // structurally correct but completely unstyled (no color, no shimmer). Pure
 // CSS, framework-agnostic, safe to import directly into a plain Astro page.
 import '../../../js/src/style.css';
+// Only this page uses Tailwind — the fixture examples below want modern,
+// realistic app UI (badges, avatars, cards) faster to build in utility
+// classes than by hand; the rest of the site stays on tokens.css.
+import '../styles/tailwind.css';
 import ThemeToggle from '../components/ThemeToggle.astro';
 const base = import.meta.env.BASE_URL;
 ---
