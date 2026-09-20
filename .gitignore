@@ -33,6 +33,7 @@ testbench.yaml
 
 # Internal planning docs (specs, plans) — local workspace, not repo content
 /docs/superpowers/
+/docs/plans/
 
 # Worktrees
 .worktrees/

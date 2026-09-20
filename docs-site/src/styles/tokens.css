@@ -50,6 +50,15 @@
   --sl-color-hairline-light: rgba(154, 151, 173, 0.22);
   --sl-color-hairline-shade: rgba(154, 151, 173, 0.08);
 
+  /* Ghostwire's OWN public bone-color tokens (js/src/style.css) default to
+     following OS-level prefers-color-scheme, not this site's data-theme
+     toggle — the two can disagree (e.g. OS dark + site toggled light),
+     leaving real bones the wrong shade for the page around them. Pin them
+     to data-theme instead, using the package's own documented default
+     values, so the gallery/playground demos always match this toggle. */
+  --ghostwire-bone-color: oklch(0.28 0.01 250);
+  --ghostwire-bone-highlight: oklch(0.38 0.01 250);
+
   /* Ghostwire semantic tokens — the four custom pages */
   --gw-bg: var(--sl-color-bg);
   --gw-fg: var(--sl-color-text);
@@ -64,6 +73,9 @@
 }
 
 :root[data-theme='light'] {
+  --ghostwire-bone-color: oklch(0.92 0.005 250);
+  --ghostwire-bone-highlight: oklch(0.97 0.005 250);
+
   --sl-color-accent-low: #ede9fe;
   --sl-color-accent: var(--gw-violet-deep);
   --sl-color-accent-high: #5b21b6;
