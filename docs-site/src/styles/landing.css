@@ -28,3 +28,19 @@ body { margin: 0; background: var(--gw-bg); color: var(--gw-fg); font-family: va
 .gw-feature p { margin: 0; color: var(--gw-muted); font-size: 0.9rem; }
 .gw-footer-nav { text-align: center; padding: 3rem 1.5rem; color: var(--gw-muted); }
 .gw-footer-nav a { color: var(--gw-fg); margin: 0 0.5rem; }
+
+/* Inline `<code>` styling — duplicated from custom.css rather than
+   shared, since custom.css only loads on Starlight-wrapped doc pages
+   and these four pages are not. Keep both in sync if either changes. */
+:not(pre) > code {
+  background: var(--sl-color-bg-inline-code);
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 0.375rem;
+  padding: 0.15em 0.4em;
+  font-size: 0.85em;
+  color: var(--gw-violet-high);
+}
+
+:root[data-theme='light'] :not(pre) > code {
+  color: var(--sl-color-accent);
+}

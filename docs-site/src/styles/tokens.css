@@ -2,7 +2,15 @@
    Single source of truth for color and type, consumed by both
    custom.css (Starlight doc pages) and landing.css (the four bespoke
    pages: home, about, gallery, playground). Custom properties only —
-   no selectors, no component rules. */
+   no selectors, no component rules.
+
+   Load-bearing: this file must NOT be wrapped in an `@layer` block.
+   Starlight ships its own defaults inside `@layer starlight.base`; an
+   unlayered rule always wins over a layered one regardless of source
+   order, which is the only reason these overrides actually beat
+   Starlight's built-in blue theme. Wrapping this file in a layer
+   (even a later one) would silently revert every doc page to
+   Starlight's default palette with no error. */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
@@ -11,7 +19,6 @@
   --gw-violet: #7c3aed;
   --gw-violet-deep: #6d28d9;
   --gw-violet-high: #a78bfa;
-  --gw-glow: #e4e1ff; /* pale "ectoplasm" — shimmer/glow effects only */
   --gw-on-accent: #fff; /* text/icon color on top of an accent-colored surface */
 
   --sl-font: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
@@ -58,7 +65,7 @@
 
 :root[data-theme='light'] {
   --sl-color-accent-low: #ede9fe;
-  --sl-color-accent: #6d28d9;
+  --sl-color-accent: var(--gw-violet-deep);
   --sl-color-accent-high: #5b21b6;
 
   --sl-color-white: #14121f;
@@ -75,7 +82,7 @@
   --sl-color-bg-sidebar: #f4f2fb;
   --sl-color-bg-inline-code: var(--sl-color-gray-6);
   --sl-color-text: var(--sl-color-white);
-  --sl-color-text-accent: #6d28d9;
+  --sl-color-text-accent: var(--gw-violet-deep);
   --sl-color-hairline: rgba(20, 18, 31, 0.08);
   --sl-color-hairline-light: rgba(20, 18, 31, 0.14);
   --sl-color-hairline-shade: rgba(20, 18, 31, 0.04);

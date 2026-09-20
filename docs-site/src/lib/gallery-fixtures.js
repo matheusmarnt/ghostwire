@@ -21,12 +21,12 @@ export const FIXTURES = [
     label: 'Kanban board',
     html: `
       <div style="display:flex;gap:12px;">
-        <div style="flex:1;background:#f4f4f8;border-radius:8px;padding:10px;">
+        <div style="flex:1;background:#f4f4f8;border-radius:8px;padding:10px;color:#222;">
           <h4 style="margin:0 0 8px;">To Do</h4>
           <div style="background:#fff;border-radius:6px;padding:8px;margin-bottom:6px;">Design review</div>
           <div style="background:#fff;border-radius:6px;padding:8px;">Write tests</div>
         </div>
-        <div style="flex:1;background:#f4f4f8;border-radius:8px;padding:10px;">
+        <div style="flex:1;background:#f4f4f8;border-radius:8px;padding:10px;color:#222;">
           <h4 style="margin:0 0 8px;">In Progress</h4>
           <div style="background:#fff;border-radius:6px;padding:8px;">Ship playground</div>
         </div>
@@ -37,9 +37,9 @@ export const FIXTURES = [
     label: 'Dashboard cards',
     html: `
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
-        <div style="background:#f4f4f8;border-radius:8px;padding:14px;"><div style="font-size:0.8rem;color:#777;">Revenue</div><div style="font-size:1.5rem;font-weight:700;">$48,200</div></div>
-        <div style="background:#f4f4f8;border-radius:8px;padding:14px;"><div style="font-size:0.8rem;color:#777;">Users</div><div style="font-size:1.5rem;font-weight:700;">1,204</div></div>
-        <div style="background:#f4f4f8;border-radius:8px;padding:14px;"><div style="font-size:0.8rem;color:#777;">Errors</div><div style="font-size:1.5rem;font-weight:700;">3</div></div>
+        <div style="background:#f4f4f8;border-radius:8px;padding:14px;color:#222;"><div style="font-size:0.8rem;color:#777;">Revenue</div><div style="font-size:1.5rem;font-weight:700;">$48,200</div></div>
+        <div style="background:#f4f4f8;border-radius:8px;padding:14px;color:#222;"><div style="font-size:0.8rem;color:#777;">Users</div><div style="font-size:1.5rem;font-weight:700;">1,204</div></div>
+        <div style="background:#f4f4f8;border-radius:8px;padding:14px;color:#222;"><div style="font-size:0.8rem;color:#777;">Errors</div><div style="font-size:1.5rem;font-weight:700;">3</div></div>
       </div>`,
   },
 ];
