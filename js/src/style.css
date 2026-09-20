@@ -11,7 +11,7 @@
   --ghostwire-fade-duration: 150ms;
 }
 
-/* FR-51: automatic dark mode — no manual toggle class, OS/browser preference only.
+/* Automatic dark mode — no manual toggle class, OS/browser preference only.
    The highlight must swap alongside the base color: the sheen is a *live,
    animated* element (`.gw-bone::after` peaks at opacity: 1 every
    --ghostwire-animation-speed), so leaving it at the light near-white

@@ -2,7 +2,7 @@
 
 // tests/Browser/Visual/ThemeTest.php
 //
-// FR-51 — proves the animation-token wiring and automatic
+// Proves the animation-token wiring and automatic
 // dark-mode swap added in Task 1 (js/src/style.css) render correctly against
 // a real browser and the real compiled runtime (resources/dist/ghostwire.css).
 //
@@ -33,7 +33,7 @@ test('the ghost bone sheen animates by default', function () {
     expect($page->script('window.__gw.animationName'))->toBe('shimmer');
 });
 
-test('bone color swaps under prefers-color-scheme: dark (FR-51)', function () {
+test('bone color swaps under prefers-color-scheme: dark', function () {
     $lightPage = visit('/gallery/card-grid')->inLightMode();
     $lightPage->script('
         window.__gw = null;

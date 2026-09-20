@@ -193,11 +193,11 @@ it('paints a learned skeleton into a lazy placeholder before any content exists 
     $page->assertNoJavaScriptErrors();
 });
 
-it('paints nothing for a component that declared its own placeholder (FR-56)', function () {
+it('paints nothing for a component that declared its own placeholder', function () {
     // Seed a learned tree for THIS component's own name, under every band, so
     // the paint pass has real data it COULD paint. Without this, an empty
     // store would make the assertions below pass merely because there is
-    // nothing to paint yet — not because FR-56's exclusion held (review
+    // nothing to paint yet — not because the placeholder exclusion held (review
     // Finding 1: a prior version of this test was vacuous for exactly this
     // reason, and also counted [data-ghost-lazy] attributes instead of
     // bones, so it was blind to the one regression it was named for: a

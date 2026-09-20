@@ -121,7 +121,7 @@ final class ConfigResolver
     }
 
     /**
-     * FR-04: is this component opted in at all? True when #[Ghost]
+     * Is this component opted in at all? True when #[Ghost]
      * is declared anywhere reachable from the class — on the class itself, on any
      * ancestor, on any trait used anywhere in the chain, or on any public method.
      *

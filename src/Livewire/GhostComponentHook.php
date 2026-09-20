@@ -63,11 +63,11 @@ class GhostComponentHook extends ComponentHook
                 return;
             }
 
-            // FR-04: 'global' instruments every component; the default 'opt-in'
+            // 'global' instruments every component; the default 'opt-in'
             // instruments only components that declared #[Ghost] somewhere in their
             // chain. wire:ghost in a view needs no data-ghost — the client falls back
-            // to attributeConfig.js's literal DEFAULTS (resolveHostConfig), so FR-01
-            // is unaffected by this gate.
+            // to attributeConfig.js's literal DEFAULTS (resolveHostConfig), so that
+            // fallback is unaffected by this gate.
             //
             // Placed before resolve()/methodOverrides() on purpose: that ordering is
             // the entire performance point (PR-7). Do not move it below them.

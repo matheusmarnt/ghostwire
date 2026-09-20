@@ -66,7 +66,7 @@ it('never emits raw, unescaped quotes around the JSON payload', function () {
 
 it('does not omit a field from data-ghost when it only matches config() overrides, not the literal package default (config-drift fix)', function () {
     config(['ghostwire.learning.enabled' => false]);
-    // Task 2 (FR-04): this test is about the payload's config-drift handling,
+    // Task 2: this test is about the payload's config-drift handling,
     // not activation — ConfigDriftProbeComponent deliberately carries no
     // #[Ghost], so it needs 'global' to emit data-ghost at all under the
     // opt-in default.

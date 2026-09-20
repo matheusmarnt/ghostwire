@@ -4,7 +4,7 @@
 //
 // Proves the read-before-write, zero-forced-reflow guarantee at the browser
 // level, plus the renderer-side mount/render cost budget deferred since M3
-// (issue #5, then #18) — all structural (ADR-007), measured by gwShowBurst()
+// (issue #5, then #18) — all structural, measured by gwShowBurst()
 // in tests/Pest.php.
 //
 // The render path is renderer.js's prepareLayer() (reads border-radius/

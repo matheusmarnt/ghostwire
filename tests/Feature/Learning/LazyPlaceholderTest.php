@@ -11,7 +11,7 @@ it('tags the lazy placeholder root with data-ghost-lazy', function () {
     expect($html)->toContain('data-ghost-lazy="lazy-orders-table"');
 });
 
-it('leaves a developer-declared placeholder completely alone (FR-56)', function () {
+it('leaves a developer-declared placeholder completely alone', function () {
     $html = Livewire::test(LazyDeclaredPlaceholder::class, ['lazy' => true])->html();
 
     expect($html)->toContain('my own placeholder')

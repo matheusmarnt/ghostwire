@@ -2,7 +2,7 @@
 
 // tests/Feature/Precedence/OptInStrategyTest.php
 //
-// FR-04: 'global' is the CONFIGURABLE mode; 'opt-in' is the default. Under
+// 'global' is the CONFIGURABLE mode; 'opt-in' is the default. Under
 // opt-in a component is instrumented only when #[Ghost] is declared somewhere
 // in its chain. wire:ghost in the view keeps working with no data-ghost at all
 // (js/src/attributeConfig.js's resolveHostConfig falls back to DEFAULTS).

@@ -236,7 +236,7 @@ export function boot() {
 
   window.Ghostwire = window.Ghostwire || {};
 
-  // FR-43: the only way learned data leaves the browser is this
+  // The only way learned data leaves the browser is this
   // user-initiated file download. No network call exists anywhere in this path.
   window.Ghostwire.exportLearned = function exportLearned() {
     const json = JSON.stringify(learningStore.all(), null, 2);
@@ -251,7 +251,7 @@ export function boot() {
       anchor.remove();
       // Deferred: revoking synchronously right after click() aborts the
       // download in some browsers, which start reading the blob URL
-      // asynchronously (Finding 5, FR-43's one real data-exit path).
+      // asynchronously (Finding 5, one real data-exit path).
       setTimeout(() => URL.revokeObjectURL(url), 0);
     } catch {
       // Download unavailable (sandboxed frame, headless context). The caller

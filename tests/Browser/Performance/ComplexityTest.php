@@ -14,11 +14,11 @@
 //   make a synthesis arbitrarily long; the adaptive freeze remains the
 //   user-facing guard against a genuinely slow synthesis.
 //   Authority: controller ruling R2 of 2026-09-19, recorded in the
-//   maintainers' local plan (gitignored, not shipped), per ADR-007 and
+//   maintainers' local plan (gitignored, not shipped), per
 //   issue #18's analysis that median-of-3/5/7 wall-clock samples all still
 //   flaked.
 //
-// Both tests below enforce this as structural invariants (ADR-007:
+// Both tests below enforce this as structural invariants (
 // "o orçamento deixou de ser cronométrico"). The measured quantity is the
 // number of layout reads (getBoundingClientRect / getComputedStyle /
 // Range.getClientRects) the runtime performs in the synchronous show burst —

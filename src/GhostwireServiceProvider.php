@@ -116,7 +116,7 @@ class GhostwireServiceProvider extends ServiceProvider
             return false;
         }
 
-        // FR-56: a declared placeholder wins absolutely. This single
+        // A declared placeholder wins absolutely. This single
         // predicate covers a hand-written placeholder() AND a Livewire 4
         // @placeholder block, which the compiler turns into a real method.
         if (method_exists($component, 'placeholder')) {

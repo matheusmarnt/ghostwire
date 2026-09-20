@@ -39,7 +39,7 @@ it('disables bone animation under prefers-reduced-motion', function () {
     expect($css)->toMatch('/@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{\s*\.gw-bone::after\s*\{[^}]*animation:\s*none/s');
 });
 
-it('swaps to the dark bone token under prefers-color-scheme (FR-51)', function () {
+it('swaps to the dark bone token under prefers-color-scheme', function () {
     $css = file_get_contents(__DIR__.'/../../js/src/style.css');
 
     expect($css)->toMatch('/@media\s*\(prefers-color-scheme:\s*dark\)\s*\{\s*:root\s*\{[^}]*--ghostwire-bone-color:\s*var\(--ghostwire-bone-color-dark\)/s');
