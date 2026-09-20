@@ -14,6 +14,7 @@ export default defineConfig({
         replacesTitle: true,
       },
       favicon: '/favicon.svg',
+      customCss: ['./src/styles/custom.css'],
       editLink: {
         baseUrl: 'https://github.com/matheusmarnt/ghostwire/edit/main/docs-site/',
       },
