@@ -18,6 +18,13 @@ import ThemeToggle from '../components/ThemeToggle.astro';
 // stylesheet <link>s, so any CSS the example markup needs has to travel
 // as text, same as ghostwireCss already does.
 import tailwindCss from '../styles/tailwind.css?inline';
+// Raw source (not ?inline) — this only needs the plain --ghostwire-bone-*
+// and --sl-color-* custom-property declarations, no build transform.
+// Same reason as ghostwireCss above: the preview iframe is a separate
+// document that never inherits this page's own :root, so without this
+// its bones fall back to tokens.css's un-overridden default (OS
+// prefers-color-scheme, disconnected from this site's own toggle).
+import tokensCss from '../styles/tokens.css?raw';
 const base = import.meta.env.BASE_URL;
 const DEFAULT_MARKUP = `<div class="max-w-sm rounded-2xl border border-slate-200 bg-white p-5 font-sans shadow-sm">
   <div class="mb-4 flex items-center justify-between">
@@ -111,6 +118,10 @@ const DEFAULT_MARKUP = `<div class="max-w-sm rounded-2xl border border-slate-200
        Tailwind utility classes, which only render inside the preview
        iframe if its own document gets this text too. -->
   <script type="text/plain" id="tailwind-css-source" data-css={tailwindCss}></script>
+  <!-- Same trick, for tokens.css's --ghostwire-bone-* override (pinned to
+       data-theme instead of OS prefers-color-scheme) — without this the
+       preview's real bones ignore this site's own light/dark toggle. -->
+  <script type="text/plain" id="tokens-css-source" data-css={tokensCss}></script>
   <!-- Same inert-data-carrier trick as ghostwire-css-source above, for the
        editor's initial content — CodeMirror needs a plain string to boot
        from, not a textarea's server-rendered value. -->
@@ -128,6 +139,10 @@ const DEFAULT_MARKUP = `<div class="max-w-sm rounded-2xl border border-slate-200
     const resetBtn = document.getElementById('reset-btn');
     const ghostwireCss = document.getElementById('ghostwire-css-source').dataset.css;
     const tailwindCss = document.getElementById('tailwind-css-source').dataset.css;
+    // Strips the Google Fonts @import — the iframe repaints on every edit,
+    // and re-fetching that stylesheet each time is pure waste; the iframe
+    // doesn't render any of this page's own font-driven UI anyway.
+    const tokensCss = document.getElementById('tokens-css-source').dataset.css.replace(/@import[^;]+;/, '');
     const DEFAULT_MARKUP = document.getElementById('default-markup-source').dataset.markup;
 
     const registry = createRegistry();
@@ -148,10 +163,30 @@ const DEFAULT_MARKUP = `<div class="max-w-sm rounded-2xl border border-slate-200
 
     function paint(markup) {
       const doc = frame.contentDocument;
+      const theme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
       doc.open();
-      doc.write(`<!doctype html><html><head><meta charset="utf-8"><style>${tailwindCss}</style><style>${ghostwireCss}</style></head><body style="margin:0;padding:16px;">${markup}</body></html>`);
+      doc.write(`<!doctype html><html data-theme="${theme}"><head><meta charset="utf-8"><style>${tokensCss}</style><style>${tailwindCss}</style><style>${ghostwireCss}</style></head><body style="margin:0;padding:16px;">${markup}</body></html>`);
       doc.close();
     }
+
+    // The toggle only fires paint() indirectly (via a subsequent edit) —
+    // without this, switching theme mid-session leaves the preview (and
+    // any already-mounted skeleton) on whatever theme it last painted
+    // under until the user types again.
+    window.addEventListener('gw-theme-change', () => {
+      paint(editor.getValue());
+      if (host) {
+        // Bones already painted under the old theme's --ghostwire-bone-*
+        // values (set as literal computed colors at render time, not live
+        // CSS var() references) — repainting the iframe alone won't
+        // re-color them, so re-synthesize against the fresh theme instead
+        // of leaving a stale-colored skeleton on screen.
+        renderer.removeLayer(host);
+        registry.detach(host);
+        host = null;
+        requestAnimationFrame(() => requestAnimationFrame(synthesize));
+      }
+    });
 
     function synthesize() {
       const doc = frame.contentDocument;
