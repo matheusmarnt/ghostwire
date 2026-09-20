@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > The `[1.0.0]` section below predates that and is hand-curated. It stays as
 > written, including its `Scope` subsection recording what 1.0.0 ships without.
 
+## [1.0.3](https://github.com/matheusmarnt/ghostwire/compare/v1.0.2...v1.0.3) (2026-09-20)
+
+
+### Miscellaneous Chores
+
+* stop tracking Node's compile cache ([c5b7dec](https://github.com/matheusmarnt/ghostwire/commit/c5b7decd1d8bde240d237cd04859f841396da391))
+* stop tracking Node's compile cache ([9833bdc](https://github.com/matheusmarnt/ghostwire/commit/9833bdc65af054295567b230403f2db882f9722c))
+
 ## [1.0.2](https://github.com/matheusmarnt/ghostwire/compare/v1.0.1...v1.0.2) (2026-09-20)
 
 
