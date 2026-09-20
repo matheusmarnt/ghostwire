@@ -4,6 +4,7 @@ namespace Ghostwire\Tests;
 
 use Ghostwire\GhostwireServiceProvider;
 use Ghostwire\Tests\Browser\Fixtures\DemoTable;
+use Ghostwire\Tests\Browser\Fixtures\DirectiveTimingProbe;
 use Ghostwire\Tests\Browser\Fixtures\Gallery\CardGrid;
 use Ghostwire\Tests\Browser\Fixtures\Gallery\GroupedTable;
 use Ghostwire\Tests\Browser\Fixtures\Gallery\NodeCount;
@@ -36,6 +37,7 @@ class TestCase extends Orchestra
         $app['config']->set('app.key', 'base64:'.base64_encode(random_bytes(32)));
         $app['view']->addNamespace('ghostwire-fixtures', __DIR__.'/Browser/Fixtures/views');
         Livewire::component('demo-table', DemoTable::class);
+        Livewire::component('directive-timing-probe', DirectiveTimingProbe::class);
         Livewire::component('paginated-table', PaginatedTable::class);
         Livewire::component('grouped-table', GroupedTable::class);
         Livewire::component('card-grid', CardGrid::class);
