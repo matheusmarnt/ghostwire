@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > The `[1.0.0]` section below predates that and is hand-curated. It stays as
 > written, including its `Scope` subsection recording what 1.0.0 ships without.
 
+## [1.0.2](https://github.com/matheusmarnt/ghostwire/compare/v1.0.1...v1.0.2) (2026-09-20)
+
+
+### Bug Fixes
+
+* **js:** parse timed and rows directive modifiers as Livewire tokenizes them ([2533da1](https://github.com/matheusmarnt/ghostwire/commit/2533da1d4878b41a70de44bf3042554bcec54509)), closes [#23](https://github.com/matheusmarnt/ghostwire/issues/23)
+
 ## [1.0.1](https://github.com/matheusmarnt/ghostwire/compare/v1.0.0...v1.0.1) (2026-09-19)
 
 
