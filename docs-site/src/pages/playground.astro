@@ -8,6 +8,7 @@ import '../styles/landing.css';
 // the iframe. The raw text gets injected directly into the iframe's own
 // <head> every time it's repainted.
 import ghostwireCss from '../../../js/src/style.css?raw';
+import ThemeToggle from '../components/ThemeToggle.astro';
 const base = import.meta.env.BASE_URL;
 const DEFAULT_MARKUP = `<div style="padding:16px;font-family:sans-serif;">
   <h2>Order #4821</h2>
@@ -44,6 +45,7 @@ const DEFAULT_MARKUP = `<div style="padding:16px;font-family:sans-serif;">
   </style>
 </head>
 <body>
+  <ThemeToggle />
   <section class="gw-hero">
     <h1>Playground</h1>
     <p>Edit the markup on the left. Click "Synthesize" to run Ghostwire's real, unmodified synthesizer against the live preview on the right.</p>
@@ -135,7 +137,7 @@ const DEFAULT_MARKUP = `<div style="padding:16px;font-family:sans-serif;">
     synthesizeBtn.addEventListener('click', () => {
       paint(editor.value);
       // Wait one frame so the iframe has actually laid out the new markup
-      // before measuring it (SPEC-PERF-01/02: never measure mid-paint).
+      // before measuring it (never measure mid-paint).
       requestAnimationFrame(() => requestAnimationFrame(synthesize));
     });
 

@@ -22,6 +22,6 @@ walk(host)
 
 **Adaptive freeze** degrades a host from `synthesize` to `freeze` mode automatically after two consecutive slow (>50ms) syntheses — a single slow sample is treated as GC/engine jitter, not a structural signal.
 
-**Slow hosts stay frozen.** Once the adaptive freeze above trips (SPEC-PERF-07), the host stays in `freeze` mode until it's torn down — synthesis is never attempted again, so nothing ever re-measures it back to `synthesize`. This is intentional hysteresis, not a bug: re-testing a degraded host on every commit is exactly how flicker gets produced, since the cost that tripped the freeze is a property of the subtree, not of the one commit that happened to measure it. A page reload resets it, since the streak that tracks it lives only in memory for the lifetime of the page.
+**Slow hosts stay frozen.** Once the adaptive freeze above trips, the host stays in `freeze` mode until it's torn down — synthesis is never attempted again, so nothing ever re-measures it back to `synthesize`. This is intentional hysteresis, not a bug: re-testing a degraded host on every commit is exactly how flicker gets produced, since the cost that tripped the freeze is a property of the subtree, not of the one commit that happened to measure it. A page reload resets it, since the streak that tracks it lives only in memory for the lifetime of the page.
 
 Try the algorithm directly, live, against your own markup, in the [playground](/ghostwire/playground/).
