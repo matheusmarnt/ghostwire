@@ -27,12 +27,12 @@ const DEFAULT_MARKUP = `<div style="padding:16px;font-family:sans-serif;">
   <style>
     .gw-playground { max-width: 1100px; margin: 2rem auto; padding: 0 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
     @media (max-width: 780px) { .gw-playground { grid-template-columns: 1fr; } }
-    .gw-playground textarea { width: 100%; height: 340px; background: #0e0e18; color: #d8d8e8; border: 1px solid #26263a; border-radius: 0.5rem; padding: 0.75rem; font-family: ui-monospace, monospace; font-size: 0.85rem; resize: vertical; }
-    .gw-playground iframe { width: 100%; height: 340px; border: 1px solid #26263a; border-radius: 0.5rem; background: #fff; }
+    .gw-playground textarea { width: 100%; height: 340px; background: var(--gw-code-bg); color: var(--gw-code-fg); border: 1px solid var(--gw-border); border-radius: 0.5rem; padding: 0.75rem; font-family: var(--gw-font-mono); font-size: 0.85rem; resize: vertical; }
+    .gw-playground iframe { width: 100%; height: 340px; border: 1px solid var(--gw-border); border-radius: 0.5rem; background: #fff; }
     .gw-playground-actions { margin: 0.75rem 0; display: flex; gap: 0.5rem; }
-    .gw-playground-actions button { background: #7c3aed; color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 0.4rem; cursor: pointer; }
-    .gw-playground-actions button.secondary { background: transparent; border: 1px solid #333; color: #f4f4f8; }
-    .gw-note { max-width: 1100px; margin: 0 auto 1rem; padding: 0 1.5rem; color: #9a97ad; font-size: 0.85rem; }
+    .gw-playground-actions button { background: var(--sl-color-accent); color: var(--gw-on-accent); border: none; padding: 0.5rem 1rem; border-radius: 0.4rem; cursor: pointer; }
+    .gw-playground-actions button.secondary { background: transparent; border: 1px solid var(--gw-border); color: var(--gw-fg); }
+    .gw-note { max-width: 1100px; margin: 0 auto 1rem; padding: 0 1.5rem; color: var(--gw-muted); font-size: 0.85rem; }
   </style>
 </head>
 <body>
