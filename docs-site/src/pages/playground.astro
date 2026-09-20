@@ -26,7 +26,7 @@ import tailwindCss from '../styles/tailwind.css?inline';
 // prefers-color-scheme, disconnected from this site's own toggle).
 import tokensCss from '../styles/tokens.css?raw';
 const base = import.meta.env.BASE_URL;
-const DEFAULT_MARKUP = `<div class="max-w-sm rounded-2xl border border-slate-200 bg-white p-5 font-sans shadow-sm dark:border-slate-700 dark:bg-slate-900">
+const DEFAULT_MARKUP = `<div wire:ghost class="max-w-sm rounded-2xl border border-slate-200 bg-white p-5 font-sans shadow-sm dark:border-slate-700 dark:bg-slate-900">
   <div class="mb-4 flex items-center justify-between">
     <div>
       <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100">Order #4821</h2>
@@ -72,7 +72,7 @@ const DEFAULT_MARKUP = `<div class="max-w-sm rounded-2xl border border-slate-200
     .gw-playground { max-width: 1100px; margin: 2rem auto; padding: 0 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
     @media (max-width: 780px) { .gw-playground { grid-template-columns: 1fr; } }
     .gw-playground .cm-editor { width: 100%; }
-    .gw-playground iframe { width: 100%; height: 340px; border: 1px solid var(--gw-border); border-radius: 0.5rem; background: #fff; }
+    .gw-playground iframe { width: 100%; height: 340px; border: 1px solid var(--gw-border); border-radius: 0.5rem; background: var(--gw-panel-bg); }
     .gw-playground-actions { margin: 0.75rem 0; display: flex; align-items: center; gap: 0.5rem; }
     .gw-playground-actions button { background: var(--sl-color-accent); color: var(--gw-on-accent); border: none; padding: 0.5rem 1rem; border-radius: 0.4rem; cursor: pointer; }
     .gw-playground-actions button.secondary { background: transparent; border: 1px solid var(--gw-border); color: var(--gw-fg); }
@@ -87,10 +87,10 @@ const DEFAULT_MARKUP = `<div class="max-w-sm rounded-2xl border border-slate-200
     <h1>Playground</h1>
     <p>Edit the markup on the left. Click "Synthesize" to run Ghostwire's real, unmodified synthesizer against the live preview on the right.</p>
   </section>
-  <p class="gw-note">This edits an HTML/Blade-flavored subset, not full Blade — the synthesizer walks the live rendered DOM, exactly as it does inside a real Livewire component, so what you see here is genuinely how Ghostwire would skeletonize this markup in your app. The preview updates as you type; click "Synthesize" to run Ghostwire's real, unmodified synthesizer against it.</p>
+  <p class="gw-note">This edits an HTML/Blade-flavored subset, not full Blade — the synthesizer walks the live rendered DOM, exactly as it does inside a real Livewire component, so what you see here is genuinely how Ghostwire would skeletonize this markup in your app. The card below carries a real <code>wire:ghost</code> directive; that's the element Ghostwire targets, same as it would inside a Livewire component. Try <code>wire:ghost.freeze</code> or <code>wire:ghost.off</code> to see those modes too. The preview updates as you type; click "Synthesize" to run Ghostwire's real, unmodified synthesizer against it.</p>
 
   <div class="gw-playground">
-    <div id="markup-editor"></div>
+    <div id="markup-editor" role="region" aria-label="Markup editor"></div>
     <div>
       <iframe id="preview-frame" title="Live preview"></iframe>
     </div>
@@ -142,7 +142,7 @@ const DEFAULT_MARKUP = `<div class="max-w-sm rounded-2xl border border-slate-200
     // Strips the Google Fonts @import — the iframe repaints on every edit,
     // and re-fetching that stylesheet each time is pure waste; the iframe
     // doesn't render any of this page's own font-driven UI anyway.
-    const tokensCss = document.getElementById('tokens-css-source').dataset.css.replace(/@import[^;]+;/, '');
+    const tokensCss = document.getElementById('tokens-css-source').dataset.css.replace(/@import[^;]+;/g, '');
     const DEFAULT_MARKUP = document.getElementById('default-markup-source').dataset.markup;
 
     const registry = createRegistry();
@@ -157,8 +157,8 @@ const DEFAULT_MARKUP = `<div class="max-w-sm rounded-2xl border border-slate-200
     // shimmer constantly, and because it mirrors the real product: a
     // request START triggers synthesis, not every content change.
     const editor = createPlaygroundEditor(editorContainer, DEFAULT_MARKUP, () => {
-      paint(editor.getValue());
       if (host) { renderer.removeLayer(host); registry.detach(host); host = null; }
+      paint(editor.getValue());
     });
 
     function paint(markup) {
@@ -174,25 +174,67 @@ const DEFAULT_MARKUP = `<div class="max-w-sm rounded-2xl border border-slate-200
     // any already-mounted skeleton) on whatever theme it last painted
     // under until the user types again.
     window.addEventListener('gw-theme-change', () => {
-      paint(editor.getValue());
+      const hadHost = Boolean(host);
       if (host) {
-        // Bones already painted under the old theme's --ghostwire-bone-*
-        // values (set as literal computed colors at render time, not live
-        // CSS var() references) — repainting the iframe alone won't
-        // re-color them, so re-synthesize against the fresh theme instead
-        // of leaving a stale-colored skeleton on screen.
+        // Teardown must happen BEFORE paint() replaces the iframe
+        // document below — removeLayer/detach act on nodes that live in
+        // the CURRENT iframe document, which paint()'s doc.write() is
+        // about to throw away wholesale.
         renderer.removeLayer(host);
         registry.detach(host);
         host = null;
+      }
+      paint(editor.getValue());
+      if (hadHost) {
+        // The skeleton must be re-synthesized, not just repainted: its
+        // bones read --ghostwire-bone-* via a live var() reference
+        // (style.css's .gw-bone rule), so the OLD bones would actually
+        // pick up the new theme's colors for free — but the iframe
+        // document itself was just destroyed and rebuilt by paint()
+        // above, taking every existing bone/layer node down with it.
         requestAnimationFrame(() => requestAnimationFrame(synthesize));
       }
     });
 
+    // Finds the element the edited markup actually tags for Ghostwire —
+    // same lookup a real page's runtime does, just run once by hand
+    // instead of on every Livewire request. A CSS attribute selector can't
+    // express "starts with this name" for an attribute NAME (only for a
+    // value via `^=`), and a modifier like `.freeze` is part of the name
+    // (`wire:ghost.freeze`), not a value — so this walks real attributes.
+    function findGhostHost(doc) {
+      for (const el of doc.body.querySelectorAll('*')) {
+        for (const attr of el.attributes) {
+          if (attr.name === 'wire:ghost' || attr.name.startsWith('wire:ghost.')) {
+            return { el, modifier: attr.name.slice('wire:ghost'.length) };
+          }
+        }
+      }
+      return null;
+    }
+
+    // Callers clean up any previous host THEMSELVES, before calling
+    // paint() — never here. paint() below replaces the iframe document
+    // wholesale (doc.write()), so a previous host's layer/element already
+    // belong to a document that no longer exists by the time this runs.
     function synthesize() {
       const doc = frame.contentDocument;
-      const target = doc.body;
-      if (host) { renderer.removeLayer(host); registry.detach(host); host = null; }
+      const found = findGhostHost(doc);
+      const target = found ? found.el : doc.body;
+
+      // Real wire:ghost.off opts a host out entirely — nothing renders.
+      if (found && found.modifier === '.off') return;
+
       host = registry.attach(target, { id: 'playground' }, { rows: null });
+
+      // Real freeze mode dims/disables the live host in place instead of
+      // synthesizing a skeleton over it — same `.gw-frozen` class the
+      // renderer's own freeze() applies in production (js/src/style.css).
+      if (found && found.modifier === '.freeze') {
+        renderer.freeze(host);
+        return;
+      }
+
       // The Ghost Layer must live in the SAME document as the host it
       // measures against (getBoundingClientRect coordinates are document-
       // relative) — mount into the iframe's own document, not the parent page's.
@@ -203,9 +245,9 @@ const DEFAULT_MARKUP = `<div class="max-w-sm rounded-2xl border border-slate-200
       layer.style.left = '0';
       layer.style.right = '0';
       layer.style.bottom = '0';
-      // Explicit opt-out: the layer is a CHILD of `target` (doc.body) below,
-      // so it would otherwise inherit the `visibility: hidden` set on target
-      // a few lines down — visibility is inherited unless overridden.
+      // Explicit opt-out: the layer is a CHILD of doc.body below, so it
+      // would otherwise inherit the `visibility: hidden` set on target a
+      // few lines down — visibility is inherited unless overridden.
       layer.style.visibility = 'visible';
       doc.body.style.position = 'relative';
       doc.body.appendChild(layer);
@@ -217,6 +259,7 @@ const DEFAULT_MARKUP = `<div class="max-w-sm rounded-2xl border border-slate-200
     }
 
     synthesizeBtn.addEventListener('click', () => {
+      if (host) { renderer.removeLayer(host); registry.detach(host); host = null; }
       paint(editor.getValue());
       // Wait one frame so the iframe has actually laid out the new markup
       // before measuring it (never measure mid-paint).
@@ -224,9 +267,9 @@ const DEFAULT_MARKUP = `<div class="max-w-sm rounded-2xl border border-slate-200
     });
 
     resetBtn.addEventListener('click', () => {
+      if (host) { renderer.removeLayer(host); registry.detach(host); host = null; }
       editor.setValue(DEFAULT_MARKUP);
       paint(DEFAULT_MARKUP);
-      if (host) { renderer.removeLayer(host); registry.detach(host); host = null; }
     });
 
     paint(editor.getValue());

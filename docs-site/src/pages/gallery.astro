@@ -114,6 +114,10 @@ const base = import.meta.env.BASE_URL;
     }
     window.addEventListener('scroll', queueReposition, { passive: true });
     window.addEventListener('resize', queueReposition);
+    // Inter/JetBrains Mono load via tokens.css's @import and swap in after
+    // bones were first measured — the resulting reflow can drift a layer
+    // out from under its host without this.
+    document.fonts?.ready.then(queueReposition);
   </script>
 </body>
 </html>
