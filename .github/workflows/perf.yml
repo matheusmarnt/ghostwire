@@ -44,6 +44,14 @@ jobs:
       fail-fast: false
       matrix:
         livewire: ['^3.6', '^4.0']
+        include:
+          # Same reasoning as tests.yml: "^4.0" always resolves to the
+          # newest 4.x, so this job's ^4.0 cell has never run against the
+          # 4.0.x floor. php is fixed at 8.3 below (not part of this
+          # matrix), which is already the tests.yml precedent for a PHP
+          # version pest-plugin-browser supports, so the Browser suite here
+          # runs unskipped for this cell too.
+          - livewire: '4.0.*'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
