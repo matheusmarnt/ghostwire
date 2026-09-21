@@ -1089,6 +1089,84 @@ describe('directive registration and modifier parsing', () => {
 
       directiveCleanup();
     });
+
+    // Diagnosis doc item A: #[Ghost(lazy: true)] without real Livewire lazy
+    // loading is a 100%-silent no-op. These three cases are exactly what
+    // attachAttributeHost's viaMorphedRetry check (index.js) is built to
+    // discriminate: warn only when a host's very first attach happens
+    // straight off component.init with lazy:true already resolved — never
+    // when the identical attach instead comes through the 'morphed' retry
+    // (the real #[Lazy] recovery path exercised above).
+    describe('DX warning: #[Ghost(lazy: true)] declared without real lazy loading', () => {
+      afterEach(() => setDebugForTests(false));
+
+      it('warns when a lazy:true host attaches directly off component.init (no #[Lazy] ever involved) and isDebug() is true', () => {
+        boot();
+        setDebugForTests(true);
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+        const root = document.createElement('div');
+        root.setAttribute('data-ghost', '{"l":true,"n":"orders-table"}');
+        document.body.appendChild(root);
+
+        componentInitCallback()({
+          component: { id: 'c11', el: root },
+          cleanup: () => {},
+        });
+
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn.mock.calls[0][0]).toContain('orders-table');
+        expect(warn.mock.calls[0][0]).toContain('lazy');
+
+        warn.mockRestore();
+      });
+
+      it('does not warn for the same lazy:true-off-component.init case when isDebug() is false', () => {
+        boot();
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+        const root = document.createElement('div');
+        root.setAttribute('data-ghost', '{"l":true,"n":"orders-table"}');
+        document.body.appendChild(root);
+
+        componentInitCallback()({
+          component: { id: 'c12', el: root },
+          cleanup: () => {},
+        });
+
+        expect(warn).not.toHaveBeenCalled();
+
+        warn.mockRestore();
+      });
+
+      it('does not warn for a genuinely #[Lazy]-loaded component: component.init no-ops on the placeholder, the morphed retry attaches lazy:true, and that is the correct/working case', () => {
+        boot();
+        setDebugForTests(true);
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+        const root = document.createElement('div');
+        root.setAttribute('data-ghost-lazy', 'orders-table');
+        document.body.appendChild(root);
+        const component = { id: 'c13', el: root, addCleanup: () => {} };
+
+        // First render: still the #[Lazy] placeholder — attachAttributeHost
+        // no-ops here (SPEC-API-13 coverage above proves this branch).
+        componentInitCallback()({ component, cleanup: () => {} });
+        expect(warn).not.toHaveBeenCalled();
+
+        // The morph swaps in the real render: data-ghost-lazy gone, data-ghost
+        // (with l:true) now present — the exact shape the diagnosis doc's item
+        // A case is about, except this time real lazy loading genuinely ran.
+        root.removeAttribute('data-ghost-lazy');
+        root.setAttribute('data-ghost', '{"l":true,"n":"orders-table"}');
+
+        morphedCallback()({ component });
+
+        expect(warn).not.toHaveBeenCalled();
+
+        warn.mockRestore();
+      });
+    });
   });
 
   describe('.island scoping into the show/reposition lifecycle (SPEC-INT-13)', () => {

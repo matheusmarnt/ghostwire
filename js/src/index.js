@@ -353,7 +353,17 @@ export function boot() {
   // `component.addCleanup?.(fn)` instead — the same underlying array
   // `cleanup` above pushes onto, so both call sites tear down identically
   // at component-destroy time regardless of which one actually attached.
-  function attachAttributeHost(component, registerCleanup) {
+  //
+  // viaMorphedRetry distinguishes the two call sites for the lazy-DX-warning
+  // check below: it's true only when THIS call is the 'morphed' retry, i.e.
+  // component.init's own attempt was a no-op because component.el was still
+  // Livewire's #[Lazy] placeholder (see this function's block comment above
+  // and js/tests/directive.test.js's 'component.init auto-attach stays a
+  // no-op...' case). Reaching the attach below with it false means real
+  // content was already present on the very first component.init call —
+  // no placeholder, no #[Lazy], nothing for Ghostwire's lazy-placeholder path
+  // to ever have acted on for this host.
+  function attachAttributeHost(component, registerCleanup, viaMorphedRetry = false) {
     const root = component.el;
     // The morphed retry call site runs for EVERY zero-host component on
     // EVERY morph, including ones the 'morphed' payload names by id alone
@@ -378,6 +388,21 @@ export function boot() {
     const host = registry.attach(root, component, attributeConfig);
     host.actionOverrides = attributeConfig.actionOverrides ?? null;
     host.directiveConfig = {};
+
+    // Diagnosis doc item A: #[Ghost(lazy: true)] only ever does anything via
+    // the 'morphed' retry path above (data-ghost-lazy -> paintLazyPlaceholders,
+    // then this same function recovering the host once real content lands).
+    // !viaMorphedRetry here means the attach above happened straight off
+    // component.init with real content already in hand — this component was
+    // never behind a Livewire lazy placeholder for this render, so the
+    // lazy: true the developer wrote had nothing to attach to and is dead
+    // weight. Checked here (post-attach, using the resolved attributeConfig)
+    // rather than in paintLazyPlaceholders()/registry, because this is the
+    // only point that both knows the resolved lazy flag AND can tell which of
+    // the two call sites actually produced this host.
+    if (attributeConfig.lazy && !viaMorphedRetry && isDebug()) {
+      console.warn(`[ghostwire] "${attributeConfig.name ?? component.id}" declares #[Ghost(lazy: true)] but rendered its real content on the very first pass — Livewire never lazy-loaded it (no #[Lazy], no other lazy mechanism active). lazy: true has no effect here; add #[Lazy] or remove the flag.`);
+    }
 
     // Only reached once a real attach happens above — an early return (no
     // directive, no config, mode:'off', or already-hosted) must never
@@ -439,7 +464,7 @@ export function boot() {
     // teardown array, called with `?.` because some test doubles for
     // `component` (js/tests/*.js) construct a plain { id, el } without it.
     if (registry.hostsFor(component.id).size === 0) {
-      attachAttributeHost(component, (fn) => component.addCleanup?.(fn));
+      attachAttributeHost(component, (fn) => component.addCleanup?.(fn), true);
     }
 
     for (const host of registry.hostsFor(component.id)) {
