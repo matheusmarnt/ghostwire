@@ -243,6 +243,35 @@ describe('bridge v3', () => {
     expect(onFinishCtx.isRenderless).toBe(false);
   });
 
+  // The commit hook callback body is wrapped in try/catch so a throwing
+  // callback is contained instead
+  // of propagating out through Livewire's own dispatch and killing every
+  // Livewire request on the page. Here `component.el` access inside
+  // isPolledMethod's caller throws via a getter, standing in for any
+  // unexpected shape a real component object might have.
+  it('contains a throwing callback body: a component whose el access throws does not propagate out of the commit hook and onStart is not called', () => {
+    const onStart = vi.fn();
+    const throwingComponent = {
+      id: 'c1',
+      get el() { throw new Error('boom'); },
+    };
+    global.Livewire = {
+      hook(name, cb) {
+        if (name !== 'commit') return;
+        expect(() => {
+          cb({
+            component: throwingComponent,
+            commit: makeCommit([{ path: '', method: 'save', params: [] }]),
+            succeed: () => {}, fail: () => {},
+          });
+        }).not.toThrow();
+      },
+    };
+    createV3Bridge().subscribe({ onStart, onPostPaint: () => {}, onFinish: () => {} });
+
+    expect(onStart).not.toHaveBeenCalled();
+  });
+
   it('subscribe returns an unsubscribe function even though Livewire.hook itself returns nothing (SPEC-INT-24: no documented v3 unsubscribe)', () => {
     global.Livewire = { hook() { /* no return value, matches real v3 */ } };
 

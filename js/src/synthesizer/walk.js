@@ -1,6 +1,6 @@
 const LEAF_TAGS_MEDIA = ['IMG', 'VIDEO', 'PICTURE', 'CANVAS'];
 const LEAF_TAGS_CONTROL = ['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'];
-const MAX_CANDIDATES = 300; // raw safety cap; block-aggregation degrade is M3 scope
+const MAX_CANDIDATES = 300; // raw safety cap; tripping it stops the walk and keeps what was already collected (see visit())
 
 export function classify(el) {
   if (el.tagName === 'svg' || el.tagName === 'SVG') return 'icon';
@@ -25,7 +25,7 @@ const REPEAT_HEIGHT_TOLERANCE = 0.15; // relative height variance allowed before
 export function collectAndClassify(host, registry, maxDepth = 12, repeatSampleSize = 3) {
   const candidates = [];
   const state = { groupSeq: 0 };
-  visit(host.el, registry, candidates, 0, maxDepth, repeatSampleSize, state, null, host.el, undefined);
+  visit(host.el, registry, candidates, 0, maxDepth, repeatSampleSize, state, null, undefined);
   return candidates;
 }
 
@@ -42,20 +42,22 @@ export function collectAndClassifyRange(startNode, endNode, host, registry, maxD
   let node = startNode.nextSibling;
   while (node && node !== endNode) {
     if (node.nodeType === Node.ELEMENT_NODE && (!registry.hostFor(node) || node === host.el)) {
-      visit(node, registry, candidates, 0, maxDepth, repeatSampleSize, state, null, node, host.el);
+      visit(node, registry, candidates, 0, maxDepth, repeatSampleSize, state, null, host.el);
     }
     node = node.nextSibling;
   }
   return candidates;
 }
 
-// Depth and candidate-count are both hard-capped; exceeding
-// either degrades to one aggregated 'block' bone (see the count-cap branch
-// below: gated by state.capped so at most one is ever pushed, sized to the
-// whole host via rootEl).
+// Depth and candidate-count are both hard-capped, but they degrade
+// differently: the depth cap (processChild, below) aggregates a container
+// hit at max depth into a 'block' bone sized to *that container*, while the
+// count cap (below) just stops walking — a host-sized aggregate bone was
+// tried and rejected (see the count-cap branch's comment) because it paints
+// over every candidate already collected.
 // A run of >= REPEAT_MIN_RUN uniform-height siblings sharing a
 // tag+class signature is sampled instead of walked in full.
-function visit(node, registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, rootEl, exemptHostEl) {
+function visit(node, registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, exemptHostEl) {
   const children = [];
   for (const child of node.children) {
     if (registry.hostFor(child) && child !== exemptHostEl) continue; // nested wire:ghost host is a boundary — except the host this walk is for
@@ -66,10 +68,13 @@ function visit(node, registry, out, depth, maxDepth, repeatSampleSize, state, re
   let i = 0;
   while (i < children.length) {
     if (out.length >= MAX_CANDIDATES) {
-      if (!state.capped) {
-        out.push({ type: 'block', el: rootEl, depth: 0 });
-        state.capped = true;
-      }
+      // The aggregate block was meant to keep the un-walked tail from having
+      // zero coverage, but it is sized to the WHOLE host and appended last, so
+      // it paints over every candidate already collected and flattens the
+      // skeleton into a single filled rectangle. The cap can only trip once
+      // MAX_CANDIDATES candidates exist, so there is always a detailed set
+      // that describes the host far better than one host-sized block would.
+      // Stop walking and keep what was collected.
       return;
     }
 
@@ -83,7 +88,7 @@ function visit(node, registry, out, depth, maxDepth, repeatSampleSize, state, re
       const groupId = state.groupSeq++;
       const sampleSize = Math.min(repeatSampleSize, runLength);
       for (let s = 0; s < sampleSize; s++) {
-        processChild(children[i + s], registry, out, depth, maxDepth, repeatSampleSize, state, { id: groupId, index: s }, rootEl, exemptHostEl);
+        processChild(children[i + s], registry, out, depth, maxDepth, repeatSampleSize, state, { id: groupId, index: s }, exemptHostEl);
       }
       const extraCount = runLength - sampleSize;
       if (extraCount > 0) {
@@ -103,16 +108,16 @@ function visit(node, registry, out, depth, maxDepth, repeatSampleSize, state, re
       continue;
     }
 
-    processChild(children[i], registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, rootEl, exemptHostEl);
+    processChild(children[i], registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, exemptHostEl);
     i += 1;
   }
 }
 
-function processChild(child, registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, rootEl, exemptHostEl) {
+function processChild(child, registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, exemptHostEl) {
   const type = classify(child);
   if (type === 'container') {
     if (depth < maxDepth) {
-      visit(child, registry, out, depth + 1, maxDepth, repeatSampleSize, state, repeatGroup, rootEl, exemptHostEl);
+      visit(child, registry, out, depth + 1, maxDepth, repeatSampleSize, state, repeatGroup, exemptHostEl);
     } else {
       const block = { type: 'block', el: child, depth: depth + 1 };
       if (repeatGroup) block.repeatGroup = repeatGroup;

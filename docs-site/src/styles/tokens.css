@@ -74,8 +74,8 @@
    unscoped override here would tie on specificity and the winner would
    come down to load order instead of this toggle. */
 :root[data-theme='dark'] {
-  --ghostwire-bone-color: oklch(0.28 0.01 250);
-  --ghostwire-bone-highlight: oklch(0.38 0.01 250);
+  --ghostwire-bone-color: oklch(0.42 0.012 250);
+  --ghostwire-bone-highlight: oklch(0.55 0.015 250);
 }
 
 :root[data-theme='light'] {

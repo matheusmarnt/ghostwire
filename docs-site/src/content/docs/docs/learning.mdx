@@ -20,6 +20,8 @@ GHOSTWIRE_LEARNING=true
 ],
 ```
 
+The flag only enables skeleton capture and produces no visible effect on its own — to see a learned skeleton painted, pair it with `#[Ghost(lazy: true)]` on your component (and Livewire's `#[Lazy]` if you want the skeleton to appear on the initial load).
+
 Whatever the flag says, Ghostwire also refuses to collect anything while `app()->isProduction()` is true — both checks run server-side, per request, so a client can never turn learning on for itself. Learning also only runs against the `local` store (`learning.store` in `config/ghostwire.php`); any other value refuses it outright.
 
 ## What is stored, and where

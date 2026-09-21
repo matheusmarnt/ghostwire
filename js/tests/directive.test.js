@@ -123,6 +123,10 @@ describe('directive registration and modifier parsing', () => {
     return hookCallbacks.get('component.init')?.at(-1);
   }
 
+  function morphedCallback() {
+    return hookCallbacks.get('morphed')?.at(-1);
+  }
+
   it('registers the "ghost" directive', () => {
     boot();
     expect(registeredCallback).toBeTypeOf('function');
@@ -999,6 +1003,191 @@ describe('directive registration and modifier parsing', () => {
       expect(registryInstances.at(-1).attach).toHaveBeenCalledTimes(1);
       const [attachedEl] = registryInstances.at(-1).attach.mock.calls.at(-1);
       expect(attachedEl).toBe(child);
+    });
+  });
+
+  // For a #[Lazy] + #[Ghost] component, component.init fires while
+  // component.el is still Livewire's own placeholder (data-ghost-lazy
+  // present, data-ghost absent) — attachAttributeHost() no-ops, and nothing
+  // else retried the attach, so every later action on the component produced
+  // total silence (confirmed live). 'morphed' is now the retry point.
+  describe('lazy-attach retry: #[Ghost] recovers after #[Lazy] hydrates (morphed hook)', () => {
+    it('component.init auto-attach stays a no-op while the root is still the #[Lazy] placeholder (data-ghost-lazy present, data-ghost absent) — extends SPEC-API-13 coverage', () => {
+      boot();
+      const root = document.createElement('div');
+      root.setAttribute('data-ghost-lazy', 'my-component');
+      document.body.appendChild(root);
+
+      expect(() => componentInitCallback()({
+        component: { id: 'c8', el: root },
+        cleanup: () => { throw new Error('cleanup must not be registered for a lazy placeholder root'); },
+      })).not.toThrow();
+
+      expect(registryInstances.at(-1).attach).not.toHaveBeenCalled();
+    });
+
+    it('morphed retries the attribute auto-attach for a zero-host component whose root now has data-ghost (post-#[Lazy]-load morph), tearing down via component.addCleanup — not a hook-level cleanup', () => {
+      boot();
+      const root = document.createElement('div');
+      // Simulates the morph having just swapped the lazy placeholder's
+      // attributes for the real render's — data-ghost now present, no
+      // matching host exists yet for this component.
+      root.setAttribute('data-ghost', '{"h":500}');
+      document.body.appendChild(root);
+
+      const addCleanupFns = [];
+      const component = { id: 'c9', el: root, addCleanup: (fn) => addCleanupFns.push(fn) };
+
+      expect(() => morphedCallback()({ component })).not.toThrow();
+
+      const registry = registryInstances.at(-1);
+      expect(registry.attach).toHaveBeenCalledTimes(1);
+      const [attachedEl, , config] = registry.attach.mock.calls.at(-1);
+      expect(attachedEl).toBe(root);
+      expect(config.hold).toBe(500);
+      expect(registry.hostsFor('c9').size).toBe(1);
+      // Teardown went through component.addCleanup — the morphed hook's
+      // payload carries no `cleanup` callback of its own to register with.
+      expect(addCleanupFns).toHaveLength(1);
+      expect(() => addCleanupFns[0]()).not.toThrow();
+      expect(registry.hostsFor('c9').size).toBe(0); // addCleanup's fn actually detaches the host
+    });
+
+    it('morphed does not re-enter the retry gate for a component that already owns a host, and does not re-run hasGhostDirective\'s subtree scan', () => {
+      boot();
+      const root = document.createElement('div');
+      document.body.appendChild(root);
+      const component = { id: 'c10', el: root, addCleanup: () => {} };
+
+      // A directive-created host already exists for this component (the
+      // normal wire:ghost path) before any morph happens.
+      let directiveCleanup;
+      registeredCallback({
+        el: root,
+        directive: { modifiers: [], expression: '' },
+        component,
+        cleanup: (fn) => { directiveCleanup = fn; },
+      });
+
+      const registry = registryInstances.at(-1);
+      expect(registry.attach).toHaveBeenCalledTimes(1);
+      expect(registry.hostsFor('c10').size).toBe(1);
+
+      // hasGhostDirective()'s subtree scan is the only thing in the retry
+      // path that calls root.querySelectorAll — spy on it fresh, after the
+      // directive already attached, so only the morphed call below counts.
+      const querySelectorAllSpy = vi.spyOn(root, 'querySelectorAll');
+
+      expect(() => morphedCallback()({ component })).not.toThrow();
+
+      // The zero-hosts gate must not have been entered at all: no second
+      // attach, host count unchanged, and the expensive subtree scan that
+      // only ever runs from inside that gate never ran.
+      expect(registry.attach).toHaveBeenCalledTimes(1);
+      expect(registry.hostsFor('c10').size).toBe(1);
+      expect(querySelectorAllSpy).not.toHaveBeenCalled();
+
+      directiveCleanup();
+    });
+
+    it('morphed retry for a zero-host component with no data-ghost attribute never runs hasGhostDirective\'s subtree scan — the O(1) attribute check alone is enough to say "no attach"', () => {
+      boot();
+      const root = document.createElement('div');
+      // No data-ghost, no wire:ghost — the common case for a Livewire
+      // component in an app that only uses Ghostwire on a couple of
+      // components. registry.hostsFor(component.id).size === 0 still lets
+      // this call reach attachAttributeHost on every morph, forever.
+      document.body.appendChild(root);
+      const component = { id: 'c10c', el: root, addCleanup: () => {} };
+
+      const querySelectorAllSpy = vi.spyOn(root, 'querySelectorAll');
+
+      expect(() => morphedCallback()({ component })).not.toThrow();
+
+      const registry = registryInstances.at(-1);
+      expect(registry.attach).not.toHaveBeenCalled();
+      // parseAttributeConfig(root) bails on a single getAttribute('data-ghost')
+      // call (attributeConfig.js:38-39) before hasGhostDirective()'s
+      // root.querySelectorAll('*') subtree scan ever gets a chance to run.
+      expect(querySelectorAllSpy).not.toHaveBeenCalled();
+    });
+
+    // Diagnosis doc item A: #[Ghost(lazy: true)] without real Livewire lazy
+    // loading is a 100%-silent no-op. These three cases are exactly what
+    // attachAttributeHost's viaMorphedRetry check (index.js) is built to
+    // discriminate: warn only when a host's very first attach happens
+    // straight off component.init with lazy:true already resolved — never
+    // when the identical attach instead comes through the 'morphed' retry
+    // (the real #[Lazy] recovery path exercised above).
+    describe('DX warning: #[Ghost(lazy: true)] declared without real lazy loading', () => {
+      afterEach(() => setDebugForTests(false));
+
+      it('warns when a lazy:true host attaches directly off component.init (no #[Lazy] ever involved) and isDebug() is true', () => {
+        boot();
+        setDebugForTests(true);
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+        const root = document.createElement('div');
+        root.setAttribute('data-ghost', '{"l":true,"n":"orders-table"}');
+        document.body.appendChild(root);
+
+        componentInitCallback()({
+          component: { id: 'c11', el: root },
+          cleanup: () => {},
+        });
+
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn.mock.calls[0][0]).toContain('orders-table');
+        expect(warn.mock.calls[0][0]).toContain('lazy');
+
+        warn.mockRestore();
+      });
+
+      it('does not warn for the same lazy:true-off-component.init case when isDebug() is false', () => {
+        boot();
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+        const root = document.createElement('div');
+        root.setAttribute('data-ghost', '{"l":true,"n":"orders-table"}');
+        document.body.appendChild(root);
+
+        componentInitCallback()({
+          component: { id: 'c12', el: root },
+          cleanup: () => {},
+        });
+
+        expect(warn).not.toHaveBeenCalled();
+
+        warn.mockRestore();
+      });
+
+      it('does not warn for a genuinely #[Lazy]-loaded component: component.init no-ops on the placeholder, the morphed retry attaches lazy:true, and that is the correct/working case', () => {
+        boot();
+        setDebugForTests(true);
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+        const root = document.createElement('div');
+        root.setAttribute('data-ghost-lazy', 'orders-table');
+        document.body.appendChild(root);
+        const component = { id: 'c13', el: root, addCleanup: () => {} };
+
+        // First render: still the #[Lazy] placeholder — attachAttributeHost
+        // no-ops here (SPEC-API-13 coverage above proves this branch).
+        componentInitCallback()({ component, cleanup: () => {} });
+        expect(warn).not.toHaveBeenCalled();
+
+        // The morph swaps in the real render: data-ghost-lazy gone, data-ghost
+        // (with l:true) now present — genuine lazy loading, so the warning
+        // must stay silent even though the shape matches the broken case above.
+        root.removeAttribute('data-ghost-lazy');
+        root.setAttribute('data-ghost', '{"l":true,"n":"orders-table"}');
+
+        morphedCallback()({ component });
+
+        expect(warn).not.toHaveBeenCalled();
+
+        warn.mockRestore();
+      });
     });
   });
 

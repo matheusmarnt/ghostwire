@@ -97,7 +97,7 @@ describe('synthesizer/walk', () => {
     expect(candidates[0].type).toBe('block');
   });
 
-  it('collectAndClassify degrades to a block bone when MAX_CANDIDATES is exceeded (SPEC-SYN-13)', () => {
+  it('stops at MAX_CANDIDATES without emitting an aggregate block bone', () => {
     const el = document.createElement('div');
     for (let i = 0; i < 305; i++) {
       const p = document.createElement('p');
@@ -110,14 +110,15 @@ describe('synthesizer/walk', () => {
 
     const candidates = collectAndClassify(host, registry, 12);
 
-    // 300 real leaf candidates are pushed before the cap trips on the 301st
-    // child; that trip aggregates the remaining 4 children into one block.
-    expect(candidates).toHaveLength(301);
+    // The cap trips after exactly 300 real leaf candidates; the remaining 5
+    // children are discarded instead of being flattened into a host-sized
+    // block that would paint over the 300 already collected.
+    expect(candidates).toHaveLength(300);
     expect(candidates[0].type).toBe('text');
-    expect(candidates.at(-1).type).toBe('block');
+    expect(candidates.filter((c) => c.el === host.el)).toHaveLength(0);
   });
 
-  it('SPEC-SYN-13: exactly one block is produced when the count cap trips inside a nested container with siblings still pending', () => {
+  it('the count cap discards the un-walked tail instead of covering it with an aggregate block', () => {
     const el = document.createElement('div');
     const a = document.createElement('div'); // container A: fills the cap exactly on its own
     for (let i = 0; i < 300; i++) {
@@ -137,9 +138,32 @@ describe('synthesizer/walk', () => {
 
     const candidates = collectAndClassify(host, registry, 12);
 
+    // No aggregate block at all: A's 300 children are all present and intact,
+    // B's content is simply absent — the cheaper, more-legible tradeoff over
+    // a host-sized block that would cover A's real bones.
+    expect(candidates.filter((c) => c.type === 'block')).toHaveLength(0);
+    expect(candidates).toHaveLength(300);
+    expect(candidates.every((c) => c.el.textContent.startsWith('a-row'))).toBe(true);
+    expect(candidates.some((c) => c.el.textContent === 'b-row')).toBe(false);
+  });
+
+  it('the depth cap still aggregates per-container, independent of the count cap', () => {
+    // Two sibling containers, each nested exactly at maxDepth (maxDepth: 1
+    // here, mirroring the single-container depth-cap test above), each with
+    // content below that depth. Proves the depth cap is still container-
+    // scoped (block.el is each container, not host.el) and unaffected by
+    // the count-cap change above.
+    const host = makeHost('<div><div><p>deep A</p></div><div><p>deep B</p></div></div>');
+    const registry = createRegistry();
+    const containerA = host.el.children[0].children[0];
+    const containerB = host.el.children[0].children[1];
+
+    const candidates = collectAndClassify(host, registry, 1);
+
     const blocks = candidates.filter((c) => c.type === 'block');
-    expect(blocks).toHaveLength(1); // not one per ancestor level
-    expect(blocks[0].el).toBe(host.el); // covers the whole host, so B's un-walked content isn't left with zero coverage
+    expect(blocks).toHaveLength(2);
+    expect(blocks.map((b) => b.el)).toEqual([containerA, containerB]);
+    expect(blocks.every((b) => b.depth === 2)).toBe(true);
   });
 
   it('SPEC-SYN-11: samples the first repeatSampleSize items of a uniform run of >= 3 siblings', () => {

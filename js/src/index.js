@@ -329,15 +329,73 @@ export function boot() {
   // component.cleanup() when the component is removed (confirmed in both
   // installed dist bundles). Using it here is symmetric with how the
   // directive already tears itself down, and needs no separate hook lookup.
-  window.Livewire.hook('component.init', ({ component, cleanup }) => {
+  //
+  // Extracted to a standalone function because component.init firing is
+  // NOT the only moment this attach needs to run. For a
+  // #[Lazy] component, component.init fires while component.el is still
+  // Livewire's OWN lazy placeholder — data-ghost-lazy present, data-ghost
+  // absent (that attribute only exists on the real render) — so
+  // parseAttributeConfig(root) returns null and this function returns with
+  // nothing attached. Livewire never re-fires component.init once the real
+  // HTML morphs in, and 'morphed' is the only other lifecycle hook that
+  // still runs for this component afterward — so it's this function's
+  // second call site (below), retrying the identical check against the now-
+  // real root. Confirmed live against a real #[Lazy] + #[Ghost] component:
+  // without the retry, the skeleton painted fine on first load
+  // (paintLazyPlaceholders, an unrelated path) but every later action
+  // (search, filter, any button) produced total silence — the host required
+  // to activate the scheduler/synthesizer for that component simply never
+  // existed.
+  //
+  // registerCleanup is a parameter, not always the `cleanup` from
+  // component.init's own payload: the morphed call site has no such
+  // callback in its payload (see its own comment below) and passes
+  // `component.addCleanup?.(fn)` instead — the same underlying array
+  // `cleanup` above pushes onto, so both call sites tear down identically
+  // at component-destroy time regardless of which one actually attached.
+  //
+  // viaMorphedRetry distinguishes the two call sites for the lazy-DX-warning
+  // check below: it's true only when THIS call is the 'morphed' retry, i.e.
+  // component.init's own attempt was a no-op because component.el was still
+  // Livewire's #[Lazy] placeholder (see this function's block comment above
+  // and js/tests/directive.test.js's 'component.init auto-attach stays a
+  // no-op...' case). Reaching the attach below with it false means real
+  // content was already present on the very first component.init call —
+  // no placeholder, no #[Lazy], nothing for Ghostwire's lazy-placeholder path
+  // to ever have acted on for this host.
+  function attachAttributeHost(component, registerCleanup, viaMorphedRetry = false) {
     const root = component.el;
+    // The morphed retry call site runs for EVERY zero-host component on
+    // EVERY morph, including ones the 'morphed' payload names by id alone
+    // with no real Component instance behind them (js/tests/
+    // learning-lazy.test.js's fakeLivewire fixtures trigger('morphed', {
+    // component: { id: 'unrelated' } }) this way, and it crashed
+    // hasGhostDirective's root.querySelectorAll call before this guard
+    // existed). Real Livewire always populates component.el; this only
+    // protects against a test double or a future caller that doesn't.
+    if (!root) return;
+
+    // O(1) gate BEFORE the O(subtree) one. parseAttributeConfig() bails on a
+    // single root.getAttribute('data-ghost') call when the attribute is
+    // absent (attributeConfig.js:38-39) — that's every Livewire component in
+    // an app that uses Ghostwire on only a couple of components, and (via the
+    // 'morphed' call site below) it's paid on EVERY morph for the lifetime of
+    // each one. hasGhostDirective()'s root.querySelectorAll('*') subtree scan
+    // is only cheap to skip if it runs second. Both checks are early returns
+    // to the same "don't attach" outcome, so swapping their order is
+    // semantics-preserving for the attach decision itself — with one
+    // exception: an element whose data-ghost is malformed AND that also
+    // carries wire:ghost (or already owns a registry host) now reaches
+    // parseAttributeConfig's debug-gated JSON/shape warning below, where the
+    // old order short-circuited on hasGhostDirective()/registry.hostFor()
+    // first and never called parseAttributeConfig at all.
+    const attributeConfig = parseAttributeConfig(root);
+    if (attributeConfig === null || attributeConfig.mode === 'off') return;
+
     // A directive-created host already owns this element.
     // hasGhostDirective() is the real guard (see its comment above);
     // registry.hostFor(root) is kept as a defensive second check.
     if (hasGhostDirective(root) || registry.hostFor(root)) return;
-
-    const attributeConfig = parseAttributeConfig(root);
-    if (attributeConfig === null || attributeConfig.mode === 'off') return;
 
     // No gw-kept handling here: `keep` has no data-ghost/attribute-config
     // equivalent (attributeConfig.js's compact-key schema has no "keep"
@@ -346,7 +404,28 @@ export function boot() {
     host.actionOverrides = attributeConfig.actionOverrides ?? null;
     host.directiveConfig = {};
 
-    cleanup(() => {
+    // Diagnosis doc item A: #[Ghost(lazy: true)] only ever does anything via
+    // the 'morphed' retry path above (data-ghost-lazy -> paintLazyPlaceholders,
+    // then this same function recovering the host once real content lands).
+    // !viaMorphedRetry here means the attach above happened straight off
+    // component.init with real content already in hand — this component was
+    // never behind a Livewire lazy placeholder for this render, so the
+    // lazy: true the developer wrote had nothing to attach to and is dead
+    // weight. Checked here (post-attach, using the resolved attributeConfig)
+    // rather than in paintLazyPlaceholders()/registry, because this is the
+    // only point that both knows the resolved lazy flag AND can tell which of
+    // the two call sites actually produced this host.
+    if (attributeConfig.lazy && !viaMorphedRetry && isDebug()) {
+      console.warn(`[ghostwire] "${attributeConfig.name ?? component.id}" declares #[Ghost(lazy: true)] but rendered its real content on the very first pass — Livewire never lazy-loaded it (no #[Lazy], no other lazy mechanism active). lazy: true has no effect here; add #[Lazy] or remove the flag.`);
+    }
+
+    // Only reached once a real attach happens above — an early return (no
+    // directive, no config, mode:'off', or already-hosted) must never
+    // register a cleanup. js/tests/directive.test.js's SPEC-API-13 tests
+    // assert this directly (a `cleanup` that throws if ever called), and the
+    // morphed retry's zero-hosts gate below depends on the same invariant: a
+    // failed attach must leave nothing behind for a later morph to find.
+    registerCleanup(() => {
       scheduler.cancel(host);
       synthesizer.forget(host);
       renderer.removeLayer(host);
@@ -355,6 +434,10 @@ export function boot() {
       host.el.classList.remove('gw-concealed');
       registry.detach(host);
     });
+  }
+
+  window.Livewire.hook('component.init', ({ component, cleanup }) => {
+    attachAttributeHost(component, cleanup);
   });
 
   window.Livewire.hook('morph.updating', ({ el, skip }) => {
@@ -378,6 +461,27 @@ export function boot() {
   // all here (each call idempotent); the scheduler still owns *when* the
   // visible window actually ends.
   window.Livewire.hook('morphed', ({ component }) => {
+    // Retry: attachAttributeHost's call from component.init (above) is a
+    // no-op for a #[Lazy] component — see that function's own comment for
+    // why. 'morphed' is the only hook that still fires for this
+    // component once the real HTML lands, so retrying the identical
+    // attribute check here is what actually recovers the host.
+    //
+    // Gated on registry.hostsFor(component.id).size === 0, not run
+    // unconditionally on every morph: a component that already owns a
+    // directive-created host (or already recovered via a prior morph) must
+    // not pay hasGhostDirective()'s querySelectorAll('*') subtree scan on
+    // every single morph for the rest of its life — only a component that
+    // currently owns zero hosts is even a candidate for this retry.
+    //
+    // No `cleanup` callback exists in this hook's payload (unlike
+    // component.init's) — component.addCleanup() is the same underlying
+    // teardown array, called with `?.` because some test doubles for
+    // `component` (js/tests/*.js) construct a plain { id, el } without it.
+    if (registry.hostsFor(component.id).size === 0) {
+      attachAttributeHost(component, (fn) => component.addCleanup?.(fn), true);
+    }
+
     for (const host of registry.hostsFor(component.id)) {
       if (host.state !== 'visible') continue;
       renderer.markBusy(host);

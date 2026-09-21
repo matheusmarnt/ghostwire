@@ -243,6 +243,67 @@ describe('bridge v4', () => {
     expect(onStart).not.toHaveBeenCalled();
   });
 
+  // Regression test for the real production crash: a message with NO
+  // `isSkipped` property at all -- not fakeMessage()'s default
+  // `() => false` implementation, the method genuinely absent -- is what
+  // Livewire 4.0-4.2 actually hands the interceptor, since Message.isSkipped()
+  // was only added ~4.3. Calling it unconditionally throws
+  // TypeError: message.isSkipped is not a function inside Livewire's own
+  // MessageInterceptor constructor, which used to kill every Livewire
+  // request on the page. The guard must feature-detect, not assume the
+  // newest shape, and treat "absent" as "not skipped".
+  it('treats an absent isSkipped as "not skipped" (feature-detected, not assumed) -- proves the v4.0-4.2 crash is fixed', () => {
+    const onStart = vi.fn();
+    const message = {
+      component: { id: 'c1' },
+      getActions: () => [],
+      // isSkipped intentionally not defined.
+    };
+    global.Livewire = {
+      interceptMessage(cb) {
+        expect(() => {
+          cb({
+            message,
+            onSuccess: () => {}, onError: () => {}, onFailure: () => {},
+            onCancel: () => {}, onSkipped: () => {}, onFinish: () => {},
+          });
+        }).not.toThrow();
+        return () => {};
+      },
+    };
+    createV4Bridge().subscribe({ onStart, onPostPaint: () => {}, onFinish: () => {} });
+
+    expect(onStart).toHaveBeenCalledOnce();
+  });
+
+  // The interceptMessage callback body is wrapped in try/catch so ANY
+  // throwing callback -- not
+  // just the isSkipped case above -- is contained. A missing skeleton is an
+  // acceptable degradation; a dead Livewire app is not.
+  it('contains a throwing callback body: getActions() throwing does not propagate out of interceptMessage and onStart is not called', () => {
+    const onStart = vi.fn();
+    const message = {
+      component: { id: 'c1' },
+      isSkipped: () => false,
+      getActions: () => { throw new Error('boom'); },
+    };
+    global.Livewire = {
+      interceptMessage(cb) {
+        expect(() => {
+          cb({
+            message,
+            onSuccess: () => {}, onError: () => {}, onFailure: () => {},
+            onCancel: () => {}, onSkipped: () => {}, onFinish: () => {},
+          });
+        }).not.toThrow();
+        return () => {};
+      },
+    };
+    createV4Bridge().subscribe({ onStart, onPostPaint: () => {}, onFinish: () => {} });
+
+    expect(onStart).not.toHaveBeenCalled();
+  });
+
   it('wires onPostPaint through onSuccess -> onRender (post-paint removal timing, SPEC-INT-04)', () => {
     const onPostPaint = vi.fn();
     let capturedRenderCb;

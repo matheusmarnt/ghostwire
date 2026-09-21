@@ -44,6 +44,17 @@ jobs:
       fail-fast: false
       matrix:
         livewire: ['^3.6', '^4.0']
+        include:
+          # Same reasoning as tests.yml: "^4.0" always resolves to the
+          # newest 4.x, so this job's ^4.0 cell has never run against an old
+          # Livewire 4.x. Installing this floor cell requires an advisory
+          # ignore (see the "Require the matrix Livewire line" step below)
+          # — see tests.yml's matching cell for the full investigation.
+          # php is fixed at 8.3 below (not part of this matrix), which is
+          # already the tests.yml precedent for a PHP version
+          # pest-plugin-browser supports, so the Browser suite here runs
+          # unskipped for this cell too.
+          - livewire: '4.0.*'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
@@ -55,6 +66,18 @@ jobs:
           php-version: '8.3'
       - name: Require the matrix Livewire line
         run: |
+          if [ "${{ matrix.livewire }}" = "4.0.*" ]; then
+            # See tests.yml's matching step for the full investigation and
+            # why this advisory is irrelevant to this ephemeral CI job.
+            php -r '
+              $f = "composer.json";
+              $j = json_decode(file_get_contents($f), true);
+              $j["config"]["policy"]["advisories"]["ignore-id"] = [
+                "PKSA-bgw4-5zmg-2njg" => "CI-only install of an old Livewire 4.x floor release to test this package'"'"'s own JS bridge against isSkipped()'"'"'s absence; this job only ever renders tests/Browser'"'"'s fixed fixture page (no attacker-controlled input reaches Livewire'"'"'s morph), so the advisory'"'"'s client-side-XSS scenario cannot occur here. Never installed for real consumers.",
+              ];
+              file_put_contents($f, json_encode($j, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
+            '
+          fi
           composer require "livewire/livewire:${{ matrix.livewire }}" --no-interaction --no-update
           composer update --prefer-dist --no-interaction --no-progress
       - name: Install Playwright browser for Pest
