@@ -15,6 +15,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > The `[1.0.0]` section below predates that and is hand-curated. It stays as
 > written, including its `Scope` subsection recording what 1.0.0 ships without.
 
+## [1.1.0](https://github.com/matheusmarnt/ghostwire/compare/v1.0.3...v1.1.0) (2026-09-20)
+
+
+### Features
+
+* **docs-site:** add shared design tokens (light + dark) ([269c045](https://github.com/matheusmarnt/ghostwire/commit/269c045ce42a348911b7633ede977740c54193cd))
+* **docs-site:** CodeMirror 6 playground editor with live preview ([4fa9728](https://github.com/matheusmarnt/ghostwire/commit/4fa97284dd4ada112e579b251c2b3ef6439c49a8))
+* **docs-site:** modern Tailwind v4 gallery examples + scroll-reposition fix ([336980d](https://github.com/matheusmarnt/ghostwire/commit/336980db19fb431e70c74bd1c53bd5151e2d1446))
+* **docs-site:** retoken landing.css to shared design tokens ([cfb2c8e](https://github.com/matheusmarnt/ghostwire/commit/cfb2c8e2094e5596d1977bc80359e3e5a9aa4d15))
+* **docs-site:** retoken the four custom pages to shared design tokens ([1fc0bc0](https://github.com/matheusmarnt/ghostwire/commit/1fc0bc02d9ca636895598d0fba0b3769531de764))
+* **docs-site:** theme Starlight doc pages via customCss ([b739b13](https://github.com/matheusmarnt/ghostwire/commit/b739b137fca84b52c7a2b77ff05df430a768a454))
+* **docs-site:** theme toggle, home logo, gallery redesign, code examples ([53d837e](https://github.com/matheusmarnt/ghostwire/commit/53d837e6d93c74d24117abeb749489feab90a974))
+
+
+### Bug Fixes
+
+* bone color follows site theme toggle, not just OS preference ([f97ed0e](https://github.com/matheusmarnt/ghostwire/commit/f97ed0e2d04a2f4e9c8a400aadaeb92783d1aef9))
+* **docs-site:** apply stored/system theme on the four custom pages ([df08fc9](https://github.com/matheusmarnt/ghostwire/commit/df08fc973321c7a6921788a41677d50b7dab9848))
+* **docs-site:** drop unrelated Examples section swept into SPEC-* cleanup ([e2a612f](https://github.com/matheusmarnt/ghostwire/commit/e2a612f5149517ff733e5111c518775b034828c4))
+* **docs-site:** final-review fixes — sync theme-init, dark-mode fixture text, shared inline-code style ([0afd7cb](https://github.com/matheusmarnt/ghostwire/commit/0afd7cbe510f95c47310f651f03647cb4bde45ca))
+* **docs-site:** GFM tables never rendered as tables anywhere on the site ([75b71a3](https://github.com/matheusmarnt/ghostwire/commit/75b71a3c9735914ec23557d97cb3286fbce70522))
+* **docs-site:** playground example card had no dark: variants at all ([e245d79](https://github.com/matheusmarnt/ghostwire/commit/e245d79bdb8a2a732ce1a303f36490930ba8b191))
+* **docs-site:** playground preview ignored the site's light/dark toggle ([0a8ec4b](https://github.com/matheusmarnt/ghostwire/commit/0a8ec4b3a791bf526ff23a7e3eff18707b32575f))
+* **docs-site:** playground wire:ghost fidelity + final-review findings ([36ef364](https://github.com/matheusmarnt/ghostwire/commit/36ef364f21793f880f19c84235496e9644878054))
+* remove FR-*/ADR-* internal citation leaks that escaped the SPEC-only sweep ([e1e8e06](https://github.com/matheusmarnt/ghostwire/commit/e1e8e065398f345c63b233abc607b8837d0675d7))
+
+
+### Miscellaneous Chores
+
+* **docs-site:** remove internal SPEC-* citations from public docs ([572f4e0](https://github.com/matheusmarnt/ghostwire/commit/572f4e035f9a0710b6ad9360ea741afb137f337a))
+* ignore /docs/ (internal specs and plans, not repo content) ([883648d](https://github.com/matheusmarnt/ghostwire/commit/883648d7b254418c8196610a2ca8e50c24d615e1))
+* **js:** remove internal SPEC-* citations from comments ([1ff9d08](https://github.com/matheusmarnt/ghostwire/commit/1ff9d08b743df282cd53f268325e06c99c9dc407))
+* **js:** remove internal SPEC-* citations from style.css comments ([8dc7bb1](https://github.com/matheusmarnt/ghostwire/commit/8dc7bb162da7780739ccbc2f70bd06ebde1f33ba))
+* remove last SPEC-* citation, flagged by the FR/ADR sweep subagent ([d34970e](https://github.com/matheusmarnt/ghostwire/commit/d34970e4b9ce67bd1ce17ef7dd118b06f2a0e1a9))
+* **src:** remove internal SPEC-* citations from doc-blocks/comments ([955bed9](https://github.com/matheusmarnt/ghostwire/commit/955bed9e606573bb500a63519adddce3b20a8675))
+* **tests:** remove internal SPEC-* citations from comments and test names ([5f88acb](https://github.com/matheusmarnt/ghostwire/commit/5f88acbd981ff26dbfc1a552c4f94d8d6b6b12a6))
+
 ## [1.0.3](https://github.com/matheusmarnt/ghostwire/compare/v1.0.2...v1.0.3) (2026-09-20)
 
 
