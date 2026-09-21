@@ -20,6 +20,9 @@ Publish the compiled JS/CSS assets — without this step the browser gets a 404 
 php artisan vendor:publish --tag=ghostwire-assets
 ```
 
+In a `local` environment, Ghostwire publishes these assets automatically at boot if
+they're missing, so this manual step mainly matters for staging/production.
+
 Add both directives to your main layout, once — usually right next to
 `@livewireStyles`/`@livewireScripts`:
 
@@ -32,7 +35,8 @@ Add both directives to your main layout, once — usually right next to
 ```
 
 `php artisan ghost:install` runs the publish step above and prints this same reminder,
-in one command.
+in one command. Run `php artisan ghost:install --force` after a package upgrade to
+republish updated assets — without `--force`, existing published files are left alone.
 
 Add the directive to any element inside a Livewire component:
 
@@ -57,7 +61,7 @@ covers a different moment in a page's lifecycle:
 | Mechanism | Covers |
 |---|---|
 | `wire:ghost` / `#[Ghost]` | A Livewire request on an already-loaded page (an action call, `wire:model.live`, polling) |
-| `#[Lazy]` + `#[Ghost(lazy: true)]` + [learning](/docs/learning/) | The initial page load / a browser refresh, in development — a locally learned skeleton paints into the lazy placeholder |
+| `#[Lazy]` + `#[Ghost(lazy: true)]` + [learning](/ghostwire/docs/learning/) | The initial page load / a browser refresh, in development — a locally learned skeleton paints into the lazy placeholder |
 | `ghost:export` + `placeholder()` | The initial page load / a browser refresh, in production — a static, server-side Blade placeholder, no JS or `localStorage` involved |
 
 None of the three substitute for another: `wire:ghost` alone does nothing on a full

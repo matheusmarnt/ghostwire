@@ -118,6 +118,10 @@ class GhostwireServiceProvider extends ServiceProvider
      */
     private function autoPublishAssetsInDev(): void
     {
+        if (! config('ghostwire.enabled', true)) {
+            return;
+        }
+
         if (! $this->app->environment('local')) {
             return;
         }

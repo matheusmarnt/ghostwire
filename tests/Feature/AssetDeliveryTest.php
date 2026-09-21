@@ -36,6 +36,20 @@ it('does not touch the filesystem in production when assets are missing', functi
     expect(File::isDirectory(public_path('vendor/ghostwire')))->toBeFalse();
 });
 
+it('does not touch the filesystem when disabled in local, even when assets are missing', function () {
+    File::deleteDirectory(public_path('vendor/ghostwire'));
+
+    $this->app['env'] = 'local';
+    $this->app['config']->set('ghostwire.enabled', false);
+
+    $provider = new GhostwireServiceProvider($this->app);
+    $method = new ReflectionMethod($provider, 'autoPublishAssetsInDev');
+    $method->setAccessible(true);
+    $method->invoke($provider);
+
+    expect(File::isDirectory(public_path('vendor/ghostwire')))->toBeFalse();
+});
+
 it('emits no ghostwire asset tags when the layout never calls the directives', function () {
     $html = Blade::render('<div wire:ghost></div>');
 
