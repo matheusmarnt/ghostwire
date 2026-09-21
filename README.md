@@ -94,6 +94,8 @@ to try synthesis on your own markup without installing anything.
 
 Ghostwire can remember a component's synthesized skeleton locally in the browser and reuse it the next time that component is about to lazy-load — so a later visit's first lazy paint already has a matching skeleton, not a blank placeholder. Off by default, and refused server-side in production regardless of config.
 
+The flag only enables skeleton capture and produces no visible effect by itself — pair it with `#[Ghost(lazy: true)]` on your component (and Livewire's `#[Lazy]` for the skeleton to show on initial load) to paint the learned skeleton.
+
 ```bash
 GHOSTWIRE_LEARNING=true
 ```
