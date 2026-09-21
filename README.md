@@ -33,6 +33,7 @@ Add `wire:ghost` to any element (or `#[Ghost]` to a component class, with zero v
 - **Accessibility** — `aria-busy`, focus preservation across the ghost window, a shared live region announcing loading/idle state; axe-core clean at the strictest level
 - **CSP-safe** — runs under a strict Content-Security-Policy (no inline scripts, no `eval`); stylesheet nonce support built in
 - **`php artisan ghost:inspect`** — see exactly which precedence level decided each component's configuration
+- **`php artisan ghost:install`** — publish assets and get a printed reminder of the two required layout directives in one step
 - **Learning** — remembers a component's synthesized skeleton locally (opt-in, refused in production) so a lazy-loaded component's first paint on a later visit already has a matching placeholder — export it with `php artisan ghost:export` as a static Blade `@placeholder`
 
 ## Requirements & compatibility
@@ -59,7 +60,21 @@ Full detail: [`/docs/compat`](https://matheusmarnt.github.io/ghostwire/docs/comp
 
 ```bash
 composer require matheusmarnt/ghostwire
+php artisan vendor:publish --tag=ghostwire-assets
 ```
+
+Add both directives to your main layout, once — usually right next to
+`@livewireStyles`/`@livewireScripts`:
+
+```blade
+{{-- in <head> --}}
+@ghostwireStyles
+
+{{-- right before </body> --}}
+@ghostwireScripts
+```
+
+Then add `wire:ghost` to any element inside a Livewire component:
 
 ```blade
 <div wire:ghost>
@@ -67,7 +82,13 @@ composer require matheusmarnt/ghostwire
 </div>
 ```
 
-See [`/docs/install`](https://matheusmarnt.github.io/ghostwire/docs/install/) for the full first-effect walkthrough, and [`/playground`](https://matheusmarnt.github.io/ghostwire/playground/) to try synthesis on your own markup without installing anything.
+Without both the asset publish step and the two directives above, `wire:ghost` is dead
+markup — the runtime JS that watches for it never loads. `php artisan ghost:install`
+runs the publish step and prints this same reminder for you.
+
+See [`/docs/install`](https://matheusmarnt.github.io/ghostwire/docs/install/) for the
+full first-effect walkthrough, and [`/playground`](https://matheusmarnt.github.io/ghostwire/playground/)
+to try synthesis on your own markup without installing anything.
 
 ## Learning
 
