@@ -71,7 +71,7 @@ test('bone color swaps under prefers-color-scheme: dark', function () {
 // blind to the highlight: --ghostwire-bone-highlight lives only in
 // .gw-bone::after's linear-gradient, and the shimmer animation drives that
 // pseudo-element to opacity: 1 every --ghostwire-animation-speed. An unswapped
-// light highlight therefore flashes near-white over an oklch(0.28) dark bone
+// light highlight therefore flashes near-white over an oklch(0.42) dark bone
 // on every cycle — invisible to a base-color check, very visible to a user.
 // So this reads the ::after gradient itself, in both schemes.
 test('the bone sheen highlight also swaps under prefers-color-scheme: dark (no near-white flash)', function () {

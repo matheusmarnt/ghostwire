@@ -8,9 +8,9 @@ All theming is pure CSS, driven by custom properties on `:root` — no JS involv
 | Token | Default | Purpose |
 |---|---|---|
 | `--ghostwire-bone-color` | `oklch(0.92 0.005 250)` | Base skeleton color (light) |
-| `--ghostwire-bone-color-dark` | `oklch(0.28 0.01 250)` | Base skeleton color (dark) |
+| `--ghostwire-bone-color-dark` | `oklch(0.42 0.012 250)` | Base skeleton color (dark) |
 | `--ghostwire-bone-highlight` | `oklch(0.97 0.005 250)` | Shimmer sheen color (light) |
-| `--ghostwire-bone-highlight-dark` | `oklch(0.38 0.01 250)` | Shimmer sheen color (dark) |
+| `--ghostwire-bone-highlight-dark` | `oklch(0.55 0.015 250)` | Shimmer sheen color (dark) |
 | `--ghostwire-bone-radius` | `0.375rem` | Corner radius on each bone |
 | `--ghostwire-bone-gap` | `0.5rem` | Spacing between stacked bones |
 | `--ghostwire-animation` | `shimmer` | Animation name — `shimmer`, `pulse`, `wave`, or `none` |
@@ -20,6 +20,24 @@ All theming is pure CSS, driven by custom properties on `:root` — no JS involv
 ## Dark mode
 
 Automatic via `prefers-color-scheme: dark` — the `-dark` token variants apply with no configuration.
+
+### Class-based dark mode (e.g. Tailwind)
+
+This is the common case for Tailwind apps, not an edge case: Tailwind's
+`@custom-variant dark (&:where(.dark, .dark *))` drives dark mode off a
+`.dark` class the app toggles, not the OS/browser `prefers-color-scheme`
+media query. Ghostwire's own `-dark` tokens only react to the media query,
+so whenever the OS preference and the app's active theme diverge (e.g. OS
+light + app toggled to `.dark`, or the reverse), Ghostwire's bones desync
+from the rest of the page. Override the base tokens — not the `-dark` ones
+— inside your own `.dark` selector:
+
+```css
+.dark {
+  --ghostwire-bone-color: oklch(0.42 0.012 250);
+  --ghostwire-bone-highlight: oklch(0.55 0.015 250);
+}
+```
 
 ## Reduced motion
 
