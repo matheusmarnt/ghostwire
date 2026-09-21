@@ -59,6 +59,8 @@ class GhostwireServiceProvider extends ServiceProvider
             __DIR__.'/../resources/dist' => public_path('vendor/ghostwire'),
         ], 'ghostwire-assets');
 
+        $this->autoPublishAssetsInDev();
+
         Blade::directive('ghostwireStyles', function ($expression) {
             $nonceExpr = trim($expression) !== '' ? $expression : 'null';
 
@@ -106,6 +108,32 @@ class GhostwireServiceProvider extends ServiceProvider
                 ]));
             };
         });
+    }
+
+    /**
+     * Dev-only safety net: if a developer never ran the publish command,
+     * copy the compiled runtime into public/ automatically at boot so
+     * wire:ghost still works locally. Restricted to `local` so
+     * production/staging boot pays zero extra filesystem I/O.
+     */
+    private function autoPublishAssetsInDev(): void
+    {
+        if (! $this->app->environment('local')) {
+            return;
+        }
+
+        $publicDist = public_path('vendor/ghostwire');
+
+        if (file_exists($publicDist.'/ghostwire.js')) {
+            return;
+        }
+
+        if (! is_dir($publicDist)) {
+            mkdir($publicDist, 0755, true);
+        }
+
+        copy(__DIR__.'/../resources/dist/ghostwire.js', $publicDist.'/ghostwire.js');
+        copy(__DIR__.'/../resources/dist/ghostwire.css', $publicDist.'/ghostwire.css');
     }
 
     private function shouldTagLazyPlaceholder(object $component): bool
