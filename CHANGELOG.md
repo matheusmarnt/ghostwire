@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > The `[1.0.0]` section below predates that and is hand-curated. It stays as
 > written, including its `Scope` subsection recording what 1.0.0 ships without.
 
+## [1.1.1](https://github.com/matheusmarnt/ghostwire/compare/v1.1.0...v1.1.1) (2026-09-21)
+
+
+### Bug Fixes
+
+* wire:ghost dead in fresh installs — missing asset publish + directives ([164cb9f](https://github.com/matheusmarnt/ghostwire/commit/164cb9f919eadc16c33ffc51784aff204948b2ef))
+
 ## [1.1.0](https://github.com/matheusmarnt/ghostwire/compare/v1.0.3...v1.1.0) (2026-09-20)
 
 
