@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > The `[1.0.0]` section below predates that and is hand-curated. It stays as
 > written, including its `Scope` subsection recording what 1.0.0 ships without.
 
+## [1.1.2](https://github.com/matheusmarnt/ghostwire/compare/v1.1.1...v1.1.2) (2026-09-21)
+
+
+### Miscellaneous Chores
+
+* stop tracking Pint's compile cache file ([bbe974a](https://github.com/matheusmarnt/ghostwire/commit/bbe974a4515c3edf35afd5f6c54f100058783f64))
+
 ## [1.1.1](https://github.com/matheusmarnt/ghostwire/compare/v1.1.0...v1.1.1) (2026-09-21)
 
 
