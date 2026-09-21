@@ -1090,6 +1090,28 @@ describe('directive registration and modifier parsing', () => {
       directiveCleanup();
     });
 
+    it('morphed retry for a zero-host component with no data-ghost attribute never runs hasGhostDirective\'s subtree scan — the O(1) attribute check alone is enough to say "no attach"', () => {
+      boot();
+      const root = document.createElement('div');
+      // No data-ghost, no wire:ghost — the common case for a Livewire
+      // component in an app that only uses Ghostwire on a couple of
+      // components. registry.hostsFor(component.id).size === 0 still lets
+      // this call reach attachAttributeHost on every morph, forever.
+      document.body.appendChild(root);
+      const component = { id: 'c10c', el: root, addCleanup: () => {} };
+
+      const querySelectorAllSpy = vi.spyOn(root, 'querySelectorAll');
+
+      expect(() => morphedCallback()({ component })).not.toThrow();
+
+      const registry = registryInstances.at(-1);
+      expect(registry.attach).not.toHaveBeenCalled();
+      // parseAttributeConfig(root) bails on a single getAttribute('data-ghost')
+      // call (attributeConfig.js:38-39) before hasGhostDirective()'s
+      // root.querySelectorAll('*') subtree scan ever gets a chance to run.
+      expect(querySelectorAllSpy).not.toHaveBeenCalled();
+    });
+
     // Diagnosis doc item A: #[Ghost(lazy: true)] without real Livewire lazy
     // loading is a 100%-silent no-op. These three cases are exactly what
     // attachAttributeHost's viaMorphedRetry check (index.js) is built to

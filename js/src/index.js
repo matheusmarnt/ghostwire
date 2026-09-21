@@ -374,13 +374,28 @@ export function boot() {
     // existed). Real Livewire always populates component.el; this only
     // protects against a test double or a future caller that doesn't.
     if (!root) return;
+
+    // O(1) gate BEFORE the O(subtree) one. parseAttributeConfig() bails on a
+    // single root.getAttribute('data-ghost') call when the attribute is
+    // absent (attributeConfig.js:38-39) — that's every Livewire component in
+    // an app that uses Ghostwire on only a couple of components, and (via the
+    // 'morphed' call site below) it's paid on EVERY morph for the lifetime of
+    // each one. hasGhostDirective()'s root.querySelectorAll('*') subtree scan
+    // is only cheap to skip if it runs second. Both checks are early returns
+    // to the same "don't attach" outcome, so swapping their order is
+    // semantics-preserving for the attach decision itself — with one
+    // exception: an element whose data-ghost is malformed AND that also
+    // carries wire:ghost (or already owns a registry host) now reaches
+    // parseAttributeConfig's debug-gated JSON/shape warning below, where the
+    // old order short-circuited on hasGhostDirective()/registry.hostFor()
+    // first and never called parseAttributeConfig at all.
+    const attributeConfig = parseAttributeConfig(root);
+    if (attributeConfig === null || attributeConfig.mode === 'off') return;
+
     // A directive-created host already owns this element.
     // hasGhostDirective() is the real guard (see its comment above);
     // registry.hostFor(root) is kept as a defensive second check.
     if (hasGhostDirective(root) || registry.hostFor(root)) return;
-
-    const attributeConfig = parseAttributeConfig(root);
-    if (attributeConfig === null || attributeConfig.mode === 'off') return;
 
     // No gw-kept handling here: `keep` has no data-ghost/attribute-config
     // equivalent (attributeConfig.js's compact-key schema has no "keep"
