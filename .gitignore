@@ -14,6 +14,10 @@ yarn-error.log
 .phpunit.result.cache
 /build
 node-compile-cache/
+# Pint/PHP-CS-Fixer's cache file — hash-named, machine/path-specific, regenerated on every
+# `pint` run. A prior one (288a6c9598aad67e3e656ed36263aa9c) was accidentally committed by
+# the same broad `git add` that swept in node-compile-cache/ (see git blame da3d0ad).
+/288a6c9598aad67e3e656ed36263aa9c
 
 # IDE Helper
 _ide_helper.php
