@@ -15,6 +15,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > The `[1.0.0]` section below predates that and is hand-curated. It stays as
 > written, including its `Scope` subsection recording what 1.0.0 ships without.
 
+## [1.2.0](https://github.com/matheusmarnt/ghostwire/compare/v1.1.2...v1.2.0) (2026-09-21)
+
+
+### Features
+
+* **js:** warn when #[Ghost(lazy: true)] is declared without real lazy loading ([242e912](https://github.com/matheusmarnt/ghostwire/commit/242e91235821c4bec59d4bea868c3dc7c5a0debe))
+
+
+### Bug Fixes
+
+* **css:** widen dark-mode bone tokens for mid-dark surface contrast ([5cea49a](https://github.com/matheusmarnt/ghostwire/commit/5cea49a7ad13aca26c6210deb229ae050574f5a7))
+* feature-detect Message.isSkipped and contain throwing bridge callbacks ([23ef5ce](https://github.com/matheusmarnt/ghostwire/commit/23ef5ce9ba14dcd592f96c70e08fab80ed6a08cb))
+* gate attachAttributeHost's O(1) check ahead of the subtree scan ([adede49](https://github.com/matheusmarnt/ghostwire/commit/adede49231d5e96decd1c614b58e8ef5ffc5d711))
+* retry #[Ghost] auto-attach on morphed so #[Lazy] hydration isn't silent ([38756f7](https://github.com/matheusmarnt/ghostwire/commit/38756f704f54513d2de793f214f2e6e9e7a69405))
+* stop synthesizer count-cap from flattening skeleton to one block ([8d44e28](https://github.com/matheusmarnt/ghostwire/commit/8d44e28c2054164f1c239bdc0e0eba7ca5ce47e7))
+* v4 bridge isSkipped crash + related package bugs ([6f04207](https://github.com/matheusmarnt/ghostwire/commit/6f042077f67bb4c7c24607aacbf7f8ab324a62aa))
+
+
+### Miscellaneous Chores
+
+* **dist:** rebuild bundle for the final-review fix wave ([93984be](https://github.com/matheusmarnt/ghostwire/commit/93984be1acd17efe2f3cbe6a4412690db19f7838))
+* **dist:** rebuild bundle for the v4 bridge isSkipped fix wave ([5875165](https://github.com/matheusmarnt/ghostwire/commit/58751659a93747d15530cff6f208cedea3114836))
+
 ## [1.1.2](https://github.com/matheusmarnt/ghostwire/compare/v1.1.1...v1.1.2) (2026-09-21)
 
 
