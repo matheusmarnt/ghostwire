@@ -22,18 +22,17 @@ it('exposes the exact global symbols this package\'s bridge depends on, for whic
     if ($isV4) {
         expect($surface['hasInterceptMessage'])->toBeTrue();
 
-        // Task 4c (diagnosis doc regression item 5): the surface probe above
-        // only checks window.Livewire itself — it says nothing about the
-        // shape of a real Message. Register a second interceptMessage
-        // subscriber (Livewire supports more than one concurrently — its own
-        // dist/livewire.esm.js calls interceptMessage internally several
-        // times for its own features) and capture one via the #refresh-btn
-        // click this test already has available. getActions() is called
-        // unconditionally by js/src/bridge/v4.js, so its absence would crash
-        // the real bridge — assert it's present. isSkipped is feature-
-        // detected there instead (Task 1: absent on the 4.0.x floor, present
-        // from ~4.3 onward) precisely because both shapes are valid, so this
-        // only records its type, never requiring either.
+        // The surface probe above only checks window.Livewire itself — it
+        // says nothing about the shape of a real Message. Register a second
+        // interceptMessage subscriber (Livewire supports more than one
+        // concurrently — its own dist/livewire.esm.js calls interceptMessage
+        // internally several times for its own features) and capture one via
+        // the #refresh-btn click this test already has available.
+        // getActions() is called unconditionally by js/src/bridge/v4.js, so
+        // its absence would crash the real bridge — assert it's present.
+        // isSkipped is feature-detected there instead (absent on early 4.x
+        // releases, present from ~4.3 onward) precisely because both shapes
+        // are valid, so this only records its type, never requiring either.
         //
         // `typeof` wraps the interceptMessage(...) call itself: this Pest
         // browser plugin's script() completion-value handling was
@@ -69,15 +68,13 @@ it('exposes the exact global symbols this package\'s bridge depends on, for whic
     }
 });
 
-// Regression test 6 (diagnosis doc item 6): "browser com
-// livewire/livewire:4.0.*: acao dispara, zero erro de console, request
-// enviado." Runs regardless of which Livewire line is installed (same as
-// SmokeTest.php) — it becomes meaningful specifically on Task 4b's 4.0.*
-// floor CI cell, where the crash Task 1 fixed would previously have
-// reproduced (uncaught TypeError from calling .isSkipped() on a Message
-// build that doesn't have it, killing every Livewire request on the page).
-// That cell needs a Composer advisory ignore to install at all — see
-// tests.yml's matching cell for the full investigation.
+// Proves an action still fires and completes with zero console errors.
+// Runs regardless of which Livewire line is installed (same as
+// SmokeTest.php) — it becomes meaningful specifically on the 4.0.x floor
+// CI cell, where an uncaught TypeError from calling .isSkipped() on a
+// Message build that doesn't have it used to kill every Livewire request
+// on the page. That cell needs a Composer advisory ignore to install at
+// all — see tests.yml's matching cell for the full investigation.
 it('fires the refresh action and completes the round trip with zero JS errors', function () {
     $page = visit('/ghostwire-test-page');
 

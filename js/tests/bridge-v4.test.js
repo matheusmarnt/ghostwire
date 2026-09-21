@@ -243,8 +243,8 @@ describe('bridge v4', () => {
     expect(onStart).not.toHaveBeenCalled();
   });
 
-  // Regression test for the real production crash (diagnosis doc): a message
-  // with NO `isSkipped` property at all -- not fakeMessage()'s default
+  // Regression test for the real production crash: a message with NO
+  // `isSkipped` property at all -- not fakeMessage()'s default
   // `() => false` implementation, the method genuinely absent -- is what
   // Livewire 4.0-4.2 actually hands the interceptor, since Message.isSkipped()
   // was only added ~4.3. Calling it unconditionally throws
@@ -276,8 +276,8 @@ describe('bridge v4', () => {
     expect(onStart).toHaveBeenCalledOnce();
   });
 
-  // Blindagem (diagnosis doc regression item 3): the interceptMessage
-  // callback body is wrapped in try/catch so ANY throwing callback -- not
+  // The interceptMessage callback body is wrapped in try/catch so ANY
+  // throwing callback -- not
   // just the isSkipped case above -- is contained. A missing skeleton is an
   // acceptable degradation; a dead Livewire app is not.
   it('contains a throwing callback body: getActions() throwing does not propagate out of interceptMessage and onStart is not called', () => {

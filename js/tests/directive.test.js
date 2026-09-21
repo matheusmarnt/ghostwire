@@ -1006,7 +1006,7 @@ describe('directive registration and modifier parsing', () => {
     });
   });
 
-  // Task 3: for a #[Lazy] + #[Ghost] component, component.init fires while
+  // For a #[Lazy] + #[Ghost] component, component.init fires while
   // component.el is still Livewire's own placeholder (data-ghost-lazy
   // present, data-ghost absent) — attachAttributeHost() no-ops, and nothing
   // else retried the attach, so every later action on the component produced
@@ -1177,8 +1177,8 @@ describe('directive registration and modifier parsing', () => {
         expect(warn).not.toHaveBeenCalled();
 
         // The morph swaps in the real render: data-ghost-lazy gone, data-ghost
-        // (with l:true) now present — the exact shape the diagnosis doc's item
-        // A case is about, except this time real lazy loading genuinely ran.
+        // (with l:true) now present — genuine lazy loading, so the warning
+        // must stay silent even though the shape matches the broken case above.
         root.removeAttribute('data-ghost-lazy');
         root.setAttribute('data-ghost', '{"l":true,"n":"orders-table"}');
 

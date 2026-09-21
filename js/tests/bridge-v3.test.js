@@ -243,8 +243,8 @@ describe('bridge v3', () => {
     expect(onFinishCtx.isRenderless).toBe(false);
   });
 
-  // Blindagem (diagnosis doc regression item 4): the commit hook callback
-  // body is wrapped in try/catch so a throwing callback is contained instead
+  // The commit hook callback body is wrapped in try/catch so a throwing
+  // callback is contained instead
   // of propagating out through Livewire's own dispatch and killing every
   // Livewire request on the page. Here `component.el` access inside
   // isPolledMethod's caller throws via a getter, standing in for any

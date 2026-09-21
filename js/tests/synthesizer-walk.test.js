@@ -152,7 +152,7 @@ describe('synthesizer/walk', () => {
     // here, mirroring the single-container depth-cap test above), each with
     // content below that depth. Proves the depth cap is still container-
     // scoped (block.el is each container, not host.el) and unaffected by
-    // Task 2's count-cap change.
+    // the count-cap change above.
     const host = makeHost('<div><div><p>deep A</p></div><div><p>deep B</p></div></div>');
     const registry = createRegistry();
     const containerA = host.el.children[0].children[0];

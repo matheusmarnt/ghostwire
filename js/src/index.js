@@ -330,8 +330,8 @@ export function boot() {
   // installed dist bundles). Using it here is symmetric with how the
   // directive already tears itself down, and needs no separate hook lookup.
   //
-  // Extracted to a standalone function (Task 3) because component.init
-  // firing is NOT the only moment this attach needs to run. For a
+  // Extracted to a standalone function because component.init firing is
+  // NOT the only moment this attach needs to run. For a
   // #[Lazy] component, component.init fires while component.el is still
   // Livewire's OWN lazy placeholder — data-ghost-lazy present, data-ghost
   // absent (that attribute only exists on the real render) — so
@@ -461,9 +461,9 @@ export function boot() {
   // all here (each call idempotent); the scheduler still owns *when* the
   // visible window actually ends.
   window.Livewire.hook('morphed', ({ component }) => {
-    // Task 3 retry: attachAttributeHost's call from component.init (above)
-    // is a no-op for a #[Lazy] component — see that function's own comment
-    // for why. 'morphed' is the only hook that still fires for this
+    // Retry: attachAttributeHost's call from component.init (above) is a
+    // no-op for a #[Lazy] component — see that function's own comment for
+    // why. 'morphed' is the only hook that still fires for this
     // component once the real HTML lands, so retrying the identical
     // attribute check here is what actually recovers the host.
     //
