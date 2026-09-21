@@ -4,6 +4,7 @@ namespace Ghostwire;
 
 use Ghostwire\Commands\ExportCommand;
 use Ghostwire\Commands\InspectCommand;
+use Ghostwire\Commands\InstallCommand;
 use Ghostwire\Livewire\GhostComponentHook;
 use Ghostwire\Support\ConfigResolver;
 use Ghostwire\Support\LearnedTree;
@@ -74,6 +75,7 @@ class GhostwireServiceProvider extends ServiceProvider
             $this->commands([
                 InspectCommand::class,
                 ExportCommand::class,
+                InstallCommand::class,
             ]);
         }
     }
