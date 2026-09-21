@@ -72,8 +72,12 @@ it('exposes the exact global symbols this package\'s bridge depends on, for whic
 // Regression test 6 (diagnosis doc item 6): "browser com
 // livewire/livewire:4.0.*: acao dispara, zero erro de console, request
 // enviado." Runs regardless of which Livewire line is installed (same as
-// SmokeTest.php) — it becomes meaningful specifically on Task 4b's new
-// 4.0.* floor CI cell, where the crash Task 1 fixed would previously have
+// SmokeTest.php) — it becomes meaningful specifically on Task 4b's floor CI
+// cell (pinned to 4.1.*, not the literal 4.0.x named in the diagnosis doc:
+// v4.0.0-v4.0.3 are rejected by Composer's own advisory-block policy,
+// confirmed live in CI; isSkipped() is absent through v4.2.3, so 4.1.*
+// still reproduces the exact crash Task 1 fixed — see tests.yml's matching
+// cell for the full investigation), where that crash would previously have
 // reproduced (uncaught TypeError from calling .isSkipped() on a Message
 // build that doesn't have it, killing every Livewire request on the page).
 it('fires the refresh action and completes the round trip with zero JS errors', function () {

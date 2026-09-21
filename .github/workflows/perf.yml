@@ -46,12 +46,18 @@ jobs:
         livewire: ['^3.6', '^4.0']
         include:
           # Same reasoning as tests.yml: "^4.0" always resolves to the
-          # newest 4.x, so this job's ^4.0 cell has never run against the
-          # 4.0.x floor. php is fixed at 8.3 below (not part of this
+          # newest 4.x, so this job's ^4.0 cell has never run against an old
+          # Livewire 4.x. Pinned to 4.1.* rather than the true 4.0.x floor:
+          # v4.0.0-v4.0.3 are all rejected by Composer's own advisory-block
+          # policy (PKSA-bgw4-5zmg-2njg, confirmed live in CI — see
+          # tests.yml's matching cell for the full investigation). isSkipped()
+          # is absent through v4.2.3 (first appears v4.3.0), so 4.1.* still
+          # reproduces the exact crash this branch fixes while actually
+          # being installable. php is fixed at 8.3 below (not part of this
           # matrix), which is already the tests.yml precedent for a PHP
           # version pest-plugin-browser supports, so the Browser suite here
           # runs unskipped for this cell too.
-          - livewire: '4.0.*'
+          - livewire: '4.1.*'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
