@@ -28,6 +28,81 @@ class ProductTable extends Component
 | `poll` | `bool` | `false` | Allow polled messages to activate the ghost |
 | `sync` | `bool` | `false` | Allow property-only (sync) messages to activate it |
 | `lazy` | `bool` | `false` | Reuse the learned tree as the lazy placeholder |
+| `panels` | `bool` | `false` | Promote visually distinct containers to their own panel bone |
+
+## More examples
+
+Action filtering — restrict or exclude specific actions from the class-level config:
+
+```php
+#[Ghost(only: ['loadMore', 'applyFilters'])]
+class ProductList extends Component
+{
+    // ...
+}
+```
+
+Only `loadMore` and `applyFilters` activate the ghost; every other action leaves it alone.
+
+```php
+#[Ghost(except: ['toggleFavorite'])]
+class ProductList extends Component
+{
+    // ...
+}
+```
+
+Every action activates the ghost except `toggleFavorite`.
+
+```php
+#[Ghost(rows: 5)]
+class OrderTable extends Component
+{
+    // ...
+}
+```
+
+Renders 5 skeleton rows when the table has no data yet — the attribute equivalent of `wire:ghost.rows.5`.
+
+```php
+#[Ghost(poll: true)]
+class LiveTicker extends Component
+{
+    // ...
+}
+```
+
+Lets a `wire:poll`-driven refresh activate the ghost too; polled messages are silent by default.
+
+```php
+#[Ghost(sync: true)]
+class SearchResults extends Component
+{
+    // ...
+}
+```
+
+Lets a property-only update (e.g. `wire:model.live`) activate the ghost too; sync messages are silent by default.
+
+```php
+#[Ghost(lazy: true)]
+class Dashboard extends Component
+{
+    // ...
+}
+```
+
+Reuses a previously learned Bone Tree as the lazy-loading placeholder — see [Learning](/ghostwire/docs/learning/) for the full setup.
+
+```php
+#[Ghost(panels: true)]
+class ProductGrid extends Component
+{
+    // ...
+}
+```
+
+Cards with a visible background, border, or shadow each get their own filled panel bone — see [How it works](/ghostwire/docs/how-it-works/).
 
 ## Precedence cascade
 

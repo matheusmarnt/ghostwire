@@ -19,10 +19,22 @@ export const SCHEMA_VERSION = 1;
 export const STORAGE_KEY = 'ghostwire.learned.v1';
 export const MAX_COORD = 20000;
 export const MAX_BONES = 300;
-export const BONE_TYPES = new Set(['text', 'avatar', 'block', 'icon', 'media', 'control', 'heading']);
+export const BONE_TYPES = new Set(['text', 'avatar', 'block', 'icon', 'media', 'control', 'heading', 'panel']);
 export const NAME_PATTERN = /^[a-z0-9\-.]{1,64}$/;
 
 const BONE_KEYS = ['type', 'x', 'y', 'width', 'height'];
+// The one optional key a bone may carry beyond BONE_KEYS - toBone() (emit.js)
+// only sets it for a panel bone, and only when the host actually has a
+// border-radius. A real space, not \s: getComputedStyle(el).borderRadius
+// only ever separates multi-corner tokens with a plain ASCII space, so \s's
+// extra leniency (tab, newline, ...) would just be unneeded slack in an
+// untrusted-input pattern. Elliptical radii ("10px 20px / 5px 10px") are
+// deliberately NOT matched - real panels in practice use a single symmetric
+// radius, and failing closed on the rare elliptical case only costs the
+// whole entry (component+band) a missed learning opportunity, never a
+// validation bypass.
+const OPTIONAL_BONE_KEYS = ['borderRadius'];
+const BORDER_RADIUS_PATTERN = /^\d+(\.\d+)?(px|%|em|rem)( \d+(\.\d+)?(px|%|em|rem)){0,3}$/;
 const ENTRY_KEY_PATTERN = /^(\d{1,10})\|([a-z0-9]{2,3})$/;
 
 function clamp(value, min, max) {
@@ -35,8 +47,13 @@ function validBone(bone) {
   if (bone === null || typeof bone !== 'object' || Array.isArray(bone)) return null;
 
   const keys = Object.keys(bone);
-  if (keys.length !== BONE_KEYS.length) return null;
+  if (keys.length < BONE_KEYS.length || keys.length > BONE_KEYS.length + OPTIONAL_BONE_KEYS.length) return null;
   if (!BONE_KEYS.every((key) => keys.includes(key))) return null;
+  // Whatever isn't one of the 5 required keys must be exactly the one
+  // recognized optional key - anything else (a typo, a smuggled field) is
+  // rejected here rather than silently dropped, per this module's own rule to
+  // fail closed on anything ambiguous.
+  if (!keys.every((key) => BONE_KEYS.includes(key) || OPTIONAL_BONE_KEYS.includes(key))) return null;
   if (typeof bone.type !== 'string' || !BONE_TYPES.has(bone.type)) return null;
 
   const x = clamp(bone.x, -MAX_COORD, MAX_COORD);
@@ -46,7 +63,14 @@ function validBone(bone) {
 
   if (x === null || y === null || width === null || height === null) return null;
 
-  return { type: bone.type, x, y, width, height };
+  const valid = { type: bone.type, x, y, width, height };
+
+  if (keys.includes('borderRadius')) {
+    if (typeof bone.borderRadius !== 'string' || !BORDER_RADIUS_PATTERN.test(bone.borderRadius)) return null;
+    valid.borderRadius = bone.borderRadius;
+  }
+
+  return valid;
 }
 
 function validEntry(entry) {

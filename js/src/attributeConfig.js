@@ -1,7 +1,7 @@
 import { isDebug } from './debug.js';
 import { NAME_PATTERN as COMPONENT_NAME_PATTERN } from './learning/store.js';
 
-const KEY_MAP = { m: 'mode', o: 'only', x: 'except', d: 'delay', h: 'hold', r: 'rows', p: 'poll', s: 'sync', l: 'lazy', g: 'learning', n: 'name' };
+const KEY_MAP = { m: 'mode', o: 'only', x: 'except', d: 'delay', h: 'hold', r: 'rows', p: 'poll', s: 'sync', l: 'lazy', g: 'learning', n: 'name', v: 'panels' };
 // 'a' (per-action method-level overrides) is a top-level key
 // but not a compact-config field itself — it carries its own nested schema,
 // validated separately below. It must still be a recognized top-level key
@@ -9,7 +9,7 @@ const KEY_MAP = { m: 'mode', o: 'only', x: 'except', d: 'delay', h: 'hold', r: '
 // reaching that validation (ponytail: one-line fix, not a KEY_MAP entry
 // since 'a' has no scalar field/default of its own).
 const KNOWN_COMPACT_KEYS = new Set([...Object.keys(KEY_MAP), 'a']);
-const METHOD_OVERRIDE_KEYS = new Set(['m', 'd', 'h', 'r', 'p', 's', 'l']);
+const METHOD_OVERRIDE_KEYS = new Set(['m', 'd', 'h', 'r', 'p', 's', 'l', 'v']);
 const ACTION_NAME_PATTERN = /^[A-Za-z0-9_]{1,64}$/;
 
 // Mirrors src/Support/ConfigResolver.php's literalDefaults() exactly — these
@@ -18,7 +18,7 @@ const ACTION_NAME_PATTERN = /^[A-Za-z0-9_]{1,64}$/;
 // literalDefaults(), specifically so the browser's fallback here is always
 // correct even when a deployment customizes config/ghostwire.php. If either
 // side's numbers change, update the other too.
-const DEFAULTS = { mode: 'synthesize', only: null, except: null, delay: 120, hold: 300, rows: null, poll: false, sync: false, lazy: false, learning: false, name: null };
+const DEFAULTS = { mode: 'synthesize', only: null, except: null, delay: 120, hold: 300, rows: null, poll: false, sync: false, lazy: false, learning: false, name: null, panels: false };
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -98,6 +98,11 @@ export function parseAttributeConfig(el) {
     config.lazy = parsed.l;
   }
 
+  if ('v' in parsed) {
+    if (typeof parsed.v !== 'boolean') { warn('data-ghost "v" is not a boolean — whole payload discarded'); return null; }
+    config.panels = parsed.v;
+  }
+
   if ('o' in parsed) {
     const sanitized = sanitizeActionList(parsed.o);
     if (sanitized === undefined) { warn('data-ghost "o" is not an array — whole payload discarded'); return null; }
@@ -160,7 +165,7 @@ export function parseAttributeConfig(el) {
             warn(`data-ghost "a.${action}.${key}" is not a boolean — whole payload discarded`);
             return null;
           }
-          const field = key === 'p' ? 'poll' : key === 's' ? 'sync' : 'lazy';
+          const field = key === 'p' ? 'poll' : key === 's' ? 'sync' : key === 'l' ? 'lazy' : 'panels';
           override[field] = value;
         }
       }

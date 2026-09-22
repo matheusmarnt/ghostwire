@@ -51,6 +51,8 @@ Trigger any Livewire update on that component (an action call, `wire:model.live`
 
 Don't want the loading strategy applied everywhere? `config/ghostwire.php`'s `strategy` key defaults to `'opt-in'`: a component is instrumented when `#[Ghost]` is declared on it, on an ancestor, on a trait it uses, or on one of its action methods — or when any element in its view carries `wire:ghost` — or when `strategy` is set to `'global'`. Flip `strategy` to `'global'` to apply the loading strategy to every Livewire component, opt-out per component with `wire:ghost.off` or `#[Ghost(mode: 'off')]`.
 
+Want every `#[Ghost]`-opted-in component to emit panel bones by default, without declaring `#[Ghost(panels: true)]` on each one? Set `GHOSTWIRE_PANELS=true` (or `config/ghostwire.php`'s `panels` key) — it defaults to `false`. A class-level `#[Ghost(panels: ...)]` still overrides this app-wide default per component, same precedence as `mode`/`delay`/`hold`. See [`#[Ghost] attribute`](/ghostwire/docs/ghost-attribute/) for what `panels` does.
+
 Set `GHOSTWIRE_ENABLED=false` (it defaults to `true`) to disable Ghostwire entirely — no hook registration, no `data-ghost` payload, no lazy-placeholder tagging, and `@ghostwireStyles`/`@ghostwireScripts` both emit nothing. If `config/ghostwire.php` has been cached (`php artisan config:cache`), changing this env var only takes effect after `php artisan config:clear` (or a fresh cache).
 
 ### Which mechanism, for which moment

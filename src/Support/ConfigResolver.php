@@ -12,11 +12,11 @@ use ReflectionMethod;
 
 final class ConfigResolver
 {
-    private const FIELDS = ['mode', 'only', 'except', 'delay', 'hold', 'rows', 'poll', 'sync', 'lazy'];
+    private const FIELDS = ['mode', 'only', 'except', 'delay', 'hold', 'rows', 'poll', 'sync', 'lazy', 'panels'];
 
-    private const POSITIONAL = ['mode', 'only', 'except', 'delay', 'hold', 'rows', 'poll', 'sync', 'lazy'];
+    private const POSITIONAL = ['mode', 'only', 'except', 'delay', 'hold', 'rows', 'poll', 'sync', 'lazy', 'panels'];
 
-    private const METHOD_TRANSPORT_FIELDS = ['mode', 'delay', 'hold', 'rows', 'poll', 'sync', 'lazy'];
+    private const METHOD_TRANSPORT_FIELDS = ['mode', 'delay', 'hold', 'rows', 'poll', 'sync', 'lazy', 'panels'];
 
     /** @var array<class-string, array<string, mixed>> */
     private array $classChainCache = [];
@@ -25,7 +25,7 @@ final class ConfigResolver
     private array $hasDeclarationCache = [];
 
     /**
-     * @return array{mode: string, only: ?array, except: ?array, delay: int, hold: int, rows: ?int, poll: bool, sync: bool, lazy: bool}
+     * @return array{mode: string, only: ?array, except: ?array, delay: int, hold: int, rows: ?int, poll: bool, sync: bool, lazy: bool, panels: bool}
      */
     public function resolve(string $componentClass, ?string $method = null): array
     {
@@ -213,6 +213,7 @@ final class ConfigResolver
             'poll' => $this->packageDefault('poll'),
             'sync' => $this->packageDefault('sync'),
             'lazy' => $this->packageDefault('lazy'),
+            'panels' => $this->packageDefault('panels'),
         ];
     }
 
@@ -234,6 +235,7 @@ final class ConfigResolver
             'poll' => false,
             'sync' => false,
             'lazy' => false,
+            'panels' => false,
         ];
     }
 
@@ -256,6 +258,7 @@ final class ConfigResolver
             // promise. Hardcoded false — same as literalDefaults()'s 'lazy' below — so the
             // attribute is the sole opt-in, in both learning states.
             'lazy' => false,
+            'panels' => (bool) config('ghostwire.panels', false),
         };
     }
 

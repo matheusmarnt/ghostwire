@@ -278,6 +278,77 @@ describe('synthesizer/walk', () => {
     expect(sampledTextCandidates).toHaveLength(6); // 3 sampled rows x 2 cells each
     expect(new Set(sampledTextCandidates.map((c) => c.repeatGroup.index))).toEqual(new Set([0, 1, 2]));
   });
+
+  it('pushes a container as a real candidate when panels is enabled, before recursing into its children', () => {
+    const el = document.createElement('div');
+    const card = document.createElement('div');
+    const text = document.createElement('p');
+    text.textContent = 'hello';
+    card.appendChild(text);
+    el.appendChild(card);
+    document.body.appendChild(el);
+
+    const host = { el, component: { id: 'c1' }, config: { panels: true }, state: 'idle', pending: 0, layer: null };
+    const candidates = collectAndClassify(host, createRegistry());
+
+    expect(candidates).toHaveLength(2);
+    expect(candidates[0]).toMatchObject({ el: card, type: 'container' });
+    expect(candidates[1]).toMatchObject({ el: text, type: 'text' });
+  });
+
+  it('does not push a container as a candidate when panels is disabled (default, regression guard)', () => {
+    const el = document.createElement('div');
+    const card = document.createElement('div');
+    const text = document.createElement('p');
+    text.textContent = 'hello';
+    card.appendChild(text);
+    el.appendChild(card);
+    document.body.appendChild(el);
+
+    const host = { el, component: { id: 'c1' }, config: {}, state: 'idle', pending: 0, layer: null };
+    const candidates = collectAndClassify(host, createRegistry());
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]).toMatchObject({ el: text, type: 'text' });
+  });
+
+  it('a container candidate still counts toward MAX_CANDIDATES when panels is enabled', () => {
+    const el = document.createElement('div');
+    for (let i = 0; i < 5; i++) {
+      const card = document.createElement('div');
+      const text = document.createElement('p');
+      text.textContent = `item ${i}`;
+      card.appendChild(text);
+      el.appendChild(card);
+    }
+    document.body.appendChild(el);
+
+    const host = { el, component: { id: 'c1' }, config: { panels: true }, state: 'idle', pending: 0, layer: null };
+    const candidates = collectAndClassify(host, createRegistry(), 12, 3);
+
+    // 5 cards + 5 text children = 10 candidates, none of them a repeat run
+    // (each card has a unique child, no repeated tag+class+childCount signature).
+    expect(candidates).toHaveLength(10);
+  });
+
+  it('collectAndClassifyRange also pushes container candidates when panels is enabled (island path)', () => {
+    const start = document.createComment('start');
+    const end = document.createComment('end');
+    const parent = document.createElement('div');
+    const card = document.createElement('div');
+    const text = document.createElement('p');
+    text.textContent = 'hello';
+    card.appendChild(text);
+    parent.appendChild(start);
+    parent.appendChild(card);
+    parent.appendChild(end);
+    document.body.appendChild(parent);
+
+    const host = { el: card, component: { id: 'c1' }, config: { panels: true }, state: 'idle', pending: 0, layer: null };
+    const candidates = collectAndClassifyRange(start, end, host, createRegistry());
+
+    expect(candidates.some((c) => c.type === 'container')).toBe(true);
+  });
 });
 
 describe('collectAndClassifyRange', () => {
@@ -328,5 +399,32 @@ describe('collectAndClassifyRange', () => {
 
     expect(candidates.some((c) => c.el.id === 'own-content')).toBe(true);
     expect(candidates.some((c) => c.el.id === 'other-content')).toBe(false);
+  });
+
+  it('stops at MAX_CANDIDATES even when collecting panel container siblings in an island range', () => {
+    const registry = createRegistry();
+    const wrapper = document.createElement('div');
+    const start = document.createComment('start');
+    wrapper.appendChild(start);
+
+    for (let i = 0; i < 305; i++) {
+      const container = document.createElement('div');
+      const text = document.createElement('p');
+      text.textContent = `item ${i}`;
+      container.appendChild(text);
+      container.getBoundingClientRect = () => ({ top: i * 30, left: 0, right: 100, bottom: i * 30 + 28, width: 100, height: 28 });
+      wrapper.appendChild(container);
+    }
+
+    const end = document.createComment('end');
+    wrapper.appendChild(end);
+    document.body.appendChild(wrapper);
+
+    const host = { el: document.createElement('div'), config: { panels: true }, component: { id: 'c1' }, state: 'idle', pending: 0, layer: null };
+
+    const candidates = collectAndClassifyRange(start, end, host, registry, 12, 3);
+
+    expect(candidates).toHaveLength(300);
+    expect(candidates.every((c) => c.type === 'container' || c.type === 'text')).toBe(true);
   });
 });

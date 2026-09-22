@@ -317,3 +317,102 @@ describe('visibility under Ghostwire\'s own concealment (issue #21)', () => {
     expect(measured.results[0].visibility).toBe('hidden');
   });
 });
+
+describe('synthesizer/measure — panel detection', () => {
+  it('marks a container candidate isPanel when its background alpha meets the 0.05 floor', () => {
+    const host = makeHost();
+    host.config = { panels: true };
+    const card = document.createElement('div');
+    card.getBoundingClientRect = () => ({ top: 0, left: 0, right: 100, bottom: 50, width: 100, height: 50 });
+    host.el.appendChild(card);
+
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((el) => {
+      if (el === card) return { backgroundColor: 'rgba(0, 0, 0, 0.05)', borderTopWidth: '0px', borderRightWidth: '0px', borderBottomWidth: '0px', borderLeftWidth: '0px', boxShadow: 'none', borderRadius: '0px', transform: 'none', visibility: 'visible' };
+      return { overflow: 'visible', overflowX: 'visible', overflowY: 'visible', transform: 'none', visibility: 'visible' };
+    });
+
+    const measured = measure(host, [{ el: card, type: 'container', depth: 1 }]);
+
+    expect(measured.results[0].isPanel).toBe(true);
+  });
+
+  it('does not mark isPanel when background alpha is below the 0.05 floor and there is no border/shadow', () => {
+    const host = makeHost();
+    host.config = { panels: true };
+    const card = document.createElement('div');
+    card.getBoundingClientRect = () => ({ top: 0, left: 0, right: 100, bottom: 50, width: 100, height: 50 });
+    host.el.appendChild(card);
+
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((el) => {
+      if (el === card) return { backgroundColor: 'rgba(0, 0, 0, 0.02)', borderTopWidth: '0px', borderRightWidth: '0px', borderBottomWidth: '0px', borderLeftWidth: '0px', boxShadow: 'none', borderRadius: '0px', transform: 'none', visibility: 'visible' };
+      return { overflow: 'visible', overflowX: 'visible', overflowY: 'visible', transform: 'none', visibility: 'visible' };
+    });
+
+    const measured = measure(host, [{ el: card, type: 'container', depth: 1 }]);
+
+    expect(measured.results[0].isPanel).toBe(false);
+  });
+
+  it('marks isPanel via border width alone, transparent background', () => {
+    const host = makeHost();
+    host.config = { panels: true };
+    const card = document.createElement('div');
+    card.getBoundingClientRect = () => ({ top: 0, left: 0, right: 100, bottom: 50, width: 100, height: 50 });
+    host.el.appendChild(card);
+
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((el) => {
+      if (el === card) return { backgroundColor: 'rgba(0, 0, 0, 0)', borderTopWidth: '1px', borderRightWidth: '0px', borderBottomWidth: '0px', borderLeftWidth: '0px', boxShadow: 'none', borderRadius: '0px', transform: 'none', visibility: 'visible' };
+      return { overflow: 'visible', overflowX: 'visible', overflowY: 'visible', transform: 'none', visibility: 'visible' };
+    });
+
+    const measured = measure(host, [{ el: card, type: 'container', depth: 1 }]);
+
+    expect(measured.results[0].isPanel).toBe(true);
+  });
+
+  it('marks isPanel via box-shadow alone, transparent background, no border', () => {
+    const host = makeHost();
+    host.config = { panels: true };
+    const card = document.createElement('div');
+    card.getBoundingClientRect = () => ({ top: 0, left: 0, right: 100, bottom: 50, width: 100, height: 50 });
+    host.el.appendChild(card);
+
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((el) => {
+      if (el === card) return { backgroundColor: 'rgba(0, 0, 0, 0)', borderTopWidth: '0px', borderRightWidth: '0px', borderBottomWidth: '0px', borderLeftWidth: '0px', boxShadow: '0 1px 2px rgba(0,0,0,0.3)', borderRadius: '0px', transform: 'none', visibility: 'visible' };
+      return { overflow: 'visible', overflowX: 'visible', overflowY: 'visible', transform: 'none', visibility: 'visible' };
+    });
+
+    const measured = measure(host, [{ el: card, type: 'container', depth: 1 }]);
+
+    expect(measured.results[0].isPanel).toBe(true);
+  });
+
+  it('does not compute isPanel at all for a container when panels is disabled', () => {
+    const host = makeHost();
+    host.config = {};
+    const card = document.createElement('div');
+    card.getBoundingClientRect = () => ({ top: 0, left: 0, right: 100, bottom: 50, width: 100, height: 50 });
+    host.el.appendChild(card);
+
+    const measured = measure(host, [{ el: card, type: 'container', depth: 1 }]);
+
+    expect(measured.results[0].isPanel).toBeUndefined();
+  });
+
+  it('captures the computed border-radius on a promoted panel candidate', () => {
+    const host = makeHost();
+    host.config = { panels: true };
+    const card = document.createElement('div');
+    card.getBoundingClientRect = () => ({ top: 0, left: 0, right: 100, bottom: 50, width: 100, height: 50 });
+    host.el.appendChild(card);
+
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((el) => {
+      if (el === card) return { backgroundColor: 'rgb(255, 255, 255)', borderTopWidth: '0px', borderRightWidth: '0px', borderBottomWidth: '0px', borderLeftWidth: '0px', boxShadow: 'none', borderRadius: '12px', transform: 'none', visibility: 'visible' };
+      return { overflow: 'visible', overflowX: 'visible', overflowY: 'visible', transform: 'none', visibility: 'visible' };
+    });
+
+    const measured = measure(host, [{ el: card, type: 'container', depth: 1 }]);
+
+    expect(measured.results[0].borderRadius).toBe('12px');
+  });
+});

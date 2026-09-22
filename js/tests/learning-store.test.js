@@ -17,6 +17,31 @@ function fakeStorage(initial = null) {
   };
 }
 
+// Bounded extraction of toBone()'s own function body, by counting brace
+// depth from its opening `{` rather than a regex heuristic (e.g. matching up
+// to the next bare `\n}`) - a plain lazy regex scan has no way to tell "the
+// nearest `if (...) bone.x = ...;` after the signature" from "the nearest
+// one anywhere in the rest of the file", so it can walk straight past
+// toBone()'s real closing brace into a later function and match a decoy
+// there instead. Counting depth by hand also stays correct if toBone()'s own
+// body ever grows a nested block (e.g. `if (x) { ... }`), which a `\n}`
+// heuristic would break on immediately.
+function extractToBoneBody(emitSrc) {
+  const sigMatch = emitSrc.match(/export function toBone\([^)]*\)\s*\{/);
+  if (!sigMatch) return null;
+
+  const start = sigMatch.index + sigMatch[0].length;
+  let depth = 1;
+  let i = start;
+  for (; i < emitSrc.length && depth > 0; i++) {
+    if (emitSrc[i] === '{') depth++;
+    else if (emitSrc[i] === '}') depth--;
+  }
+  if (depth !== 0) return null; // unbalanced - source doesn't parse as expected
+
+  return emitSrc.slice(start, i - 1); // i-1 excludes toBone()'s own closing brace
+}
+
 const TREE = [{ type: 'text', x: 12, y: 8, width: 240, height: 14 }];
 
 describe('learning store', () => {
@@ -109,6 +134,42 @@ describe('learning store', () => {
 
   it('rejects a bone carrying extra keys, so nothing smuggled survives (SPEC-SEC-04)', () => {
     expect(store.put('x', 1, 'lg', { width: 10, height: 10 }, [{ type: 'text', x: 0, y: 0, width: 1, height: 1, onclick: 'alert(1)' }])).toBe(false);
+  });
+
+  it('accepts a panel bone carrying a valid borderRadius (SPEC-SEC-04)', () => {
+    expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
+      { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '8px' },
+    ])).toBe(true);
+
+    expect(store.get('card', 'lg').bones).toEqual([
+      { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '8px' },
+    ]);
+  });
+
+  it('accepts a panel bone with no borderRadius, using just the 5 base keys (SPEC-SEC-04)', () => {
+    // The common case: most panels have no rounded corner at all, so toBone()
+    // never adds the key in the first place.
+    expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
+      { type: 'panel', x: 0, y: 0, width: 200, height: 100 },
+    ])).toBe(true);
+  });
+
+  it('accepts a multi-corner borderRadius (up to 4 space-separated tokens) (SPEC-SEC-04)', () => {
+    expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
+      { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '8px 4px 8px 4px' },
+    ])).toBe(true);
+  });
+
+  it('rejects a panel bone whose borderRadius does not match the strict pattern (SPEC-SEC-04)', () => {
+    expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
+      { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '8px" onmouseover="alert(1)' },
+    ])).toBe(false);
+  });
+
+  it('rejects a panel bone carrying a 7th key beyond the 5 base keys plus borderRadius (SPEC-SEC-04)', () => {
+    expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
+      { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '8px', onclick: 'alert(1)' },
+    ])).toBe(false);
   });
 
   it('rejects a component name outside the allowed charset (SPEC-SEC-04)', () => {
@@ -301,28 +362,68 @@ describe('learning store', () => {
   });
 
   // Finding 2: store.js's BONE_KEYS hand-copies emit.js's toBone() shape, and
-  // validBone() *rejects* a bone carrying any key toBone() doesn't produce
-  // (store.js:31-32) - so a 6th field added to toBone() tomorrow would fail
-  // every single put(), the identical silent-blackout failure mode Finding 1
-  // guards against for bone *types*, left uncovered for bone *keys*. Reads
-  // both sides from source rather than importing BONE_KEYS (which store.js
-  // doesn't export) so this stays a source-level invariant, not a hand-copy.
-  it("keeps store.js's bone key set in sync with emit.js's toBone() shape (SPEC-SEC-04)", () => {
+  // validBone() *rejects* a bone carrying any base key toBone() doesn't
+  // produce, or an unrecognized key beyond the recognized optional ones - so
+  // a key added to toBone() tomorrow without a matching update here would
+  // fail every single put() that key appears on, the identical
+  // silent-blackout failure mode Finding 1 guards against for bone *types*,
+  // left uncovered for bone *keys*. Reads both sides from source rather than
+  // importing BONE_KEYS/OPTIONAL_BONE_KEYS (which store.js doesn't export)
+  // so this stays a source-level invariant, not a hand-copy.
+  //
+  // toBone() sets its 5 base keys unconditionally and then, for a panel bone
+  // with a real border-radius, adds an optional key
+  // (`if (borderRadius) bone.borderRadius = borderRadius;`). This checks both
+  // halves independently: the base object literal's keys against
+  // store.js's BONE_KEYS, and the FULL SET of conditionally-assigned keys
+  // (matchAll, not a single match - toBone() may grow more than one such
+  // line, and a single match would only ever see the first, silently missing
+  // any other) against store.js's OPTIONAL_BONE_KEYS - so either half
+  // drifting out of sync (a new base key, a renamed optional key, a second
+  // optional key added on only one side) fails this test instead of silently
+  // going dark. The conditional scan is bounded to toBone()'s own body via
+  // extractToBoneBody() (real brace-depth counting, not a `\n}` guess) so it
+  // can never wander into a later function's own conditional if toBone()'s
+  // real one were ever deleted.
+  it("keeps store.js's bone key set in sync with emit.js's toBone() shape, base and optional (SPEC-SEC-04)", () => {
     const storeSrc = readFileSync(path.join(dir, '../src/learning/store.js'), 'utf8');
     const emitSrc = readFileSync(path.join(dir, '../src/synthesizer/emit.js'), 'utf8');
 
-    const boneKeysMatch = storeSrc.match(/BONE_KEYS = \[([^\]]+)\]/);
-    expect(boneKeysMatch).not.toBeNull();
-    const boneKeys = [...boneKeysMatch[1].matchAll(/'([a-z]+)'/g)].map((m) => m[1]);
+    const requiredKeysMatch = storeSrc.match(/BONE_KEYS = \[([^\]]+)\]/);
+    expect(requiredKeysMatch).not.toBeNull();
+    const requiredKeys = [...requiredKeysMatch[1].matchAll(/'([a-zA-Z]+)'/g)].map((m) => m[1]);
 
-    const toBoneMatch = emitSrc.match(/export function toBone\([^)]*\)\s*\{\s*return \{([^}]+)\}/);
-    expect(toBoneMatch).not.toBeNull();
-    const toBoneKeys = toBoneMatch[1]
+    const optionalKeysMatch = storeSrc.match(/OPTIONAL_BONE_KEYS = \[([^\]]+)\]/);
+    expect(optionalKeysMatch).not.toBeNull();
+    const optionalKeys = [...optionalKeysMatch[1].matchAll(/'([a-zA-Z]+)'/g)].map((m) => m[1]);
+
+    const body = extractToBoneBody(emitSrc);
+    expect(body).not.toBeNull();
+
+    // body is already scoped to exactly toBone()'s own braces, so this can
+    // only ever match that one object literal - no anchor prefix needed.
+    const baseLiteralMatch = body.match(/const bone = \{([^}]+)\}/);
+    expect(baseLiteralMatch).not.toBeNull();
+    const baseKeys = baseLiteralMatch[1]
       .split(',')
       .map((part) => part.trim())
       .filter(Boolean)
       .map((part) => part.split(':')[0].trim());
 
-    expect(boneKeys.sort()).toEqual(toBoneKeys.sort());
+    expect(requiredKeys.sort()).toEqual(baseKeys.sort());
+
+    // Matched structurally (guard variable, assigned property, assigned-from
+    // variable, all captured rather than hardcoded) so a harmless reformat
+    // doesn't false-fail this test the way a brittle exact-string match
+    // would - but the three occurrences of the identifier are still required
+    // to agree on each match found. matchAll over the bounded body collects
+    // EVERY such conditional, not just the first.
+    const conditionalPattern = /if\s*\(\s*(\w+)\s*\)\s*bone\.(\w+)\s*=\s*\1\s*;/g;
+    const assignedKeys = [...body.matchAll(conditionalPattern)].map(([, guardVar, assignedKey]) => {
+      expect(assignedKey).toBe(guardVar); // the param, its guard, and the key it's assigned under all share one name
+      return assignedKey;
+    });
+
+    expect(assignedKeys.sort()).toEqual([...optionalKeys].sort());
   });
 });

@@ -37,6 +37,15 @@ class MethodOverrideProbeComponent extends Component
     }
 }
 
+#[Ghost(panels: true)]
+class PanelsProbeComponent extends Component
+{
+    public function render()
+    {
+        return '<div>panels probe</div>';
+    }
+}
+
 // F10 (fix round 2): none of this file's tests mention learning, so the whole file
 // silently broke under a whole-suite GHOSTWIRE_LEARNING=true run — only the exact-equality
 // assertion below was strict enough to notice, but every test here shares the same baseline
@@ -105,4 +114,42 @@ it('omits the "a" key entirely when no action method declares its own #[Ghost] (
     $html = Livewire::test(DataGhostProbeComponent::class)->html();
 
     expect($html)->not->toContain('&quot;a&quot;');
+});
+
+// No shared helper for rendering a component and decoding its data-ghost
+// payload existed yet — this lifts the regex+json_decode pattern the tests
+// above inline (see the method-override test) into a named function so the
+// two panels tests below can call it directly.
+function renderDataGhostFor(string $componentClass): array
+{
+    config(['ghostwire.learning.enabled' => false]);
+    Livewire::component(strtolower(class_basename($componentClass)), $componentClass);
+
+    $html = Livewire::test($componentClass)->html();
+
+    preg_match('/data-ghost="([^"]*)"/', $html, $matches);
+    expect($matches[1] ?? null)->not->toBeNull();
+
+    return json_decode(html_entity_decode($matches[1], ENT_QUOTES), true);
+}
+
+it('serializes panels as compact key "v" only when it differs from the literal default', function () {
+    config(['ghostwire.panels' => true]);
+
+    $payload = renderDataGhostFor(PanelsProbeComponent::class);
+
+    expect($payload)->toHaveKey('v', true);
+});
+
+it('omits "v" from data-ghost when panels resolves to the literal default (false)', function () {
+    config(['ghostwire.panels' => false]);
+    // ConfigDriftProbeComponent carries no #[Ghost] of its own (see its
+    // definition above) — under the default 'opt-in' strategy that means no
+    // data-ghost at all, so 'global' is needed to actually exercise the
+    // omission this test is about, matching the config-drift test above.
+    config(['ghostwire.strategy' => 'global']);
+
+    $payload = renderDataGhostFor(ConfigDriftProbeComponent::class);
+
+    expect($payload)->not->toHaveKey('v');
 });

@@ -1,5 +1,23 @@
 import { hasDirectText } from './walk.js';
 
+const PANEL_ALPHA_MIN = 0.05; // background alpha below this reads as "not really a surface" (blend-mode/hover artifacts)
+
+function backgroundAlpha(colorString) {
+  const numbers = colorString.match(/[\d.]+/g);
+  if (!numbers || numbers.length < 4) return 1;
+  const alpha = parseFloat(numbers[3]);
+  return (Number.isNaN(alpha) || alpha < 0 || alpha > 1) ? 1 : alpha;
+}
+
+function isPanelSurface(style) {
+  return backgroundAlpha(style.backgroundColor) >= PANEL_ALPHA_MIN
+    || parseFloat(style.borderTopWidth) > 0
+    || parseFloat(style.borderRightWidth) > 0
+    || parseFloat(style.borderBottomWidth) > 0
+    || parseFloat(style.borderLeftWidth) > 0
+    || style.boxShadow !== 'none';
+}
+
 // `clipRootEl` is where computeClipRect() stops walking up. It defaults to
 // host.el, which is correct for a whole-component skeleton: every candidate is
 // a descendant of the host. On the island path it is NOT — those
@@ -44,6 +62,10 @@ export function measure(host, candidates, regionRect = null, clipRootEl = null) 
     if (candidate.repeatGroup) entry.repeatGroup = candidate.repeatGroup;
     if (candidate.type === 'text') entry.lineRects = measureTextLines(candidate.el);
     if (candidate.type === 'media') entry.borderRadius = style.borderRadius;
+    if (candidate.type === 'container' && host.config.panels) {
+      entry.isPanel = isPanelSurface(style);
+      entry.borderRadius = style.borderRadius;
+    }
     if (candidate.type === 'repeat-extra') entry.repeat = measureRepeat(candidate.repeatExtra);
     return entry;
   });

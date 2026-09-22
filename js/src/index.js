@@ -36,6 +36,7 @@ function parseModifiers(modifiers) {
     else if (modifier === 'ignore') config.ignore = true;
     else if (modifier === 'keep') config.keep = true;
     else if (modifier === 'island') config.island = true; // opt-in, resolved against the live DOM at show time by regionForHost()
+    else if (modifier === 'panels') config.panels = true;
     else if (VALUED_MODIFIERS.has(modifier)) {
       const { pattern, shape } = VALUED_MODIFIERS.get(modifier);
       const value = String(modifiers[i + 1] ?? '').match(pattern);

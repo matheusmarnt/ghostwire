@@ -4,6 +4,8 @@
   --ghostwire-bone-color-dark: oklch(0.42 0.012 250);
   --ghostwire-bone-highlight: oklch(0.97 0.005 250);
   --ghostwire-bone-highlight-dark: oklch(0.55 0.015 250);
+  --ghostwire-panel-color: oklch(0.955 0.005 250);
+  --ghostwire-panel-color-dark: oklch(0.32 0.01 250);
   --ghostwire-bone-radius: 0.375rem;
   --ghostwire-bone-gap: 0.5rem;
   --ghostwire-animation: shimmer;
@@ -28,6 +30,7 @@
   :root {
     --ghostwire-bone-color: var(--ghostwire-bone-color-dark);
     --ghostwire-bone-highlight: var(--ghostwire-bone-highlight-dark);
+    --ghostwire-panel-color: var(--ghostwire-panel-color-dark);
   }
 }
 
@@ -84,6 +87,10 @@
 .gw-bone--avatar,
 .gw-bone--icon {
   border-radius: 50%;
+}
+
+.gw-bone--panel {
+  background-color: var(--ghostwire-panel-color);
 }
 
 .gw-bone::after {

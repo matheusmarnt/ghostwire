@@ -22,7 +22,7 @@ Add `wire:ghost` to any element (or `#[Ghost]` to a component class, with zero v
 
 ## Features
 
-- **Zero-markup synthesis** — walks the live DOM, classifies text/heading/media/control/container nodes, and emits a matching Bone Tree, all in one batched read pass (no forced reflow)
+- **Zero-markup synthesis** — walks the live DOM, classifies text/heading/media/control/container/panel nodes, and emits a matching Bone Tree, all in one batched read pass (no forced reflow)
 - **Dual Livewire bridge** — Livewire 3.6+ and 4.x supported from the same package, selected by runtime feature detection (never a version-string check)
 - **Morph-safe** — the Ghost Layer mounts outside Livewire's reconciled tree; concealment uses only `visibility`/`opacity`/`pointer-events`, never a structural DOM change
 - **`freeze` mode** — dims and disables the live host in place, for layouts synthesis can't safely cover
@@ -50,7 +50,7 @@ Bridge selection is runtime feature detection, never a version string. Everythin
 
 | Tier | Capabilities |
 |---|---|
-| **A — identical** | Directive + every modifier except `.island` · `#[Ghost]` in full (class, method, inheritance, precedence) · synthesis · `freeze` · timing (delay/hold) · sync silence · theme & tokens · accessibility · morph coexistence |
+| **A — identical** | Directive + every modifier including `.panels`, except `.island` · `#[Ghost]` in full (class, method, inheritance, precedence) · synthesis · `freeze` · timing (delay/hold) · sync silence · theme & tokens · accessibility · panels detection and promotion · morph coexistence |
 | **B — degraded on 3.x** | Post-paint removal (emulated via double `requestAnimationFrame`) · finalization (composed from multiple hooks) · cancellation (resolved as finalization) · poll detection (origin heuristic) · per-action interception (bridge-level filter — same observable behavior) |
 | **C — 4.x only** | Island scoping (`.island`) · message-skip handling |
 

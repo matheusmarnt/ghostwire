@@ -170,6 +170,22 @@ describe('renderer', () => {
     expect(host.layer.querySelector('.gw-bone--text')).toBeNull();
   });
 
+  it('paintBones applies gw-bone--panel class and an inline border-radius when the bone carries one', () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const renderer = createRenderer();
+
+    renderer.renderBones({ layer: container }, [
+      { type: 'panel', x: 0, y: 0, width: 100, height: 50, borderRadius: '12px' },
+      { type: 'text', x: 0, y: 60, width: 80, height: 16 },
+    ]);
+
+    const bones = container.querySelectorAll('.gw-bone');
+    expect(bones[0].className).toBe('gw-bone gw-bone--panel');
+    expect(bones[0].style.borderRadius).toBe('12px');
+    expect(bones[1].style.borderRadius).toBe('');
+  });
+
   it('markBusy sets aria-busy on the host; clearBusy removes it', () => {
     const renderer = createRenderer();
     const host = makeHost();

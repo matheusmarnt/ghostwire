@@ -38,6 +38,9 @@ class MatrixConcreteWithAncestorAndTraitConflict extends MatrixAncestorWithConfl
     use MatrixConflictingTraitWithPolicy;
 }
 
+#[Ghost(panels: true)]
+class MatrixPanelsClassComponent {}
+
 it('resolves class-own field over inherited trait field over inherited base-class field over config over defaults', function () {
     $resolved = (new ConfigResolver)->resolve(MatrixConcreteUsesInheritedOnly::class);
 
@@ -66,4 +69,13 @@ it('lets an ancestor class field win over a same-field trait declaration, both p
     $resolved = (new ConfigResolver)->resolve(MatrixConcreteWithAncestorAndTraitConflict::class);
 
     expect($resolved['hold'])->toBe(400); // ancestor's own declared value, not the trait's
+});
+
+it('resolves panels through the same seven-level cascade as every other boolean field', function () {
+    config(['ghostwire.panels' => false]);
+    $resolver = app(ConfigResolver::class);
+
+    $resolved = $resolver->resolve(MatrixPanelsClassComponent::class);
+
+    expect($resolved['panels'])->toBeTrue(); // class-level #[Ghost(panels: true)] beats the config default
 });

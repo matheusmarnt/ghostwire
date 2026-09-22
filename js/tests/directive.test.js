@@ -1233,6 +1233,24 @@ describe('directive registration and modifier parsing', () => {
       expect(host.config.island).toBe(true);
     });
 
+    it('sets config.panels = true for the .panels modifier', () => {
+      boot();
+      const el = document.createElement('div');
+      document.body.appendChild(el);
+      const component = { id: 'c1', el };
+      registeredCallback({
+        el,
+        directive: { modifiers: ['panels'], expression: '' },
+        component,
+        cleanup: () => {},
+      });
+
+      const registry = registryInstances.at(-1);
+      const host = registry.hostFor(el);
+
+      expect(host.config.panels).toBe(true);
+    });
+
     // De-wiring check: with the region plumbing removed (call sites reverted
     // to synthesize(host)/prepareLayer(host), no region argument at all), both
     // assertions below fail — synthesize is recorded with only ONE argument

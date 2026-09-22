@@ -94,7 +94,7 @@ const base = import.meta.env.BASE_URL;
       const stages = item.querySelectorAll('.gw-gallery-stage');
       const skeletonContentEl = stages[1].querySelector('.gw-content');
 
-      const host = registry.attach(skeletonContentEl, { id: fixture.id }, { rows: null });
+      const host = registry.attach(skeletonContentEl, { id: fixture.id }, { rows: null, panels: fixture.panels === true });
       renderer.mountLayer(host);
       const boneTree = synthesizer.synthesize(host);
       if (boneTree) renderer.renderBones(host, boneTree);
