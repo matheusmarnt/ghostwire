@@ -15,7 +15,7 @@ describe('API surface freeze', () => {
   it('freezes the wire:ghost modifier vocabulary', () => {
     const src = readFileSync(path.join(dir, '../src/index.js'), 'utf8');
     const modifiers = [...src.matchAll(/modifier === '([a-z]+)'/g)].map((m) => m[1]);
-    expect(modifiers.sort()).toEqual(['freeze', 'ignore', 'island', 'keep', 'off'].sort());
+    expect(modifiers.sort()).toEqual(['freeze', 'ignore', 'island', 'keep', 'off', 'panels'].sort());
 
     // delay.<N>ms / hold.<N>ms / rows.<N> are valued modifiers: Livewire
     // splits the attribute name on '.', so each name token is matched against
@@ -33,7 +33,7 @@ describe('API surface freeze', () => {
     const pairs = match[1].split(',').map((s) => s.trim()).sort();
     expect(pairs).toEqual([
       'd: \'delay\'', 'g: \'learning\'', 'h: \'hold\'', 'l: \'lazy\'', 'm: \'mode\'',
-      'n: \'name\'', 'o: \'only\'', 'p: \'poll\'', 'r: \'rows\'', 's: \'sync\'', 'x: \'except\'',
+      'n: \'name\'', 'o: \'only\'', 'p: \'poll\'', 'r: \'rows\'', 's: \'sync\'', 'v: \'panels\'', 'x: \'except\'',
     ].sort());
   });
 });
