@@ -221,3 +221,43 @@ describe('synthesizer/emit — emit()', () => {
     expect(clone.width).not.toBe(100);
   });
 });
+
+describe('synthesizer/emit — panel bones', () => {
+  it('emits a panel bone for an isPanel container entry, with its borderRadius', () => {
+    const measured = baseMeasured([
+      { type: 'container', isPanel: true, borderRadius: '8px', rect: { top: 110, left: 60, right: 340, bottom: 290, width: 280, height: 180 }, visibility: 'visible', transform: 'none' },
+    ]);
+
+    const bones = emit({}, measured, null);
+
+    expect(bones).toEqual([{ type: 'panel', x: 10, y: 10, width: 280, height: 180, borderRadius: '8px' }]);
+  });
+
+  it('emits nothing for a container entry that is not isPanel', () => {
+    const measured = baseMeasured([
+      { type: 'container', isPanel: false, rect: { top: 110, left: 60, right: 340, bottom: 290, width: 280, height: 180 }, visibility: 'visible', transform: 'none' },
+    ]);
+
+    expect(emit({}, measured, null)).toBeNull();
+  });
+
+  it('preserves paint order: a panel bone precedes its children\'s bones in the emitted array', () => {
+    const measured = baseMeasured([
+      { type: 'container', isPanel: true, rect: { top: 110, left: 60, right: 340, bottom: 290, width: 280, height: 180 }, visibility: 'visible', transform: 'none' },
+      { type: 'text', lineRects: [{ top: 120, left: 70, right: 200, bottom: 140, width: 130, height: 20 }], rect: { top: 120, left: 70, right: 200, bottom: 140, width: 130, height: 20 }, visibility: 'visible', transform: 'none' },
+    ]);
+
+    const bones = emit({}, measured, null);
+
+    expect(bones[0].type).toBe('panel');
+    expect(bones[1].type).toBe('text');
+  });
+
+  it('toBone: passes through borderRadius only when given', () => {
+    const withRadius = toBone('panel', { left: 60, top: 110, width: 80, height: 20 }, HOST_RECT, '8px');
+    const withoutRadius = toBone('text', { left: 60, top: 110, width: 80, height: 20 }, HOST_RECT);
+
+    expect(withRadius.borderRadius).toBe('8px');
+    expect(withoutRadius.borderRadius).toBeUndefined();
+  });
+});

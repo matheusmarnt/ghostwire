@@ -16,6 +16,8 @@ export function emit(host, measured, rowsHint) {
       for (const rect of lines) produced.push(toBone('text', rect, measured.hostRect));
     } else if (entry.type === 'block') {
       produced.push(toBone('block', entry.rect, measured.hostRect));
+    } else if (entry.type === 'container') {
+      if (entry.isPanel) produced.push(toBone('panel', entry.rect, measured.hostRect, entry.borderRadius));
     } else {
       const type = entry.type === 'media' && isAvatar(entry) ? 'avatar' : entry.type;
       produced.push(toBone(type, entry.rect, measured.hostRect));
@@ -126,14 +128,16 @@ export function rectIntersectsHost(rect, hostRect) {
     rect.bottom > hostRect.top && rect.top < hostRect.bottom;
 }
 
-export function toBone(type, rect, hostRect) {
-  return {
+export function toBone(type, rect, hostRect, borderRadius) {
+  const bone = {
     type,
     x: rect.left - hostRect.left,
     y: rect.top - hostRect.top,
     width: rect.width,
     height: rect.height,
   };
+  if (borderRadius) bone.borderRadius = borderRadius;
+  return bone;
 }
 
 export function isAvatar(entry) {

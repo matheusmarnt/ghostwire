@@ -25,7 +25,7 @@ const REPEAT_HEIGHT_TOLERANCE = 0.15; // relative height variance allowed before
 export function collectAndClassify(host, registry, maxDepth = 12, repeatSampleSize = 3) {
   const candidates = [];
   const state = { groupSeq: 0 };
-  visit(host.el, registry, candidates, 0, maxDepth, repeatSampleSize, state, null, undefined);
+  visit(host.el, registry, candidates, 0, maxDepth, repeatSampleSize, state, null, undefined, host.config.panels === true);
   return candidates;
 }
 
@@ -42,7 +42,11 @@ export function collectAndClassifyRange(startNode, endNode, host, registry, maxD
   let node = startNode.nextSibling;
   while (node && node !== endNode) {
     if (node.nodeType === Node.ELEMENT_NODE && (!registry.hostFor(node) || node === host.el)) {
-      visit(node, registry, candidates, 0, maxDepth, repeatSampleSize, state, null, host.el);
+      if (host.config.panels === true && classify(node) === 'container' && 0 < maxDepth) {
+        const candidate = { el: node, type: 'container', depth: 0 };
+        candidates.push(candidate);
+      }
+      visit(node, registry, candidates, 0, maxDepth, repeatSampleSize, state, null, host.el, host.config.panels === true);
     }
     node = node.nextSibling;
   }
@@ -57,7 +61,7 @@ export function collectAndClassifyRange(startNode, endNode, host, registry, maxD
 // over every candidate already collected.
 // A run of >= REPEAT_MIN_RUN uniform-height siblings sharing a
 // tag+class signature is sampled instead of walked in full.
-function visit(node, registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, exemptHostEl) {
+function visit(node, registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, exemptHostEl, panelsEnabled) {
   const children = [];
   for (const child of node.children) {
     if (registry.hostFor(child) && child !== exemptHostEl) continue; // nested wire:ghost host is a boundary — except the host this walk is for
@@ -88,7 +92,7 @@ function visit(node, registry, out, depth, maxDepth, repeatSampleSize, state, re
       const groupId = state.groupSeq++;
       const sampleSize = Math.min(repeatSampleSize, runLength);
       for (let s = 0; s < sampleSize; s++) {
-        processChild(children[i + s], registry, out, depth, maxDepth, repeatSampleSize, state, { id: groupId, index: s }, exemptHostEl);
+        processChild(children[i + s], registry, out, depth, maxDepth, repeatSampleSize, state, { id: groupId, index: s }, exemptHostEl, panelsEnabled);
       }
       const extraCount = runLength - sampleSize;
       if (extraCount > 0) {
@@ -108,16 +112,21 @@ function visit(node, registry, out, depth, maxDepth, repeatSampleSize, state, re
       continue;
     }
 
-    processChild(children[i], registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, exemptHostEl);
+    processChild(children[i], registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, exemptHostEl, panelsEnabled);
     i += 1;
   }
 }
 
-function processChild(child, registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, exemptHostEl) {
+function processChild(child, registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, exemptHostEl, panelsEnabled) {
   const type = classify(child);
   if (type === 'container') {
     if (depth < maxDepth) {
-      visit(child, registry, out, depth + 1, maxDepth, repeatSampleSize, state, repeatGroup, exemptHostEl);
+      if (panelsEnabled) {
+        const candidate = { el: child, type: 'container', depth };
+        if (repeatGroup) candidate.repeatGroup = repeatGroup;
+        out.push(candidate);
+      }
+      visit(child, registry, out, depth + 1, maxDepth, repeatSampleSize, state, repeatGroup, exemptHostEl, panelsEnabled);
     } else {
       const block = { type: 'block', el: child, depth: depth + 1 };
       if (repeatGroup) block.repeatGroup = repeatGroup;
