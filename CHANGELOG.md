@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > The `[1.0.0]` section below predates that and is hand-curated. It stays as
 > written, including its `Scope` subsection recording what 1.0.0 ships without.
 
+## [1.2.1](https://github.com/matheusmarnt/ghostwire/compare/v1.2.0...v1.2.1) (2026-09-22)
+
+
+### Bug Fixes
+
+* exclude freeze/.ignore/.keep hosts from learning capture ([4540944](https://github.com/matheusmarnt/ghostwire/commit/4540944b966793a28a6c82dd3373357419e0e658))
+* learning capture no longer gated behind the visible-skeleton delay ([0d963d3](https://github.com/matheusmarnt/ghostwire/commit/0d963d35451b71cb28bc1960de186a03be8afb4b))
+* learning capture no longer gated behind the visible-skeleton delay ([ea991ba](https://github.com/matheusmarnt/ghostwire/commit/ea991ba3dba6c80f3c41c5c376500fea4c493d1a))
+
 ## [1.2.0](https://github.com/matheusmarnt/ghostwire/compare/v1.1.2...v1.2.0) (2026-09-21)
 
 
