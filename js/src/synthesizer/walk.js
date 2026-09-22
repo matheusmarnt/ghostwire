@@ -125,6 +125,11 @@ function processChild(child, registry, out, depth, maxDepth, repeatSampleSize, s
   if (type === 'container') {
     if (depth < maxDepth) {
       if (panelsEnabled) {
+        // Every container takes a MAX_CANDIDATES slot here, including ones
+        // that turn out not to be panels (panel-ness is decided later, by
+        // measure.js's isPanel check) — deliberate: it's cheaper than a
+        // second pass, and it means a deep DOM with panels enabled can hit
+        // the 300-candidate cap sooner than the same DOM with panels off.
         const candidate = { el: child, type: 'container', depth };
         if (repeatGroup) candidate.repeatGroup = repeatGroup;
         out.push(candidate);

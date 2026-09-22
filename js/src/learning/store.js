@@ -30,8 +30,9 @@ const BONE_KEYS = ['type', 'x', 'y', 'width', 'height'];
 // extra leniency (tab, newline, ...) would just be unneeded slack in an
 // untrusted-input pattern. Elliptical radii ("10px 20px / 5px 10px") are
 // deliberately NOT matched - real panels in practice use a single symmetric
-// radius, and failing closed on the rare elliptical case only costs that one
-// bone's entry a missed learning opportunity, never a validation bypass.
+// radius, and failing closed on the rare elliptical case only costs the
+// whole entry (component+band) a missed learning opportunity, never a
+// validation bypass.
 const OPTIONAL_BONE_KEYS = ['borderRadius'];
 const BORDER_RADIUS_PATTERN = /^\d+(\.\d+)?(px|%|em|rem)( \d+(\.\d+)?(px|%|em|rem)){0,3}$/;
 const ENTRY_KEY_PATTERN = /^(\d{1,10})\|([a-z0-9]{2,3})$/;

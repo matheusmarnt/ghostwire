@@ -59,6 +59,11 @@ test('a card with a real background emits a panel bone before its children\'s bo
     expect($data['types'][0])->toBe('panel');
     expect($data['firstWidth'])->toBeGreaterThan(0);
 
+    // Guards against the loop below passing vacuously if the card's children
+    // stopped rendering entirely: there must be the panel bone PLUS at least
+    // one child bone, not just the panel alone.
+    expect(count($data['types']))->toBeGreaterThan(1);
+
     // every subsequent bone (the card's text children) must come after the
     // panel bone, and none of them may themselves be typed 'panel'
     foreach (array_slice($data['types'], 1) as $childType) {
