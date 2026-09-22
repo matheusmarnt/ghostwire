@@ -104,6 +104,7 @@ export function createRenderer() {
       el.style.top = `${bone.y}px`;
       el.style.width = `${bone.width}px`;
       el.style.height = `${bone.height}px`;
+      if (bone.borderRadius) el.style.borderRadius = bone.borderRadius;
       container.appendChild(el);
     }
   }

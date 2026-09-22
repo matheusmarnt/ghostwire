@@ -55,5 +55,7 @@ it('freezes the CSS custom-property token set', function () {
         '--ghostwire-bone-highlight-dark',
         '--ghostwire-bone-radius',
         '--ghostwire-fade-duration',
+        '--ghostwire-panel-color',
+        '--ghostwire-panel-color-dark',
     ]);
 });
