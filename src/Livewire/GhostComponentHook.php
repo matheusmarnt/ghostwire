@@ -121,7 +121,7 @@ class GhostComponentHook extends ComponentHook
      */
     private function compactPayload(array $resolved, array $defaults): array
     {
-        $keys = ['mode' => 'm', 'only' => 'o', 'except' => 'x', 'delay' => 'd', 'hold' => 'h', 'rows' => 'r', 'poll' => 'p', 'sync' => 's', 'lazy' => 'l'];
+        $keys = ['mode' => 'm', 'only' => 'o', 'except' => 'x', 'delay' => 'd', 'hold' => 'h', 'rows' => 'r', 'poll' => 'p', 'sync' => 's', 'lazy' => 'l', 'panels' => 'v'];
 
         $payload = ['m' => $resolved['mode']]; // mode always present
 
@@ -152,7 +152,7 @@ class GhostComponentHook extends ComponentHook
      */
     private function compactMethodOverrides(array $methodOverrides): array
     {
-        $keys = ['mode' => 'm', 'delay' => 'd', 'hold' => 'h', 'rows' => 'r', 'poll' => 'p', 'sync' => 's', 'lazy' => 'l'];
+        $keys = ['mode' => 'm', 'delay' => 'd', 'hold' => 'h', 'rows' => 'r', 'poll' => 'p', 'sync' => 's', 'lazy' => 'l', 'panels' => 'v'];
 
         $compact = [];
         foreach ($methodOverrides as $action => $fields) {

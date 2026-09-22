@@ -19,6 +19,7 @@ final class Ghost
      * @param  bool  $poll  Allow polled messages to activate the ghost.
      * @param  bool  $sync  Allow property-only messages to activate it.
      * @param  bool  $lazy  Reuse the learned tree as the lazy placeholder.
+     * @param  bool  $panels  Promote visually distinct containers to their own panel bone.
      */
     public function __construct(
         public string $mode = 'synthesize',
@@ -30,5 +31,6 @@ final class Ghost
         public bool $poll = false,
         public bool $sync = false,
         public bool $lazy = false,
+        public bool $panels = false,
     ) {}
 }

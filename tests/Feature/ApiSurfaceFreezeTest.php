@@ -27,13 +27,14 @@ it('freezes the #[Ghost] attribute constructor signature', function () {
         ['name' => 'poll', 'type' => 'bool', 'default' => false],
         ['name' => 'sync', 'type' => 'bool', 'default' => false],
         ['name' => 'lazy', 'type' => 'bool', 'default' => false],
+        ['name' => 'panels', 'type' => 'bool', 'default' => false],
     ]);
 });
 
 it('freezes config/ghostwire.php\'s public key set', function () {
     $config = require __DIR__.'/../../config/ghostwire.php';
 
-    expect(array_keys($config))->toBe(['enabled', 'strategy', 'mode', 'timing', 'silence', 'learning'])
+    expect(array_keys($config))->toBe(['enabled', 'strategy', 'mode', 'panels', 'timing', 'silence', 'learning'])
         ->and(array_keys($config['timing']))->toBe(['delay', 'hold'])
         ->and(array_keys($config['silence']))->toBe(['poll', 'sync'])
         ->and(array_keys($config['learning']))->toBe(['enabled', 'store']);

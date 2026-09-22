@@ -12,6 +12,8 @@ return [
 
     'mode' => 'synthesize',
 
+    'panels' => env('GHOSTWIRE_PANELS', false),
+
     'timing' => [
         'delay' => 120,
         'hold' => 300,
