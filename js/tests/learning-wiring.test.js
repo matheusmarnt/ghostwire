@@ -200,3 +200,242 @@ describe('window.Ghostwire.exportLearned / clearLearned wiring', () => {
     expect(JSON.parse(window.Ghostwire.exportLearned())).toEqual({ v: SCHEMA_VERSION, e: {}, c: {} });
   });
 });
+
+// SPEC-LRN-01 fix (docs/plans/2026-09-21-fix-ghost-lazy-learning-delay-gate.md):
+// learning capture must run from inside onStart's per-host loop, on every
+// eligible commit, not only once scheduler.js's onShow fires (which needs
+// host.cfg.delay, 120ms default, to elapse with the commit still pending).
+// These tests drive a real, full boot() cycle through a fake
+// window.Livewire.interceptMessage — the same integration surface
+// js/tests/directive.test.js's island tests use — so what's under test is
+// the real onStart wiring, not a reimplementation of it.
+describe('learning capture decoupled from the visible-skeleton delay (SPEC-LRN-01 fix)', () => {
+  class FakeResizeObserver {
+    observe() {}
+    disconnect() {}
+  }
+
+  let hookCallbacks;
+  let interceptedCallback;
+  let registeredDirectiveCallback;
+
+  function componentInitCallback() {
+    return hookCallbacks.get('component.init')?.at(-1);
+  }
+
+  function fakeStorage() {
+    const map = new Map();
+    return {
+      getItem: (key) => (map.has(key) ? map.get(key) : null),
+      setItem: (key, value) => { map.set(key, String(value)); },
+      removeItem: (key) => { map.delete(key); },
+    };
+  }
+
+  // Real, measurable DOM content so synthesizer.synthesize() computes a
+  // genuine Bone Tree — same fixture pattern learning-lazy.test.js and the
+  // onSynthesized-wiring describe block above already use. data-ghost
+  // carries the learning flag + component name the way GhostComponentHook
+  // (PHP) really serializes them (js/src/attributeConfig.js field names
+  // confirmed by this file's own 'parses the learning flag and component
+  // name' test above: config.learning / config.name).
+  function makeLazyLearningComponent(payloadOverrides = {}) {
+    const el = document.createElement('div');
+    el.getBoundingClientRect = () => ({ top: 0, left: 0, right: 200, bottom: 100, width: 200, height: 100 });
+    el.innerHTML = '<p>Hello world</p>';
+    el.setAttribute('data-ghost', JSON.stringify({ m: 'synthesize', g: true, n: 'orders-table', ...payloadOverrides }));
+    document.body.appendChild(el);
+    for (const child of el.querySelectorAll('*')) {
+      child.getBoundingClientRect = () => ({ top: 10, left: 10, right: 90, bottom: 30, width: 80, height: 20 });
+    }
+    return { id: 'c1', el };
+  }
+
+  // Same fixture pattern as makeLazyLearningComponent(), but attaches via
+  // the 'ghost' directive (not attribute-only auto-attach) so .ignore/.keep
+  // can be set — those two have no data-ghost/attribute-config equivalent
+  // (attributeConfig.js's compact-key schema has no "keep"/"ignore" key;
+  // see js/src/index.js's own comment on attachAttributeHost: ".keep is
+  // reserved to the directive only").
+  function makeDirectiveHost(modifiers) {
+    const el = document.createElement('div');
+    el.getBoundingClientRect = () => ({ top: 0, left: 0, right: 200, bottom: 100, width: 200, height: 100 });
+    el.innerHTML = '<p>Hello world</p>';
+    el.setAttribute('data-ghost', JSON.stringify({ m: 'synthesize', g: true, n: 'orders-table' }));
+    document.body.appendChild(el);
+    for (const child of el.querySelectorAll('*')) {
+      child.getBoundingClientRect = () => ({ top: 10, left: 10, right: 90, bottom: 30, width: 80, height: 20 });
+    }
+    const component = { id: 'c1', el };
+    registeredDirectiveCallback({
+      el,
+      directive: { modifiers, expression: '' },
+      component,
+      cleanup: () => {},
+    });
+    return component;
+  }
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    global.ResizeObserver = FakeResizeObserver;
+    if (!Range.prototype.getClientRects) {
+      Range.prototype.getClientRects = () => [{ top: 10, left: 10, right: 90, bottom: 30, width: 80, height: 20 }];
+    }
+    hookCallbacks = new Map();
+    interceptedCallback = null;
+    registeredDirectiveCallback = null;
+    window.Livewire = {
+      interceptMessage: (cb) => { interceptedCallback = cb; return () => {}; },
+      hook: (name, cb) => {
+        if (!hookCallbacks.has(name)) hookCallbacks.set(name, []);
+        hookCallbacks.get(name).push(cb);
+      },
+      directive: (name, cb) => { if (name === 'ghost') registeredDirectiveCallback = cb; },
+    };
+  });
+
+  afterEach(() => {
+    delete window.Livewire;
+    delete window.Ghostwire;
+    document.body.innerHTML = '';
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it('persists a learned tree immediately, even when the commit finishes before the 120ms show delay (never reaching onShow)', () => {
+    const storage = fakeStorage();
+    vi.stubGlobal('localStorage', storage);
+    vi.useFakeTimers();
+
+    boot();
+    const component = makeLazyLearningComponent();
+    componentInitCallback()({ component, cleanup: () => {} });
+
+    // Simulates a commit whose round trip resolves well under the 120ms
+    // show delay: onFinish's registered callback fires synchronously here,
+    // before any fake timer advances — exactly like a real fast
+    // wire:click/wire:model.live commit (plan doc: measured 60.6ms in
+    // production). The delay timer scheduler.js armed is still pending and
+    // unfired when this assertion runs — onShow never ran.
+    interceptedCallback({
+      message: { isSkipped: () => false, component, getActions: () => [{ name: 'save' }] },
+      onSuccess: () => {},
+      onError: () => {},
+      onFailure: () => {},
+      onCancel: () => {},
+      onFinish: (cb) => cb(),
+    });
+
+    expect(JSON.parse(window.Ghostwire.exportLearned()).e).not.toEqual({});
+    expect(storage.getItem('ghostwire.learned.v1')).toContain('orders-table');
+  });
+
+  it('does not capture learning for a host the same eligibility gates silence (sync-only message, no override)', () => {
+    const storage = fakeStorage();
+    vi.stubGlobal('localStorage', storage);
+    vi.useFakeTimers();
+
+    boot();
+    const component = makeLazyLearningComponent(); // host.config.sync stays undefined — no override
+    componentInitCallback()({ component, cleanup: () => {} });
+
+    interceptedCallback({
+      message: { isSkipped: () => false, component, getActions: () => [] }, // no actions at all -> isSync (v4 bridge)
+      onSuccess: () => {},
+      onError: () => {},
+      onFailure: () => {},
+      onCancel: () => {},
+      onFinish: (cb) => cb(),
+    });
+
+    expect(JSON.parse(window.Ghostwire.exportLearned())).toEqual({ v: SCHEMA_VERSION, e: {}, c: {} });
+  });
+
+  it('does not double-persist when synthesize() runs again later inside onShow for an unchanged host (delay crossed)', () => {
+    const storage = fakeStorage();
+    const setItemSpy = vi.spyOn(storage, 'setItem');
+    vi.stubGlobal('localStorage', storage);
+    vi.useFakeTimers();
+
+    boot();
+    const component = makeLazyLearningComponent();
+    componentInitCallback()({ component, cleanup: () => {} });
+
+    let finishCb;
+    interceptedCallback({
+      message: { isSkipped: () => false, component, getActions: () => [{ name: 'save' }] },
+      onSuccess: () => {},
+      onError: () => {},
+      onFailure: () => {},
+      onCancel: () => {},
+      onFinish: (cb) => { finishCb = cb; }, // NOT called yet — commit still pending when the delay elapses
+    });
+
+    vi.advanceTimersByTime(120); // crosses the show delay -> onShow fires -> synthesize() runs again on the same unchanged DOM/signature
+    finishCb();
+
+    expect(setItemSpy).toHaveBeenCalledTimes(1); // one real write; the second synthesize() call hit the signature cache, onSynthesized did not fire twice
+  });
+
+  it('does not capture learning for a mode:freeze host (onShow never synthesizes for freeze either)', () => {
+    const storage = fakeStorage();
+    vi.stubGlobal('localStorage', storage);
+    vi.useFakeTimers();
+
+    boot();
+    const component = makeLazyLearningComponent({ m: 'freeze' });
+    componentInitCallback()({ component, cleanup: () => {} });
+
+    interceptedCallback({
+      message: { isSkipped: () => false, component, getActions: () => [{ name: 'save' }] },
+      onSuccess: () => {},
+      onError: () => {},
+      onFailure: () => {},
+      onCancel: () => {},
+      onFinish: (cb) => cb(),
+    });
+
+    expect(JSON.parse(window.Ghostwire.exportLearned())).toEqual({ v: SCHEMA_VERSION, e: {}, c: {} });
+  });
+
+  it('does not capture learning for a wire:ghost.ignore host (onShow never synthesizes for .ignore either)', () => {
+    const storage = fakeStorage();
+    vi.stubGlobal('localStorage', storage);
+    vi.useFakeTimers();
+
+    boot();
+    const component = makeDirectiveHost(['ignore']);
+
+    interceptedCallback({
+      message: { isSkipped: () => false, component, getActions: () => [{ name: 'save' }] },
+      onSuccess: () => {},
+      onError: () => {},
+      onFailure: () => {},
+      onCancel: () => {},
+      onFinish: (cb) => cb(),
+    });
+
+    expect(JSON.parse(window.Ghostwire.exportLearned())).toEqual({ v: SCHEMA_VERSION, e: {}, c: {} });
+  });
+
+  it('does not capture learning for a wire:ghost.keep host (onShow never synthesizes for .keep either)', () => {
+    const storage = fakeStorage();
+    vi.stubGlobal('localStorage', storage);
+    vi.useFakeTimers();
+
+    boot();
+    const component = makeDirectiveHost(['keep']);
+
+    interceptedCallback({
+      message: { isSkipped: () => false, component, getActions: () => [{ name: 'save' }] },
+      onSuccess: () => {},
+      onError: () => {},
+      onFailure: () => {},
+      onCancel: () => {},
+      onFinish: (cb) => cb(),
+    });
+
+    expect(JSON.parse(window.Ghostwire.exportLearned())).toEqual({ v: SCHEMA_VERSION, e: {}, c: {} });
+  });
+});

@@ -93,3 +93,9 @@ Route::get('/ghostwire-lazy-learning', function () {
 
     return view('ghostwire-fixtures::page', ['component' => 'lazy-orders-table']);
 });
+
+Route::get('/ghostwire-lazy-fast-learning', function () {
+    config(['ghostwire.learning.enabled' => true]);
+
+    return view('ghostwire-fixtures::page', ['component' => 'lazy-fast-orders-table']);
+});
