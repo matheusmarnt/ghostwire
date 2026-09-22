@@ -42,6 +42,9 @@ export function collectAndClassifyRange(startNode, endNode, host, registry, maxD
   let node = startNode.nextSibling;
   while (node && node !== endNode) {
     if (node.nodeType === Node.ELEMENT_NODE && (!registry.hostFor(node) || node === host.el)) {
+      if (candidates.length >= MAX_CANDIDATES) {
+        return candidates;
+      }
       if (host.config.panels === true && classify(node) === 'container' && 0 < maxDepth) {
         const candidate = { el: node, type: 'container', depth: 0 };
         candidates.push(candidate);
