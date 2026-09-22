@@ -22,7 +22,7 @@ Add `wire:ghost` to any element (or `#[Ghost]` to a component class, with zero v
 
 ## Features
 
-- **Zero-markup synthesis** — walks the live DOM, classifies text/heading/media/control/container nodes, and emits a matching Bone Tree, all in one batched read pass (no forced reflow)
+- **Zero-markup synthesis** — walks the live DOM, classifies text/heading/media/control/container/panel nodes, and emits a matching Bone Tree, all in one batched read pass (no forced reflow)
 - **Dual Livewire bridge** — Livewire 3.6+ and 4.x supported from the same package, selected by runtime feature detection (never a version-string check)
 - **Morph-safe** — the Ghost Layer mounts outside Livewire's reconciled tree; concealment uses only `visibility`/`opacity`/`pointer-events`, never a structural DOM change
 - **`freeze` mode** — dims and disables the live host in place, for layouts synthesis can't safely cover
