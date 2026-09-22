@@ -78,6 +78,32 @@ export const FIXTURES = [
       </div>`,
   },
   {
+    id: 'kanban-panels',
+    label: 'Kanban board (panel bones)',
+    panels: true,
+    html: `
+      <div class="flex gap-4">
+        <div class="flex-1 rounded-xl border-t-2 border-slate-300 bg-slate-50 p-3 dark:border-slate-600 dark:bg-slate-800/60">
+          <h4 class="mb-3 px-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">To Do</h4>
+          <div class="mb-2 rounded-lg bg-white p-3 shadow-sm dark:bg-slate-900">
+            <p class="text-sm font-medium text-slate-900 dark:text-slate-100">Design review</p>
+            <span class="mt-2 inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">Design</span>
+          </div>
+          <div class="rounded-lg bg-white p-3 shadow-sm dark:bg-slate-900">
+            <p class="text-sm font-medium text-slate-900 dark:text-slate-100">Write tests</p>
+            <span class="mt-2 inline-flex items-center rounded-full bg-cyan-100 px-2 py-0.5 text-[11px] font-medium text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-300">QA</span>
+          </div>
+        </div>
+        <div class="flex-1 rounded-xl border-t-2 border-amber-400 bg-slate-50 p-3 dark:bg-slate-800/60">
+          <h4 class="mb-3 px-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">In Progress</h4>
+          <div class="rounded-lg bg-white p-3 shadow-sm dark:bg-slate-900">
+            <p class="text-sm font-medium text-slate-900 dark:text-slate-100">Ship playground</p>
+            <span class="mt-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">In progress</span>
+          </div>
+        </div>
+      </div>`,
+  },
+  {
     id: 'dashboard-cards',
     label: 'Dashboard cards',
     html: `
