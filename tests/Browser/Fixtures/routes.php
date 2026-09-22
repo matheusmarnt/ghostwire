@@ -58,6 +58,11 @@ Route::view('/ghostwire-resize-probe', 'ghostwire-fixtures::page', ['component' 
 // whose delay and hold come ONLY from wire:ghost.delay.600ms.hold.2000ms.
 Route::view('/ghostwire-directive-timing-probe', 'ghostwire-fixtures::page', ['component' => 'directive-timing-probe']);
 
+// Fixture for tests/Browser/Geometry/PanelBonesGeometryTest.php: a card with
+// a real background + rounded corners, opted into panels ONLY via
+// wire:ghost.panels in the view (no #[Ghost] attribute, no config override).
+Route::view('/ghostwire-panel-card', 'ghostwire-fixtures::page', ['component' => 'panel-card']);
+
 Route::view('/legacy/legacy-widget-one', 'ghostwire-fixtures::page', ['component' => 'legacy-widget-one']);
 Route::view('/legacy/legacy-widget-two', 'ghostwire-fixtures::page', ['component' => 'legacy-widget-two']);
 Route::view('/legacy/legacy-widget-three', 'ghostwire-fixtures::page', ['component' => 'legacy-widget-three']);
