@@ -571,6 +571,24 @@ export function boot() {
         if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
         if (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name))) continue;
         if (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name))) continue;
+
+        // Learning capture (docs/plans/2026-09-21-fix-ghost-lazy-learning-delay-gate.md):
+        // runs on every eligible commit, right here, instead of waiting for
+        // scheduler.js's onShow -- onShow only fires once host.cfg.delay
+        // (120ms default) elapses with the commit still pending, so a commit
+        // that resolves faster than that (the common case with no artificial
+        // network/server latency) never reached synthesize()/onSynthesized
+        // before this fix, and #[Ghost(lazy: true)] never had anything to
+        // paint. Reuses every gate above unchanged -- eligibility for
+        // capture is identical to eligibility for the visible skeleton, only
+        // WHEN it runs changes. Safe to call synthesize() again here even
+        // when onShow later re-synthesizes the same unchanged host: synthesize()
+        // is signature-memoized (synthesizer/index.js), so the second call
+        // hits the cache and onSynthesized does not fire twice.
+        if (host.config.learning && host.config.name) {
+          synthesizer.synthesize(host, regionForHost(host, bridgeName));
+        }
+
         scheduler.messageStart(host, pickOverrides(host.config));
       }
     },

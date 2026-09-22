@@ -3,7 +3,7 @@ title: Learning
 description: Local Bone Tree persistence, lazy-placeholder skeletons, and `php artisan ghost:export`.
 ---
 
-Ghostwire normally synthesizes a skeleton by walking the *current* DOM the instant a Livewire request starts — so a lazy-loaded component's very first paint, on a visitor's first-ever visit, has nothing to walk yet. Learning closes that gap: it remembers each component's Bone Tree locally, in the browser, and repaints it the next time that component is about to lazy-load, before any real content exists.
+Ghostwire normally synthesizes a skeleton by walking the *current* DOM the instant a Livewire request starts — so a lazy-loaded component's very first paint, on a visitor's first-ever visit, has nothing to walk yet. Learning closes that gap: it remembers each component's Bone Tree locally, in the browser, and repaints it the next time that component is about to lazy-load, before any real content exists. This capture runs on every eligible commit the moment it starts, independent of the visible skeleton's own anti-flicker delay (`timing.delay`) — a commit that resolves instantly is captured exactly the same as one slow enough to actually show its own skeleton.
 
 ## Turning it on
 
