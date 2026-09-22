@@ -117,7 +117,11 @@ final class LearnedTree
     }
 
     /**
-     * @param  array{width: float, height: float, bones: array<int, array<string, mixed>>}  $entry
+     * $entry is expected to already be validBone()-validated output (fromJson()'s
+     * return, typically) - the 5 required keys plus optional borderRadius are this
+     * method's real precondition, not just documentation.
+     *
+     * @param  array{width: float, height: float, bones: array<int, array{type: string, x: float, y: float, width: float, height: float, borderRadius?: string}>}  $entry
      */
     public static function toBlade(array $entry): string
     {
