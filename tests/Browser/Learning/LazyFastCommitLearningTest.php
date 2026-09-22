@@ -13,8 +13,13 @@
 it('learns from, and later paints, a commit that resolves faster than the 120ms show delay', function () {
     // Phase 1 — real page, real fast commit, no hand-seeding.
     $page = visit('/ghostwire-lazy-fast-learning');
-    $page->script('window.Ghostwire.clearLearned();');
     $page->wait(0.5); // let Livewire's own #[Lazy] swap finish (no sleep in render(), so this is ample)
+    // Cleared AFTER the initial lazy swap, not before: the swap's own
+    // commit is a cold Testbench-boot request that could plausibly itself
+    // cross 120ms and seed the store, making Phase 1's assertion pass for a
+    // reason unrelated to the fix under test. Clearing here means ONLY
+    // bump()'s fast commit below can supply what Phase 1 asserts.
+    $page->script('window.Ghostwire.clearLearned();');
 
     $page->click('#bump-btn');
     $page->wait(0.3); // real round trip only — see LazyFastOrdersTable's own comment on why this stays well under 120ms

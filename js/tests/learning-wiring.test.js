@@ -217,6 +217,7 @@ describe('learning capture decoupled from the visible-skeleton delay (SPEC-LRN-0
 
   let hookCallbacks;
   let interceptedCallback;
+  let registeredDirectiveCallback;
 
   function componentInitCallback() {
     return hookCallbacks.get('component.init')?.at(-1);
@@ -238,7 +239,25 @@ describe('learning capture decoupled from the visible-skeleton delay (SPEC-LRN-0
   // (PHP) really serializes them (js/src/attributeConfig.js field names
   // confirmed by this file's own 'parses the learning flag and component
   // name' test above: config.learning / config.name).
-  function makeLazyLearningComponent() {
+  function makeLazyLearningComponent(payloadOverrides = {}) {
+    const el = document.createElement('div');
+    el.getBoundingClientRect = () => ({ top: 0, left: 0, right: 200, bottom: 100, width: 200, height: 100 });
+    el.innerHTML = '<p>Hello world</p>';
+    el.setAttribute('data-ghost', JSON.stringify({ m: 'synthesize', g: true, n: 'orders-table', ...payloadOverrides }));
+    document.body.appendChild(el);
+    for (const child of el.querySelectorAll('*')) {
+      child.getBoundingClientRect = () => ({ top: 10, left: 10, right: 90, bottom: 30, width: 80, height: 20 });
+    }
+    return { id: 'c1', el };
+  }
+
+  // Same fixture pattern as makeLazyLearningComponent(), but attaches via
+  // the 'ghost' directive (not attribute-only auto-attach) so .ignore/.keep
+  // can be set — those two have no data-ghost/attribute-config equivalent
+  // (attributeConfig.js's compact-key schema has no "keep"/"ignore" key;
+  // see js/src/index.js's own comment on attachAttributeHost: ".keep is
+  // reserved to the directive only").
+  function makeDirectiveHost(modifiers) {
     const el = document.createElement('div');
     el.getBoundingClientRect = () => ({ top: 0, left: 0, right: 200, bottom: 100, width: 200, height: 100 });
     el.innerHTML = '<p>Hello world</p>';
@@ -247,7 +266,14 @@ describe('learning capture decoupled from the visible-skeleton delay (SPEC-LRN-0
     for (const child of el.querySelectorAll('*')) {
       child.getBoundingClientRect = () => ({ top: 10, left: 10, right: 90, bottom: 30, width: 80, height: 20 });
     }
-    return { id: 'c1', el };
+    const component = { id: 'c1', el };
+    registeredDirectiveCallback({
+      el,
+      directive: { modifiers, expression: '' },
+      component,
+      cleanup: () => {},
+    });
+    return component;
   }
 
   beforeEach(() => {
@@ -258,13 +284,14 @@ describe('learning capture decoupled from the visible-skeleton delay (SPEC-LRN-0
     }
     hookCallbacks = new Map();
     interceptedCallback = null;
+    registeredDirectiveCallback = null;
     window.Livewire = {
       interceptMessage: (cb) => { interceptedCallback = cb; return () => {}; },
       hook: (name, cb) => {
         if (!hookCallbacks.has(name)) hookCallbacks.set(name, []);
         hookCallbacks.get(name).push(cb);
       },
-      directive: () => {},
+      directive: (name, cb) => { if (name === 'ghost') registeredDirectiveCallback = cb; },
     };
   });
 
@@ -349,5 +376,66 @@ describe('learning capture decoupled from the visible-skeleton delay (SPEC-LRN-0
     finishCb();
 
     expect(setItemSpy).toHaveBeenCalledTimes(1); // one real write; the second synthesize() call hit the signature cache, onSynthesized did not fire twice
+  });
+
+  it('does not capture learning for a mode:freeze host (onShow never synthesizes for freeze either)', () => {
+    const storage = fakeStorage();
+    vi.stubGlobal('localStorage', storage);
+    vi.useFakeTimers();
+
+    boot();
+    const component = makeLazyLearningComponent({ m: 'freeze' });
+    componentInitCallback()({ component, cleanup: () => {} });
+
+    interceptedCallback({
+      message: { isSkipped: () => false, component, getActions: () => [{ name: 'save' }] },
+      onSuccess: () => {},
+      onError: () => {},
+      onFailure: () => {},
+      onCancel: () => {},
+      onFinish: (cb) => cb(),
+    });
+
+    expect(JSON.parse(window.Ghostwire.exportLearned())).toEqual({ v: SCHEMA_VERSION, e: {}, c: {} });
+  });
+
+  it('does not capture learning for a wire:ghost.ignore host (onShow never synthesizes for .ignore either)', () => {
+    const storage = fakeStorage();
+    vi.stubGlobal('localStorage', storage);
+    vi.useFakeTimers();
+
+    boot();
+    const component = makeDirectiveHost(['ignore']);
+
+    interceptedCallback({
+      message: { isSkipped: () => false, component, getActions: () => [{ name: 'save' }] },
+      onSuccess: () => {},
+      onError: () => {},
+      onFailure: () => {},
+      onCancel: () => {},
+      onFinish: (cb) => cb(),
+    });
+
+    expect(JSON.parse(window.Ghostwire.exportLearned())).toEqual({ v: SCHEMA_VERSION, e: {}, c: {} });
+  });
+
+  it('does not capture learning for a wire:ghost.keep host (onShow never synthesizes for .keep either)', () => {
+    const storage = fakeStorage();
+    vi.stubGlobal('localStorage', storage);
+    vi.useFakeTimers();
+
+    boot();
+    const component = makeDirectiveHost(['keep']);
+
+    interceptedCallback({
+      message: { isSkipped: () => false, component, getActions: () => [{ name: 'save' }] },
+      onSuccess: () => {},
+      onError: () => {},
+      onFailure: () => {},
+      onCancel: () => {},
+      onFinish: (cb) => cb(),
+    });
+
+    expect(JSON.parse(window.Ghostwire.exportLearned())).toEqual({ v: SCHEMA_VERSION, e: {}, c: {} });
   });
 });

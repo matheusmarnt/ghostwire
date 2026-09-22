@@ -579,13 +579,32 @@ export function boot() {
         // that resolves faster than that (the common case with no artificial
         // network/server latency) never reached synthesize()/onSynthesized
         // before this fix, and #[Ghost(lazy: true)] never had anything to
-        // paint. Reuses every gate above unchanged -- eligibility for
-        // capture is identical to eligibility for the visible skeleton, only
-        // WHEN it runs changes. Safe to call synthesize() again here even
-        // when onShow later re-synthesizes the same unchanged host: synthesize()
-        // is signature-memoized (synthesizer/index.js), so the second call
+        // paint.
+        //
+        // onShow's own gates (below, in scheduler's onShow callback) are a
+        // strict superset of onStart's above: mode:'off'/.ignore/.keep and
+        // mode:'freeze' all skip synthesize() there too -- before this
+        // widening, capture could never reach those hosts either. Mirrored
+        // here so capture stays exactly as eligible as it was before this
+        // fix, never wider. mode:'off' is already covered by the shared
+        // gate above; freeze/.ignore/.keep are not, since those three only
+        // ever blocked the VISIBLE skeleton, never the whole per-host loop.
+        //
+        // Cost note: synthesize() always walks+classifies+signs the
+        // candidate set (collectAndClassify + computeSignature,
+        // synthesizer/index.js) BEFORE its cache check, so every eligible
+        // commit in learning mode now pays that walk immediately instead of
+        // only once a skeleton was actually about to show, 120ms later.
+        // Learning defaults off and is refused outright in production
+        // (GhostComponentHook::learningEnabled()), so this cost is confined
+        // to opted-in, non-production use -- consistent with ADR-007.
+        //
+        // Safe to call synthesize() again here even when onShow later
+        // re-synthesizes the same unchanged host: synthesize() is
+        // signature-memoized (synthesizer/index.js), so the second call
         // hits the cache and onSynthesized does not fire twice.
-        if (host.config.learning && host.config.name) {
+        if (host.config.learning && host.config.name
+            && host.config.mode !== 'freeze' && !host.config.ignore && !host.config.keep) {
           synthesizer.synthesize(host, regionForHost(host, bridgeName));
         }
 
