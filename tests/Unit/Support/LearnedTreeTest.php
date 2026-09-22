@@ -146,6 +146,60 @@ it('rejects a bone missing one of the five required keys', function () {
     expect(LearnedTree::fromJson($json, 'orders-table', 'lg'))->toBeNull();
 });
 
+it('accepts a panel bone carrying a valid borderRadius', function () {
+    $json = treeEnvelope([
+        ['type' => 'panel', 'x' => 0, 'y' => 0, 'width' => 200, 'height' => 100, 'borderRadius' => '8px'],
+    ]);
+
+    $result = LearnedTree::fromJson($json, 'orders-table', 'lg');
+
+    expect($result)->not->toBeNull()
+        ->and($result['bones'][0])->toBe([
+            'type' => 'panel', 'x' => 0.0, 'y' => 0.0, 'width' => 200.0, 'height' => 100.0, 'borderRadius' => '8px',
+        ]);
+});
+
+it('accepts a panel bone with no borderRadius, using just the five base keys', function () {
+    // The common case: most panels have no rounded corner at all.
+    $json = treeEnvelope([
+        ['type' => 'panel', 'x' => 0, 'y' => 0, 'width' => 200, 'height' => 100],
+    ]);
+
+    expect(LearnedTree::fromJson($json, 'orders-table', 'lg'))->not->toBeNull();
+});
+
+it('accepts a multi-corner borderRadius (up to 4 space-separated tokens)', function () {
+    $json = treeEnvelope([
+        ['type' => 'panel', 'x' => 0, 'y' => 0, 'width' => 200, 'height' => 100, 'borderRadius' => '8px 4px 8px 4px'],
+    ]);
+
+    expect(LearnedTree::fromJson($json, 'orders-table', 'lg'))->not->toBeNull();
+});
+
+it('rejects a panel bone whose borderRadius does not match the strict pattern', function () {
+    $json = treeEnvelope([
+        ['type' => 'panel', 'x' => 0, 'y' => 0, 'width' => 200, 'height' => 100, 'borderRadius' => '8px" onmouseover="alert(1)'],
+    ]);
+
+    expect(LearnedTree::fromJson($json, 'orders-table', 'lg'))->toBeNull();
+});
+
+it('rejects a panel bone whose borderRadius is not a string', function () {
+    $json = treeEnvelope([
+        ['type' => 'panel', 'x' => 0, 'y' => 0, 'width' => 200, 'height' => 100, 'borderRadius' => 8],
+    ]);
+
+    expect(LearnedTree::fromJson($json, 'orders-table', 'lg'))->toBeNull();
+});
+
+it('rejects a panel bone carrying a seventh key beyond the five base keys plus borderRadius', function () {
+    $json = treeEnvelope([
+        ['type' => 'panel', 'x' => 0, 'y' => 0, 'width' => 200, 'height' => 100, 'borderRadius' => '8px', 'onclick' => 'alert(1)'],
+    ]);
+
+    expect(LearnedTree::fromJson($json, 'orders-table', 'lg'))->toBeNull();
+});
+
 it('rejects an entry whose bones array is empty', function () {
     expect(LearnedTree::fromJson(treeEnvelope([]), 'orders-table', 'lg'))->toBeNull();
 });
@@ -250,6 +304,31 @@ it('emits fully static markup with no Blade echo and no PHP tag', function () {
         ->and($blade)->not->toContain('<?')
         ->and($blade)->not->toContain('@')
         ->and($blade)->toContain('gw-bone gw-bone--text');
+});
+
+it('emits a border-radius inline style for a bone that carries one, still with no dynamic markup', function () {
+    $blade = LearnedTree::toBlade([
+        'width' => 100.0,
+        'height' => 50.0,
+        'bones' => [['type' => 'panel', 'x' => 1.0, 'y' => 2.0, 'width' => 3.0, 'height' => 4.0, 'borderRadius' => '8px']],
+    ]);
+
+    expect($blade)->toContain('gw-bone gw-bone--panel')
+        ->and($blade)->toContain('border-radius:8px')
+        ->and($blade)->not->toContain('{{')
+        ->and($blade)->not->toContain('{!!')
+        ->and($blade)->not->toContain('<?')
+        ->and($blade)->not->toContain('@');
+});
+
+it('omits the border-radius style entirely for a bone with none', function () {
+    $blade = LearnedTree::toBlade([
+        'width' => 100.0,
+        'height' => 50.0,
+        'bones' => [['type' => 'text', 'x' => 1.0, 'y' => 2.0, 'width' => 3.0, 'height' => 4.0]],
+    ]);
+
+    expect($blade)->not->toContain('border-radius');
 });
 
 it('formats geometry with a locale-independent decimal point (Finding 4)', function () {

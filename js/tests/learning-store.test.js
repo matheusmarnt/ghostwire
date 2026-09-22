@@ -111,6 +111,42 @@ describe('learning store', () => {
     expect(store.put('x', 1, 'lg', { width: 10, height: 10 }, [{ type: 'text', x: 0, y: 0, width: 1, height: 1, onclick: 'alert(1)' }])).toBe(false);
   });
 
+  it('accepts a panel bone carrying a valid borderRadius (SPEC-SEC-04)', () => {
+    expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
+      { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '8px' },
+    ])).toBe(true);
+
+    expect(store.get('card', 'lg').bones).toEqual([
+      { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '8px' },
+    ]);
+  });
+
+  it('accepts a panel bone with no borderRadius, using just the 5 base keys (SPEC-SEC-04)', () => {
+    // The common case: most panels have no rounded corner at all, so toBone()
+    // never adds the key in the first place.
+    expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
+      { type: 'panel', x: 0, y: 0, width: 200, height: 100 },
+    ])).toBe(true);
+  });
+
+  it('accepts a multi-corner borderRadius (up to 4 space-separated tokens) (SPEC-SEC-04)', () => {
+    expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
+      { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '8px 4px 8px 4px' },
+    ])).toBe(true);
+  });
+
+  it('rejects a panel bone whose borderRadius does not match the strict pattern (SPEC-SEC-04)', () => {
+    expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
+      { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '8px" onmouseover="alert(1)' },
+    ])).toBe(false);
+  });
+
+  it('rejects a panel bone carrying a 7th key beyond the 5 base keys plus borderRadius (SPEC-SEC-04)', () => {
+    expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
+      { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '8px', onclick: 'alert(1)' },
+    ])).toBe(false);
+  });
+
   it('rejects a component name outside the allowed charset (SPEC-SEC-04)', () => {
     expect(store.put('<img src=x>', 1, 'lg', { width: 10, height: 10 }, TREE)).toBe(false);
   });
@@ -301,28 +337,60 @@ describe('learning store', () => {
   });
 
   // Finding 2: store.js's BONE_KEYS hand-copies emit.js's toBone() shape, and
-  // validBone() *rejects* a bone carrying any key toBone() doesn't produce
-  // (store.js:31-32) - so a 6th field added to toBone() tomorrow would fail
-  // every single put(), the identical silent-blackout failure mode Finding 1
-  // guards against for bone *types*, left uncovered for bone *keys*. Reads
-  // both sides from source rather than importing BONE_KEYS (which store.js
-  // doesn't export) so this stays a source-level invariant, not a hand-copy.
-  it("keeps store.js's bone key set in sync with emit.js's toBone() shape (SPEC-SEC-04)", () => {
+  // validBone() *rejects* a bone carrying any base key toBone() doesn't
+  // produce, or an unrecognized key beyond the one optional exception - so a
+  // key added to toBone() tomorrow without a matching update here would fail
+  // every single put() that key appears on, the identical silent-blackout
+  // failure mode Finding 1 guards against for bone *types*, left uncovered
+  // for bone *keys*. Reads both sides from source rather than importing
+  // BONE_KEYS/OPTIONAL_BONE_KEYS (which store.js doesn't export) so this
+  // stays a source-level invariant, not a hand-copy.
+  //
+  // toBone() now sets its 5 base keys unconditionally and then, only for a
+  // panel bone with a real border-radius, adds ONE optional key
+  // (`if (borderRadius) bone.borderRadius = borderRadius;`). This checks both
+  // halves independently: the base object literal's keys against
+  // store.js's BONE_KEYS, and the conditionally-assigned key's name against
+  // store.js's OPTIONAL_BONE_KEYS - so either half drifting out of sync (a
+  // new base key, a renamed optional key, a second optional key added to one
+  // side only) fails this test instead of silently going dark.
+  it("keeps store.js's bone key set in sync with emit.js's toBone() shape, base and optional (SPEC-SEC-04)", () => {
     const storeSrc = readFileSync(path.join(dir, '../src/learning/store.js'), 'utf8');
     const emitSrc = readFileSync(path.join(dir, '../src/synthesizer/emit.js'), 'utf8');
 
-    const boneKeysMatch = storeSrc.match(/BONE_KEYS = \[([^\]]+)\]/);
-    expect(boneKeysMatch).not.toBeNull();
-    const boneKeys = [...boneKeysMatch[1].matchAll(/'([a-z]+)'/g)].map((m) => m[1]);
+    const requiredKeysMatch = storeSrc.match(/BONE_KEYS = \[([^\]]+)\]/);
+    expect(requiredKeysMatch).not.toBeNull();
+    const requiredKeys = [...requiredKeysMatch[1].matchAll(/'([a-zA-Z]+)'/g)].map((m) => m[1]);
 
-    const toBoneMatch = emitSrc.match(/export function toBone\([^)]*\)\s*\{\s*return \{([^}]+)\}/);
-    expect(toBoneMatch).not.toBeNull();
-    const toBoneKeys = toBoneMatch[1]
+    const optionalKeysMatch = storeSrc.match(/OPTIONAL_BONE_KEYS = \[([^\]]+)\]/);
+    expect(optionalKeysMatch).not.toBeNull();
+    const optionalKeys = [...optionalKeysMatch[1].matchAll(/'([a-zA-Z]+)'/g)].map((m) => m[1]);
+
+    // Anchored to right after toBone()'s own signature, not a bare search for
+    // "const bone = {" anywhere in the file - emit()'s repeat-extra clone loop
+    // (above toBone() in source) builds its own unrelated `const bone = {...}`
+    // object literals, and a bare search would silently match the wrong one.
+    const baseLiteralMatch = emitSrc.match(/export function toBone\([^)]*\)\s*\{\s*const bone = \{([^}]+)\}/);
+    expect(baseLiteralMatch).not.toBeNull();
+    const baseKeys = baseLiteralMatch[1]
       .split(',')
       .map((part) => part.trim())
       .filter(Boolean)
       .map((part) => part.split(':')[0].trim());
 
-    expect(boneKeys.sort()).toEqual(toBoneKeys.sort());
+    expect(requiredKeys.sort()).toEqual(baseKeys.sort());
+
+    // Matched structurally (guard variable, assigned property, assigned-from
+    // variable, all captured rather than hardcoded) so a harmless reformat
+    // doesn't false-fail this test the way a brittle exact-string match
+    // would - but the three occurrences of the identifier are still required
+    // to agree, which the pre-fix source (a bare `return { ...5 keys };`
+    // with no such conditional at all) has no match for at all.
+    const conditionalMatch = emitSrc.match(/export function toBone\([^)]*\)\s*\{[\s\S]*?if\s*\(\s*(\w+)\s*\)\s*bone\.(\w+)\s*=\s*\1\s*;/);
+    expect(conditionalMatch).not.toBeNull();
+    const [, guardVar, assignedKey] = conditionalMatch;
+    expect(assignedKey).toBe(guardVar); // the param, its guard, and the key it's assigned under all share one name
+
+    expect(optionalKeys).toEqual([assignedKey]);
   });
 });

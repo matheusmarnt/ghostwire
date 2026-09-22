@@ -26,7 +26,7 @@ final class LearnedTree
 
     public const MAX_BONES = 300;
 
-    public const BONE_TYPES = ['text', 'avatar', 'block', 'icon', 'media', 'control', 'heading'];
+    public const BONE_TYPES = ['text', 'avatar', 'block', 'icon', 'media', 'control', 'heading', 'panel'];
 
     // JS's Number.MAX_SAFE_INTEGER (2**53 - 1) - the ceiling store.js's
     // validEntry() clamps the learned-at timestamp to (Finding 5).
@@ -41,8 +41,17 @@ final class LearnedTree
     // test in tests/Unit/Support/LearnedTreeTest.php.
     public const NAME_PATTERN = '/^[a-z0-9\-.]{1,64}$/D';
 
+    // Mirrors store.js's BORDER_RADIUS_PATTERN. A real space, not \s - real
+    // getComputedStyle(el).borderRadius output only ever separates multi-corner
+    // tokens with a plain ASCII space, so \s's extra leniency (tab, newline...)
+    // is unneeded slack in a pattern validating untrusted input. The trailing D
+    // modifier is required for the same reason NAME_PATTERN carries one (see
+    // above): without it, PCRE's $ also matches immediately before a trailing
+    // "\n", which JS's $ (no `m` flag) does not.
+    public const BORDER_RADIUS_PATTERN = '/^\d+(\.\d+)?(px|%|em|rem)( \d+(\.\d+)?(px|%|em|rem)){0,3}$/D';
+
     /**
-     * @return array{width: float, height: float, bones: array<int, array{type: string, x: float, y: float, width: float, height: float}>}|null
+     * @return array{width: float, height: float, bones: array<int, array{type: string, x: float, y: float, width: float, height: float, borderRadius?: string}>}|null
      */
     public static function fromJson(string $json, string $component, string $band): ?array
     {
@@ -131,13 +140,30 @@ final class LearnedTree
         ];
 
         foreach ($entry['bones'] as $bone) {
-            $lines[] = sprintf(
-                '    <div class="gw-bone gw-bone--%s" style="position:absolute;left:%.2Fpx;top:%.2Fpx;width:%.2Fpx;height:%.2Fpx"></div>',
-                $bone['type'],   // already restricted to self::BONE_TYPES
+            $style = sprintf(
+                'position:absolute;left:%.2Fpx;top:%.2Fpx;width:%.2Fpx;height:%.2Fpx',
                 $bone['x'],
                 $bone['y'],
                 $bone['width'],
                 $bone['height'],
+            );
+
+            // Safe to interpolate this string directly (unlike the numeric
+            // fields above, which all go through %.2F): by the time a bone
+            // reaches here it already passed validBone()'s BORDER_RADIUS_PATTERN
+            // match, which restricts the value to digits, an optional decimal
+            // point, spaces, and the literal unit words px/%/em/rem - no quote,
+            // angle-bracket or other character that could close the style
+            // attribute or inject markup can survive that gate. Read only from
+            // this already-validated $bone, never re-derived from raw input.
+            if (isset($bone['borderRadius'])) {
+                $style .= sprintf(';border-radius:%s', $bone['borderRadius']);
+            }
+
+            $lines[] = sprintf(
+                '    <div class="gw-bone gw-bone--%s" style="%s"></div>',
+                $bone['type'],   // already restricted to self::BONE_TYPES
+                $style,
             );
         }
 
@@ -147,7 +173,7 @@ final class LearnedTree
     }
 
     /**
-     * @return array{type: string, x: float, y: float, width: float, height: float}|null
+     * @return array{type: string, x: float, y: float, width: float, height: float, borderRadius?: string}|null
      */
     private static function validBone(mixed $bone): ?array
     {
@@ -158,7 +184,16 @@ final class LearnedTree
         $keys = array_keys($bone);
         sort($keys);
 
-        if ($keys !== ['height', 'type', 'width', 'x', 'y']) {
+        // Whatever isn't the 5 required keys must be exactly the one
+        // recognized optional key (borderRadius) - anything else (a typo, a
+        // smuggled field) is rejected outright rather than silently dropped,
+        // mirroring store.js's validBone().
+        $hasBorderRadius = in_array('borderRadius', $keys, true);
+        $expectedKeys = $hasBorderRadius
+            ? ['borderRadius', 'height', 'type', 'width', 'x', 'y']
+            : ['height', 'type', 'width', 'x', 'y'];
+
+        if ($keys !== $expectedKeys) {
             return null;
         }
 
@@ -175,7 +210,17 @@ final class LearnedTree
             return null;
         }
 
-        return ['type' => $bone['type'], 'x' => $x, 'y' => $y, 'width' => $width, 'height' => $height];
+        $valid = ['type' => $bone['type'], 'x' => $x, 'y' => $y, 'width' => $width, 'height' => $height];
+
+        if ($hasBorderRadius) {
+            if (! is_string($bone['borderRadius']) || ! preg_match(self::BORDER_RADIUS_PATTERN, $bone['borderRadius'])) {
+                return null;
+            }
+
+            $valid['borderRadius'] = $bone['borderRadius'];
+        }
+
+        return $valid;
     }
 
     private static function clamp(mixed $value, float $min, float $max): ?float
