@@ -14,7 +14,7 @@ walk(host)
   └─ 5. Emit        → a Bone Tree in coordinates relative to the host
 ```
 
-**Panels:** A container whose own background, border, or shadow makes it visually distinct can be promoted to its own `panel` bone — walked like a normal container, but rendered as a top-level skeleton element instead of a nested child. This creates distinct visual regions in the skeleton without flattening the component tree. Enable via `.panels` on the directive or `panels: true` in `#[Ghost]`; off by default.
+**Panels:** A container whose own background, border, or shadow makes it visually distinct can be promoted to its own `panel` bone — walked like a normal container, but emitted as its own bone painted beneath its children, before they're painted on top of it, rather than only being represented indirectly through them. The children are still emitted as their own separate bones, not replaced. This creates distinct visual regions in the skeleton without flattening the component tree. Enable via `.panels` on the directive or `panels: true` in `#[Ghost]`; off by default.
 
 **Read/write separation is load-bearing.** Every layout read (`getBoundingClientRect`, `getComputedStyle`) happens before any DOM write — mixing them forces a synchronous reflow per element instead of one batched reflow for the whole host. This is the single biggest performance invariant in the codebase, and it's enforced by a regression-guarding test, not just convention.
 

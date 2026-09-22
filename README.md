@@ -50,7 +50,7 @@ Bridge selection is runtime feature detection, never a version string. Everythin
 
 | Tier | Capabilities |
 |---|---|
-| **A — identical** | Directive + every modifier except `.island` · `#[Ghost]` in full (class, method, inheritance, precedence) · synthesis · `freeze` · timing (delay/hold) · sync silence · theme & tokens · accessibility · morph coexistence |
+| **A — identical** | Directive + every modifier including `.panels`, except `.island` · `#[Ghost]` in full (class, method, inheritance, precedence) · synthesis · `freeze` · timing (delay/hold) · sync silence · theme & tokens · accessibility · panels detection and promotion · morph coexistence |
 | **B — degraded on 3.x** | Post-paint removal (emulated via double `requestAnimationFrame`) · finalization (composed from multiple hooks) · cancellation (resolved as finalization) · poll detection (origin heuristic) · per-action interception (bridge-level filter — same observable behavior) |
 | **C — 4.x only** | Island scoping (`.island`) · message-skip handling |
 
