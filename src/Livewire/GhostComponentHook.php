@@ -115,7 +115,7 @@ class GhostComponentHook extends ComponentHook
      * emitted only when it differs from the package default, and `only`/
      * `except`/`rows` are omitted entirely while still null.
      *
-     * @param  array{mode: string, only: ?array, except: ?array, delay: int, hold: int, rows: ?int, poll: bool, sync: bool, lazy: bool}  $resolved
+     * @param  array{mode: string, only: ?array, except: ?array, delay: int, hold: int, rows: ?int, poll: bool, sync: bool, lazy: bool, panels: bool}  $resolved
      * @param  array<string, mixed>  $defaults  from ConfigResolver::literalDefaults() — deliberately NOT defaults()/config()-driven values: the browser can only ever fall back to the fixed literal js/src/attributeConfig.js hardcodes, so a field must stay in the payload whenever it differs from that literal, even if it happens to match a deployment's customized config() value (config-drift fix).
      * @return array<string, mixed>
      */

@@ -86,7 +86,7 @@ export function emit(host, measured, rowsHint) {
           // more lines than the template) — fall through to pitch-translation,
           // same as every other bone type.
         }
-        const bone = { type: templateBone.type, x: templateBone.x + dx, y: templateBone.y + dy, width: templateBone.width, height: templateBone.height };
+        const bone = { ...templateBone, x: templateBone.x + dx, y: templateBone.y + dy };
         if (relativeRectIntersects(bone, clip)) bones.push(bone);
       }
     }

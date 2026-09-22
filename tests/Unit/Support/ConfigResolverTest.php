@@ -158,6 +158,16 @@ it('resolves panels to the config-driven package default when nothing declares i
     expect($resolved['panels'])->toBeTrue();
 });
 
+it('casts a string config value (as env() returns for GHOSTWIRE_PANELS=1) to a real boolean', function () {
+    config(['ghostwire.panels' => '1']);
+    $resolver = app(ConfigResolver::class);
+
+    $resolved = $resolver->resolve(GhostBaseComponent::class);
+
+    expect($resolved['panels'])->toBeTrue()
+        ->and($resolved['panels'])->toBeBool();
+});
+
 it('lets a class-level #[Ghost(panels: true)] override the config default', function () {
     config(['ghostwire.panels' => false]);
     $resolver = app(ConfigResolver::class);

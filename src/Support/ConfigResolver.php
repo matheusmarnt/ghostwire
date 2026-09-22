@@ -25,7 +25,7 @@ final class ConfigResolver
     private array $hasDeclarationCache = [];
 
     /**
-     * @return array{mode: string, only: ?array, except: ?array, delay: int, hold: int, rows: ?int, poll: bool, sync: bool, lazy: bool}
+     * @return array{mode: string, only: ?array, except: ?array, delay: int, hold: int, rows: ?int, poll: bool, sync: bool, lazy: bool, panels: bool}
      */
     public function resolve(string $componentClass, ?string $method = null): array
     {
@@ -258,7 +258,7 @@ final class ConfigResolver
             // promise. Hardcoded false — same as literalDefaults()'s 'lazy' below — so the
             // attribute is the sole opt-in, in both learning states.
             'lazy' => false,
-            'panels' => config('ghostwire.panels', false),
+            'panels' => (bool) config('ghostwire.panels', false),
         };
     }
 

@@ -253,6 +253,18 @@ describe('synthesizer/emit — panel bones', () => {
     expect(bones[1].type).toBe('text');
   });
 
+  it('SPEC-SYN-11: a cloned repeat-extra bone carries the template panel bone\'s borderRadius', () => {
+    const measured = baseMeasured([
+      { type: 'container', isPanel: true, borderRadius: '6px', rect: { top: 110, left: 60, right: 160, bottom: 140, width: 100, height: 30 }, visibility: 'visible', transform: 'none', repeatGroup: { id: 0, index: 2 } },
+      { type: 'repeat-extra', rect: { top: 110, left: 60, right: 160, bottom: 140, width: 100, height: 30 }, visibility: 'visible', transform: 'none', clipRect: HOST_RECT, repeatGroup: { id: 0, index: 2 }, repeat: { count: 2, pitch: { x: 0, y: 30 } } },
+    ]);
+
+    const bones = emit({}, measured, 0);
+
+    expect(bones).toHaveLength(3); // 1 template panel bone + 2 clones
+    expect(bones.every((bone) => bone.borderRadius === '6px')).toBe(true);
+  });
+
   it('toBone: passes through borderRadius only when given', () => {
     const withRadius = toBone('panel', { left: 60, top: 110, width: 80, height: 20 }, HOST_RECT, '8px');
     const withoutRadius = toBone('text', { left: 60, top: 110, width: 80, height: 20 }, HOST_RECT);
