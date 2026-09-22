@@ -17,7 +17,7 @@ describe('parseAttributeConfig', () => {
     expect(config).toEqual({
       mode: 'synthesize', only: null, except: null,
       delay: 120, hold: 300, rows: null, poll: false, sync: false, lazy: false,
-      learning: false, name: null,
+      learning: false, name: null, panels: false,
     });
   });
 
@@ -52,6 +52,40 @@ describe('parseAttributeConfig', () => {
     const tooLong = 'a'.repeat(65);
     const config = parseAttributeConfig(elWithDataGhost(`{"m":"synthesize","o":["${tooLong}","valid_Name1","bad-name"]}`));
     expect(config.only).toEqual(['valid_Name1']);
+  });
+
+  it('parses the "v" key as the panels boolean', () => {
+    const el = document.createElement('div');
+    el.setAttribute('data-ghost', JSON.stringify({ m: 'synthesize', v: true }));
+
+    const config = parseAttributeConfig(el);
+
+    expect(config.panels).toBe(true);
+  });
+
+  it('defaults panels to false when "v" is absent', () => {
+    const el = document.createElement('div');
+    el.setAttribute('data-ghost', JSON.stringify({ m: 'synthesize' }));
+
+    const config = parseAttributeConfig(el);
+
+    expect(config.panels).toBe(false);
+  });
+
+  it('rejects a non-boolean "v" value, discarding the whole payload', () => {
+    const el = document.createElement('div');
+    el.setAttribute('data-ghost', JSON.stringify({ m: 'synthesize', v: 'yes' }));
+
+    expect(parseAttributeConfig(el)).toBeNull();
+  });
+
+  it('accepts "v" as a method-level override key in the "a" map', () => {
+    const el = document.createElement('div');
+    el.setAttribute('data-ghost', JSON.stringify({ m: 'synthesize', a: { save: { v: true } } }));
+
+    const config = parseAttributeConfig(el);
+
+    expect(config.actionOverrides.save).toEqual({ panels: true });
   });
 
   describe('"a" (method-level action overrides, SPEC-API-10)', () => {
