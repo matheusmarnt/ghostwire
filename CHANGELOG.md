@@ -15,6 +15,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > The `[1.0.0]` section below predates that and is hand-curated. It stays as
 > written, including its `Scope` subsection recording what 1.0.0 ships without.
 
+## [1.3.0](https://github.com/matheusmarnt/ghostwire/compare/v1.2.1...v1.3.0) (2026-09-22)
+
+
+### Features
+
+* add a panel-bones gallery fixture ([6881edb](https://github.com/matheusmarnt/ghostwire/commit/6881edb6182d517ee2e03543f6cbd497cbacd834))
+* add panel bones — visually distinct containers get their own skeleton bone ([1cafa1e](https://github.com/matheusmarnt/ghostwire/commit/1cafa1e04d106f673bbd9b700d2e9792d4f2ece5))
+* detect and promote visually distinct containers to panel bones ([de946c0](https://github.com/matheusmarnt/ghostwire/commit/de946c0bdc2fa42d5f6654fa798f13655034c004))
+* render panel bones with a distinct color token and their own border-radius ([1f1bb67](https://github.com/matheusmarnt/ghostwire/commit/1f1bb67a42546c20838e09f718f06381fd6d57c6))
+* resolve and transport panels through the PHP attribute/config precedence chain ([9c997b4](https://github.com/matheusmarnt/ghostwire/commit/9c997b4f70a540002e24336afe24fb77d4bd29bb))
+* transport panels through the wire:ghost directive and data-ghost attribute ([1425cb8](https://github.com/matheusmarnt/ghostwire/commit/1425cb8f6c90c899f040faf2c21445bcb3c60b3a))
+
+
+### Bug Fixes
+
+* add MAX_CANDIDATES guard to collectAndClassifyRange panel detection ([477bdff](https://github.com/matheusmarnt/ghostwire/commit/477bdff854c77b5f32ded4f724b139338384dc01))
+* bound the toBone() shape-sync test to its real body and check the full optional-key set ([7743f7b](https://github.com/matheusmarnt/ghostwire/commit/7743f7b7b93923baefa97d14806eeabe10e0afdf))
+* cast panels config to bool and preserve borderRadius on cloned repeat bones ([1c02257](https://github.com/matheusmarnt/ghostwire/commit/1c022572f28034f134e0d808e48a86ef2642f374))
+* correct inaccurate comments and add a vacuous-pass guard to the panel geometry test ([a83ab3f](https://github.com/matheusmarnt/ghostwire/commit/a83ab3f094862bc614e7f1e464d950a79ba7adfa))
+* rebuild the runtime bundle to include panel bones support ([9d4d5ac](https://github.com/matheusmarnt/ghostwire/commit/9d4d5ac8e7cb3191ed2ad05183783495776347e7))
+* teach the learning validators about panel bones and their optional borderRadius ([2f32479](https://github.com/matheusmarnt/ghostwire/commit/2f32479bfc2d4ac90e28172a389a8b670d83f85a))
+* update apiSurface frozen tests to include panels modifier and v key ([5c5ba53](https://github.com/matheusmarnt/ghostwire/commit/5c5ba53eb2643447f726d268795575bc43d2e15a))
+
 ## [1.2.1](https://github.com/matheusmarnt/ghostwire/compare/v1.2.0...v1.2.1) (2026-09-22)
 
 
