@@ -41,7 +41,7 @@ export function collectAndClassifyRange(startNode, endNode, host, registry, maxD
   const state = { groupSeq: 0 };
   let node = startNode.nextSibling;
   while (node && node !== endNode) {
-    if (node.nodeType === Node.ELEMENT_NODE && (!registry.hostFor(node) || node === host.el)) {
+    if (node.nodeType === Node.ELEMENT_NODE && (!registry.hostFor(node) || node === host.el) && !isCollapsed(node)) {
       if (candidates.length >= MAX_CANDIDATES) {
         return candidates;
       }

@@ -488,4 +488,42 @@ describe('collectAndClassifyRange', () => {
     expect(candidates).toHaveLength(1500);
     expect(candidates.every((c) => c.type === 'container' || c.type === 'text')).toBe(true);
   }, 15000);
+
+  it('prunes a display:none sibling within the range before it can spend the candidate budget, so visible content later in the range is still found', () => {
+    const registry = createRegistry();
+    const wrapper = document.createElement('div');
+    const start = document.createComment('start');
+    wrapper.appendChild(start);
+
+    const hidden = document.createElement('div'); // e.g. a closed dropdown or an off-screen panel sitting inside the island range
+    hidden.style.display = 'none';
+    for (let i = 0; i < 1505; i++) {
+      const p = document.createElement('p');
+      p.textContent = `hidden row ${i}`;
+      hidden.appendChild(p);
+    }
+    wrapper.appendChild(hidden);
+
+    const visible = document.createElement('div');
+    const visibleText = document.createElement('p');
+    visibleText.textContent = 'visible content';
+    visible.appendChild(visibleText);
+    wrapper.appendChild(visible);
+
+    const end = document.createComment('end');
+    wrapper.appendChild(end);
+    document.body.appendChild(wrapper);
+
+    const host = { el: document.createElement('div'), config: {}, component: { id: 'c1' }, state: 'idle', pending: 0, layer: null };
+
+    const candidates = collectAndClassifyRange(start, end, host, registry);
+
+    // Without the range loop's own isCollapsed check, `hidden` would still be
+    // handed to visit(), which would recurse into its 1505-element subtree
+    // and exhaust MAX_CANDIDATES before the loop's nextSibling walk ever
+    // reaches `visible` — the same starvation bug as visit()'s children
+    // loop, one level shallower (at sibling-iteration instead of recursion).
+    expect(candidates.some((c) => c.el === visibleText)).toBe(true);
+    expect(candidates.some((c) => c.el.textContent.startsWith('hidden row'))).toBe(false);
+  }, 15000);
 });
