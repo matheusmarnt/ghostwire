@@ -2,9 +2,9 @@ name: perf
 
 # Issue #18. The old perf.yml was a job named 'placeholder' running 'echo' on
 # workflow_dispatch — green while asserting nothing — and was deleted for it.
-# This one runs the structural performance suite (SDD §11 / ADR-007): every
-# gate is a count of bytes or operations, never a duration, so it cannot go
-# red because a shared runner is slow.
+# This one runs the structural performance suite: every gate is a count of
+# bytes or operations, never a duration, so it cannot go red because a
+# shared runner is slow.
 
 on:
   pull_request:
@@ -16,8 +16,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # SPEC-PERF-08 (bundle budget), SPEC-PERF-01/02 (read-before-write, jsdom)
-  # and SPEC-PERF-11 (lifecycle leaks). No browser.
+  # Bundle budget, read-before-write order (jsdom), and lifecycle leaks.
+  # No browser.
   structural:
     runs-on: ubuntu-latest
     steps:
@@ -27,7 +27,7 @@ jobs:
           node-version: '24'
       - run: npm ci
       - run: npm run build
-      - name: Report bundle size (SPEC-PERF-08 budget is 10 KB gzip)
+      - name: Report bundle size (budget is 10 KB gzip)
         run: |
           for f in resources/dist/ghostwire.js resources/dist/ghostwire.css; do
             printf '%s raw=%s gzip=%s\n' "$f" "$(wc -c < "$f")" "$(gzip -c "$f" | wc -c)"
@@ -35,9 +35,10 @@ jobs:
       - name: Structural invariants (js/tests/perf-*.test.js)
         run: npx vitest run --config js/vitest.config.js perf-
 
-  # SPEC-PERF-01..04 and the render budget against the real built runtime in
-  # a real browser, on both Livewire lines (SPEC-INT-23 / SPEC-PERF-09). One
-  # PHP/Laravel cell is enough: the runtime under test is JavaScript.
+  # Read-before-write order and bounded synthesis, plus the render budget,
+  # against the real built runtime in a real browser, on both Livewire
+  # lines. One PHP/Laravel cell is enough: the runtime under test is
+  # JavaScript.
   browser:
     runs-on: ubuntu-latest
     strategy:

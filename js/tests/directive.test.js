@@ -77,7 +77,7 @@ vi.mock('../src/renderer.js', async (importOriginal) => {
   };
 });
 
-// SPEC-INT-22: `.island` is a permanent no-op on the v3 bridge, and the only
+// `.island` is a permanent no-op on the v3 bridge, and the only
 // thing enforcing that is boot()'s `bridgeName !== 'v4'` check. Wrapping
 // detectBridge() lets one test below override just the NAME while keeping the
 // real bridge object, so it exercises that check and nothing else. Default
@@ -146,13 +146,13 @@ describe('directive registration and modifier parsing', () => {
     });
 
     // Full start -> visible -> hide behavior through a real bridge is exercised
-    // end-to-end in Task 10/11's Pest browser tests against the real, built
+    // end-to-end in this project's Pest browser tests against the real, built
     // bundle and a real Livewire page — that is the only place a real
     // interceptMessage/hook callback fires. This test only proves wiring.
     expect(cleanupFn).toBeTypeOf('function');
   });
 
-  it('unknown modifiers do not throw (SPEC-API-01: fail visibly only in dev, ignored in production)', () => {
+  it('unknown modifiers do not throw, fail visibly only in dev, ignored in production', () => {
     boot();
     const el = document.createElement('div');
     document.body.appendChild(el);
@@ -164,7 +164,7 @@ describe('directive registration and modifier parsing', () => {
     })).not.toThrow();
   });
 
-  it('a sync-only message is a complete no-op across onStart/onPostPaint/onFinish (SPEC-API-20)', () => {
+  it('a sync-only message is a complete no-op across onStart/onPostPaint/onFinish', () => {
     boot();
     const el = document.createElement('div');
     document.body.appendChild(el);
@@ -234,7 +234,7 @@ describe('directive registration and modifier parsing', () => {
     expect(scheduler.messageStart).toHaveBeenCalledTimes(1);
   });
 
-  // Critical fix (post-Task-6 review): v4's synchronous Renderless signal
+  // Critical fix: v4's synchronous Renderless signal
   // (a `.renderless` directive modifier sets action.metadata.renderless
   // before onStart even runs) made onStart correctly skip
   // scheduler.messageStart for that host, but onPostPaint/onFinish didn't
@@ -303,7 +303,7 @@ describe('directive registration and modifier parsing', () => {
     expect(host.pending).toBe(0);
   });
 
-  // Same bug class as above, for host.targetActions (Task 5): onStart skips
+  // Same bug class as above, for host.targetActions: onStart skips
   // scheduler.messageStart when the triggering action doesn't match, but
   // targetActions never mutates after ctx is built, so mirroring the check
   // live in onPostPaint/onFinish (no snapshot needed) is enough.
@@ -387,7 +387,7 @@ describe('directive registration and modifier parsing', () => {
     expect(() => cleanupFn()).not.toThrow();
   });
 
-  it('applies .gw-kept to a .keep-marked host immediately at attach time (SPEC-MORPH-03)', () => {
+  it('applies .gw-kept to a .keep-marked host immediately at attach time', () => {
     boot();
     const el = document.createElement('div');
     document.body.appendChild(el);
@@ -458,7 +458,7 @@ describe('directive registration and modifier parsing', () => {
     expect(config).toMatchObject({ mode: 'freeze', delay: 200, hold: 1000 });
   });
 
-  it('a valued modifier with no value token sets nothing, warns in debug mode, and leaves the next token to be parsed on its own (SPEC-API-01)', () => {
+  it('a valued modifier with no value token sets nothing, warns in debug mode, and leaves the next token to be parsed on its own', () => {
     boot();
     setDebugForTests(true);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -509,7 +509,7 @@ describe('directive registration and modifier parsing', () => {
     }
   });
 
-  it('a valued modifier without its value warns nothing outside debug mode (SPEC-API-01: ignored in production)', () => {
+  it('a valued modifier without its value warns nothing outside debug mode (ignored in production)', () => {
     boot();
     setDebugForTests(false);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -556,7 +556,7 @@ describe('directive registration and modifier parsing', () => {
     expect(secondCleanup).toBeTypeOf('function');
   });
 
-  describe('method-level #[Ghost] override application (SPEC-API-10 runtime)', () => {
+  describe('method-level #[Ghost] override application (runtime)', () => {
     it('applies a method-level override to host.config for the duration of the matching commit, then restores it', () => {
       boot();
       const el = document.createElement('div');
@@ -740,7 +740,7 @@ describe('directive registration and modifier parsing', () => {
   });
 
   describe('data-ghost attribute merge and auto-attach (component.init)', () => {
-    it("directive config wins over the attribute's mode where the directive explicitly set it (SPEC-API-40)", () => {
+    it("directive config wins over the attribute's mode where the directive explicitly set it", () => {
       boot();
       const el = document.createElement('div');
       el.setAttribute('data-ghost', '{"m":"synthesize"}');
@@ -757,7 +757,7 @@ describe('directive registration and modifier parsing', () => {
       expect(config.mode).toBe('freeze');
     });
 
-    it('the attribute fills a field the directive left unset, without the directive stomping it with a default (SPEC-API-40)', () => {
+    it('the attribute fills a field the directive left unset, without the directive stomping it with a default', () => {
       boot();
       const el = document.createElement('div');
       el.setAttribute('data-ghost', '{"m":"freeze","h":900}');
@@ -779,7 +779,7 @@ describe('directive registration and modifier parsing', () => {
       expect(config.hold).toBe(900);
     });
 
-    it("an explicit directive .delay.<N>ms wins over the attribute's delay value (SPEC-API-40)", () => {
+    it("an explicit directive .delay.<N>ms wins over the attribute's delay value", () => {
       boot();
       const el = document.createElement('div');
       el.setAttribute('data-ghost', '{"d":50}');
@@ -925,7 +925,7 @@ describe('directive registration and modifier parsing', () => {
       expect(registryInstances.at(-1).attach).not.toHaveBeenCalled();
     });
 
-    it('skips auto-attach when component.init fires before the same-root wire:ghost directive (real Livewire ordering, SPEC-API-13)', () => {
+    it('skips auto-attach when component.init fires before the same-root wire:ghost directive (real Livewire ordering)', () => {
       boot();
       const root = document.createElement('div');
       // Real Livewire fires "component.init" *before* it processes this
@@ -961,7 +961,7 @@ describe('directive registration and modifier parsing', () => {
       expect(registryInstances.at(-1).attach).toHaveBeenCalledTimes(1);
     });
 
-    // Final-whole-branch-review regression (SPEC-API-13): tests/Browser/
+    // Final-whole-branch-review regression: tests/Browser/
     // Fixtures/views/demo-table.blade.php is the real, pre-existing pattern
     // this reproduces — wire:ghost lives only on descendants (#summary,
     // #list), never on the component root itself. hasGhostDirective() used
@@ -971,7 +971,7 @@ describe('directive registration and modifier parsing', () => {
     // created descendant host(s) underneath it. The guard must scan the
     // whole component subtree (root + every descendant), mirroring
     // js/src/bridge/v3.js's isPolledMethod.
-    it('skips auto-attach when wire:ghost lives only on a descendant, not the root (SPEC-API-13, demo-table.blade.php pattern)', () => {
+    it('skips auto-attach when wire:ghost lives only on a descendant, not the root (demo-table.blade.php pattern)', () => {
       boot();
       const root = document.createElement('div');
       root.setAttribute('data-ghost', '{"h":500}');
@@ -1012,7 +1012,7 @@ describe('directive registration and modifier parsing', () => {
   // else retried the attach, so every later action on the component produced
   // total silence (confirmed live). 'morphed' is now the retry point.
   describe('lazy-attach retry: #[Ghost] recovers after #[Lazy] hydrates (morphed hook)', () => {
-    it('component.init auto-attach stays a no-op while the root is still the #[Lazy] placeholder (data-ghost-lazy present, data-ghost absent) — extends SPEC-API-13 coverage', () => {
+    it('component.init auto-attach stays a no-op while the root is still the #[Lazy] placeholder (data-ghost-lazy present, data-ghost absent) — extends the coverage above', () => {
       boot();
       const root = document.createElement('div');
       root.setAttribute('data-ghost-lazy', 'my-component');
@@ -1172,7 +1172,7 @@ describe('directive registration and modifier parsing', () => {
         const component = { id: 'c13', el: root, addCleanup: () => {} };
 
         // First render: still the #[Lazy] placeholder — attachAttributeHost
-        // no-ops here (SPEC-API-13 coverage above proves this branch).
+        // no-ops here (the coverage above proves this branch).
         componentInitCallback()({ component, cleanup: () => {} });
         expect(warn).not.toHaveBeenCalled();
 
@@ -1191,7 +1191,7 @@ describe('directive registration and modifier parsing', () => {
     });
   });
 
-  describe('.island scoping into the show/reposition lifecycle (SPEC-INT-13)', () => {
+  describe('.island scoping into the show/reposition lifecycle', () => {
     function appendMarker(parent, kind, meta) {
       parent.appendChild(document.createComment(`[if ${kind}:${meta}]><![endif]`));
     }
@@ -1215,7 +1215,7 @@ describe('directive registration and modifier parsing', () => {
       return { start, end };
     }
 
-    it('sets config.island = true for the .island modifier (SPEC-INT-13)', () => {
+    it('sets config.island = true for the .island modifier', () => {
       boot();
       const el = document.createElement('div');
       document.body.appendChild(el);
@@ -1260,7 +1260,7 @@ describe('directive registration and modifier parsing', () => {
     // file: this test and the two below it failed for exactly that reason,
     // while every other test (including the config.island one above) still
     // passed.
-    it('scopes the show path to the enclosing island: synthesize() gets the region, prepareLayer() gets its rect, not the whole host (SPEC-INT-13)', () => {
+    it('scopes the show path to the enclosing island: synthesize() gets the region, prepareLayer() gets its rect, not the whole host', () => {
       vi.useFakeTimers();
       const origRangeRect = Range.prototype.getBoundingClientRect;
       try {
@@ -1299,7 +1299,7 @@ describe('directive registration and modifier parsing', () => {
 
         // The shape distinction: synthesize() gets the whole region object...
         expect(synthesizer.synthesize).toHaveBeenCalledWith(host, { startNode: start, endNode: end, rect: islandRect });
-        // ...prepareLayer() (onShow's read half since the SPEC-PERF-01/02
+        // ...prepareLayer() (onShow's read half since the
         // read/write split) gets only its bare rect.
         expect(renderer.prepareLayer).toHaveBeenCalledWith(host, islandRect);
       } finally {
@@ -1318,7 +1318,7 @@ describe('directive registration and modifier parsing', () => {
       }
     });
 
-    it('scopes the onPostPaint reposition read to the enclosing island too (SPEC-INT-13)', () => {
+    it('scopes the onPostPaint reposition read to the enclosing island too', () => {
       // Fake timers here too, and not incidentally: onStart's
       // scheduler.messageStart() arms a real ~120ms delayTimer regardless of
       // whether this test ever cares about the show itself. Without fake
@@ -1373,7 +1373,7 @@ describe('directive registration and modifier parsing', () => {
       }
     });
 
-    it('falls back to the whole-host skeleton when .island is set but no enclosing island exists (SPEC-INT-13 SHOULD, not MUST — must never throw)', () => {
+    it('falls back to the whole-host skeleton when .island is set but no enclosing island exists (SHOULD, not MUST — must never throw)', () => {
       vi.useFakeTimers();
       try {
         boot();
@@ -1416,14 +1416,14 @@ describe('directive registration and modifier parsing', () => {
       }
     });
 
-    // SPEC-INT-22 regression guard. `.island` is a documented no-op on the v3
+    // Regression guard. `.island` is a documented no-op on the v3
     // bridge, permanently, and boot()'s `bridgeName !== 'v4'` check is the only
     // thing enforcing it. That expression is reachable-wrong in both
     // directions: comparing the wrong value against 'v4' disables scoping
     // everywhere (a silent no-op on v4 too), and dropping the check enables a
     // walk Livewire 3 can never satisfy. The v4 tests above cover the first
     // direction; this one covers the second — delete the check and it fails.
-    it('is a documented no-op on the v3 bridge: .island never resolves a region there (SPEC-INT-22)', () => {
+    it('is a documented no-op on the v3 bridge: .island never resolves a region there', () => {
       vi.useFakeTimers();
       const origRangeRect = Range.prototype.getBoundingClientRect;
       try {

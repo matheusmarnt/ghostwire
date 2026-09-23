@@ -221,7 +221,7 @@ it('paints nothing for a component that declared its own placeholder', function 
     // on the fresh page sees the seeded entry already in place.
     $page->navigate('/ghostwire-lazy-declared-placeholder');
 
-    // Mechanism (Task 13, Ruling 16 — replaces the old, wrong "inside the
+    // Mechanism (replaces the old, wrong "inside the
     // fixture's 1.2s render window" framing): pest-plugin-browser's HTTP
     // server (Amp's SocketHttpServer) runs in this same test process, on
     // the same single-threaded event loop. LazyDeclaredPlaceholder::render()'s

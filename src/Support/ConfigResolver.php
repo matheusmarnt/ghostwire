@@ -50,14 +50,14 @@ final class ConfigResolver
      * level decided it, for `ghost:inspect`. Only levels visible to a
      * static PHP inspection are distinguishable: 'method' (the action method's own
      * #[Ghost]), 'class' (the concrete component class's own #[Ghost]), 'inherited'
-     * (anything picked up from an ancestor class or trait), and 'default' — SDD's
-     * precedence levels 6 (config/ghostwire.php) and 7 (package defaults) are
+     * (anything picked up from an ancestor class or trait), and 'default' — the
+     * config-file (config/ghostwire.php) and package-default levels are
      * deliberately collapsed into this one label: once config/ghostwire.php is
      * published, a value matching the shipped default is indistinguishable at
      * runtime from a value the app explicitly chose to leave unchanged, so reporting
      * them as two separately-provable levels would claim a precision the runtime
-     * doesn't actually have. Directive-level overrides (SDD's precedence levels 1-2,
-     * wire:ghost modifiers/expressions) are invisible here entirely — they only exist
+     * doesn't actually have. Directive-level overrides (wire:ghost
+     * modifiers/expressions) are invisible here entirely — they only exist
      * in the rendered DOM at runtime, not in anything this command can reflect over
      * statically; this command only ever shows the attribute-side of the chain.
      *

@@ -64,12 +64,12 @@ describe('synthesizer/emit — pure helpers', () => {
 });
 
 describe('synthesizer/emit — emit()', () => {
-  it('returns null (degrade) when the host itself is rotated/skewed (SPEC-SYN-16)', () => {
+  it('returns null (degrade) when the host itself is rotated/skewed', () => {
     const measured = baseMeasured([], 'matrix(0.7071, 0.7071, -0.7071, 0.7071, 0, 0)');
     expect(emit({}, measured, 0)).toBeNull();
   });
 
-  it('drops a bone for a rotated descendant but keeps axis-aligned ones (SPEC-SYN-16)', () => {
+  it('drops a bone for a rotated descendant but keeps axis-aligned ones', () => {
     const measured = baseMeasured([
       { type: 'control', rect: { top: 110, left: 60, right: 160, bottom: 140, width: 100, height: 30 }, visibility: 'visible', transform: 'matrix(0.7071, 0.7071, -0.7071, 0.7071, 0, 0)' },
       { type: 'control', rect: { top: 150, left: 60, right: 160, bottom: 180, width: 100, height: 30 }, visibility: 'visible', transform: 'none' },
@@ -79,7 +79,7 @@ describe('synthesizer/emit — emit()', () => {
     expect(bones[0].y).toBe(50);
   });
 
-  it('skips hidden and zero-size candidates (SPEC-SYN-12)', () => {
+  it('skips hidden and zero-size candidates', () => {
     const measured = baseMeasured([
       { type: 'control', rect: { top: 110, left: 60, right: 160, bottom: 140, width: 100, height: 30 }, visibility: 'hidden', transform: 'none' },
       { type: 'control', rect: { top: 110, left: 60, right: 60, bottom: 140, width: 0, height: 30 }, visibility: 'visible', transform: 'none' },
@@ -87,14 +87,14 @@ describe('synthesizer/emit — emit()', () => {
     expect(emit({}, measured, 0)).toBeNull();
   });
 
-  it('skips candidates entirely outside the host rect (SPEC-SYN-12)', () => {
+  it('skips candidates entirely outside the host rect', () => {
     const measured = baseMeasured([
       { type: 'control', rect: { top: 0, left: 0, right: 10, bottom: 10, width: 10, height: 10 }, visibility: 'visible', transform: 'none' },
     ]);
     expect(emit({}, measured, 0)).toBeNull();
   });
 
-  it('expands text candidates into one bone per line rect (SPEC-SYN-10)', () => {
+  it('expands text candidates into one bone per line rect', () => {
     const measured = baseMeasured([
       {
         type: 'text',
@@ -120,19 +120,19 @@ describe('synthesizer/emit — emit()', () => {
     expect(bones[0].type).toBe('avatar');
   });
 
-  it('SPEC-SYN-17: empty host with a rows hint synthesizes N placeholder rows', () => {
+  it('empty host with a rows hint synthesizes N placeholder rows', () => {
     const measured = baseMeasured([]);
     const bones = emit({}, measured, 4);
     expect(bones).toHaveLength(4);
     expect(bones.every((b) => b.type === 'text')).toBe(true);
   });
 
-  it('SPEC-SYN-17: empty host with no hint returns null (degrade to freeze)', () => {
+  it('empty host with no hint returns null (degrade to freeze)', () => {
     const measured = baseMeasured([]);
     expect(emit({}, measured, 0)).toBeNull();
   });
 
-  it('SPEC-SYN-13: emits a plain bone for a block-aggregated candidate', () => {
+  it('emits a plain bone for a block-aggregated candidate', () => {
     const measured = baseMeasured([
       { type: 'block', rect: { top: 110, left: 60, right: 260, bottom: 200, width: 200, height: 90 }, visibility: 'visible', transform: 'none' },
     ]);
@@ -141,14 +141,14 @@ describe('synthesizer/emit — emit()', () => {
     expect(bones[0].type).toBe('block');
   });
 
-  it('SPEC-SYN-14: excludes a candidate outside its own clipRect even though it is inside the host rect', () => {
+  it('excludes a candidate outside its own clipRect even though it is inside the host rect', () => {
     const measured = baseMeasured([
       { type: 'control', rect: { top: 250, left: 60, right: 160, bottom: 280, width: 100, height: 30 }, visibility: 'visible', transform: 'none', clipRect: { top: 100, left: 50, right: 350, bottom: 200 } },
     ]);
     expect(emit({}, measured, 0)).toBeNull();
   });
 
-  it('SPEC-SYN-11: clones the last sampled item bones for each repeat-extra occurrence, translated by the measured pitch', () => {
+  it('clones the last sampled item bones for each repeat-extra occurrence, translated by the measured pitch', () => {
     const measured = baseMeasured([
       { type: 'control', rect: { top: 110, left: 60, right: 160, bottom: 140, width: 100, height: 30 }, visibility: 'visible', transform: 'none', repeatGroup: { id: 0, index: 2 } },
       { type: 'repeat-extra', rect: { top: 110, left: 60, right: 160, bottom: 140, width: 100, height: 30 }, visibility: 'visible', transform: 'none', clipRect: HOST_RECT, repeatGroup: { id: 0, index: 2 }, repeat: { count: 2, pitch: { x: 0, y: 30 } } },
@@ -161,7 +161,7 @@ describe('synthesizer/emit — emit()', () => {
     expect(bones[2].y).toBe(bones[0].y + 60);
   });
 
-  it('SPEC-SYN-11/14: cloned repeat-extra bones outside the clipRect are excluded', () => {
+  it('cloned repeat-extra bones outside the clipRect are excluded', () => {
     const measured = baseMeasured([
       { type: 'control', rect: { top: 280, left: 60, right: 160, bottom: 298, width: 100, height: 18 }, visibility: 'visible', transform: 'none', repeatGroup: { id: 0, index: 2 } },
       { type: 'repeat-extra', rect: { top: 280, left: 60, right: 160, bottom: 298, width: 100, height: 18 }, visibility: 'visible', transform: 'none', clipRect: HOST_RECT, repeatGroup: { id: 0, index: 2 }, repeat: { count: 3, pitch: { x: 0, y: 18 } } },
@@ -179,14 +179,14 @@ describe('synthesizer/emit — emit()', () => {
     expect(bones[1].y).toBe(198); // exactly clone k=1, not k=2 or k=3 — proves the clip boundary, not just a coincidental count
   });
 
-  it('SPEC-SYN-11: a repeat-extra with no template bones (e.g. an empty sampled item) clones nothing', () => {
+  it('a repeat-extra with no template bones (e.g. an empty sampled item) clones nothing', () => {
     const measured = baseMeasured([
       { type: 'repeat-extra', rect: { top: 110, left: 60, right: 160, bottom: 140, width: 100, height: 30 }, visibility: 'visible', transform: 'none', clipRect: HOST_RECT, repeatGroup: { id: 0, index: 2 }, repeat: { count: 2, pitch: { x: 0, y: 30 } } },
     ]);
     expect(emit({}, measured, 0)).toBeNull();
   });
 
-  it('SPEC-SYN-10/11: a cloned text bone uses its own real measured rect, not the pitch-translated template width', () => {
+  it('a cloned text bone uses its own real measured rect, not the pitch-translated template width', () => {
     const measured = baseMeasured([
       {
         type: 'text',
@@ -253,7 +253,7 @@ describe('synthesizer/emit — panel bones', () => {
     expect(bones[1].type).toBe('text');
   });
 
-  it('SPEC-SYN-11: a cloned repeat-extra bone carries the template panel bone\'s borderRadius', () => {
+  it('a cloned repeat-extra bone carries the template panel bone\'s borderRadius', () => {
     const measured = baseMeasured([
       { type: 'container', isPanel: true, borderRadius: '6px', rect: { top: 110, left: 60, right: 160, bottom: 140, width: 100, height: 30 }, visibility: 'visible', transform: 'none', repeatGroup: { id: 0, index: 2 } },
       { type: 'repeat-extra', rect: { top: 110, left: 60, right: 160, bottom: 140, width: 100, height: 30 }, visibility: 'visible', transform: 'none', clipRect: HOST_RECT, repeatGroup: { id: 0, index: 2 }, repeat: { count: 2, pitch: { x: 0, y: 30 } } },

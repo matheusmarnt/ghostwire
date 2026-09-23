@@ -109,7 +109,7 @@ class InspectCommand extends Command
      * an inspection table. Add it if a real app ever registers that way.
      *
      * Fragility warning: reading a protected/internal property is inherently
-     * more brittle than Task 1's confirmed *public* `Livewire::componentHook()`
+     * more brittle than the confirmed *public* `Livewire::componentHook()`
      * API — unlike a public method, a protected property carries no
      * compatibility promise at all, so a future Livewire release could rename
      * or restructure `$classComponents`/`$aliases` and this would silently

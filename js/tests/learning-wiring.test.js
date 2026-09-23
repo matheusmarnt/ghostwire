@@ -42,7 +42,7 @@ describe('learning transport in the data-ghost schema', () => {
     // Runs even when an expectation above aborted the test body. Without this a
     // failing assertion leaves the debug flag on and the console.warn spy active
     // for whatever test runs next in this file - the same ambient-flag hazard
-    // Task 4 found once already (NODE_ENV), just self-inflicted here via a reset
+    // found once already (NODE_ENV), just self-inflicted here via a reset
     // line placed at the end of the test body instead of in afterEach.
     warn?.mockRestore();
     warn = undefined;
@@ -63,7 +63,7 @@ describe('learning transport in the data-ghost schema', () => {
     expect(config.name).toBeNull();
   });
 
-  it('discards the whole payload when the learning flag is not a boolean (SPEC-SEC-02 fail-closed)', () => {
+  it('discards the whole payload when the learning flag is not a boolean (fail-closed)', () => {
     setDebugForTests(true);
     warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
@@ -88,13 +88,13 @@ describe('learning transport in the data-ghost schema', () => {
   });
 });
 
-// SPEC-LRN-01: the runtime's collect/persist decision. onSynthesized is the
+// The runtime's collect/persist decision. onSynthesized is the
 // only wire between a fresh Bone Tree and the learning store — these tests
 // exercise the real createSynthesizer()/synthesize() pipeline (not a mock of
 // it), because the thing worth protecting is exactly where that callback is
 // placed: inside the `if (boneTree)` branch, only on the fresh-computation
 // path, never on the cached early-return and never on the null-degrade path.
-describe('onSynthesized wiring (SPEC-LRN-01)', () => {
+describe('onSynthesized wiring', () => {
   class FakeResizeObserver {
     observe() {}
     disconnect() {}
@@ -162,7 +162,7 @@ describe('onSynthesized wiring (SPEC-LRN-01)', () => {
   });
 });
 
-// SPEC-SEC-09 / FR-43: exportLearned()/clearLearned() are the only way
+// exportLearned()/clearLearned() are the only way
 // learned data leaves the browser. These exercise the real boot() wiring
 // (not a reimplementation of the store) with a fake localStorage, so what's
 // under test is that window.Ghostwire's two methods are really bound to the
@@ -289,7 +289,7 @@ describe('window.Ghostwire.exportLearned / clearLearned wiring', () => {
   });
 });
 
-// SPEC-LRN-01 fix (docs/plans/2026-09-21-fix-ghost-lazy-learning-delay-gate.md):
+// Fix (docs/plans/2026-09-21-fix-ghost-lazy-learning-delay-gate.md):
 // learning capture must run from inside onStart's per-host loop, on every
 // eligible commit, not only once scheduler.js's onShow fires (which needs
 // host.cfg.delay, 120ms default, to elapse with the commit still pending).
@@ -297,7 +297,7 @@ describe('window.Ghostwire.exportLearned / clearLearned wiring', () => {
 // window.Livewire.interceptMessage — the same integration surface
 // js/tests/directive.test.js's island tests use — so what's under test is
 // the real onStart wiring, not a reimplementation of it.
-describe('learning capture decoupled from the visible-skeleton delay (SPEC-LRN-01 fix)', () => {
+describe('learning capture decoupled from the visible-skeleton delay (fix)', () => {
   class FakeResizeObserver {
     observe() {}
     disconnect() {}

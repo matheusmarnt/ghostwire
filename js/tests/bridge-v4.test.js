@@ -85,7 +85,7 @@ describe('bridge v4', () => {
     expect(captured[0].isSync).toBe(false);
   });
 
-  it('isSync is true when every action is the magic $set property-sync action (SPEC-API-20)', () => {
+  it('isSync is true when every action is the magic $set property-sync action', () => {
     const captured = fireMessage(fakeMessage({ actions: [{ name: '$set' }] }));
 
     expect(captured[0].actionNames).toEqual(['$set']);
@@ -98,7 +98,7 @@ describe('bridge v4', () => {
     expect(captured[0].isSync).toBe(false);
   });
 
-  it('isSync is true when every action is the magic $commit action (wire:model.live sync, SPEC-API-20)', () => {
+  it('isSync is true when every action is the magic $commit action (wire:model.live sync)', () => {
     const captured = fireMessage(fakeMessage({ actions: [{ name: '$commit' }] }));
 
     expect(captured[0].actionNames).toEqual(['$commit']);
@@ -111,7 +111,7 @@ describe('bridge v4', () => {
     expect(captured[0].isSync).toBe(false);
   });
 
-  it('reports isPoll true for a poll-originated message but still calls onStart (SPEC-API-21, native v4 metadata) — index.js decides silence now', () => {
+  it('reports isPoll true for a poll-originated message but still calls onStart (native v4 metadata) — index.js decides silence now', () => {
     const onStart = vi.fn();
     global.Livewire = {
       interceptMessage(cb) {
@@ -138,7 +138,7 @@ describe('bridge v4', () => {
     expect(captured[0].isSync).toBe(false);
   });
 
-  // SPEC-API-22: confirmed via grepping the installed livewire/livewire ^4.0
+  // Confirmed via grepping the installed livewire/livewire ^4.0
   // dist/livewire.esm.js — a `wire:click.renderless="method"` directive
   // modifier sets action.metadata.renderless = true client-side before the
   // request is even sent, so this case is knowable synchronously, same
@@ -161,9 +161,9 @@ describe('bridge v4', () => {
     expect(onStart.mock.calls[0][0].isRenderless).toBe(true);
   });
 
-  // SPEC-API-22: a #[Renderless]-attributed PHP method invoked via a *plain*
+  // A #[Renderless]-attributed PHP method invoked via a *plain*
   // wire:click carries no client-side marker at all (confirmed by a real
-  // capture, see the Task 6 report) — action.metadata is `{}`, same as any
+  // capture) — action.metadata is `{}`, same as any
   // ordinary action. The only reliable signal is the response shape: the
   // effects object never gets an "html" key (HandleComponents::render()
   // returns nothing once the server decided to skip rendering). That's only
@@ -226,7 +226,7 @@ describe('bridge v4', () => {
     expect(onFinishCtx.isRenderless).toBe(false);
   });
 
-  it('skips onStart entirely when the message is already skipped (Tier C, SPEC-INT-06)', () => {
+  it('skips onStart entirely when the message is already skipped (Tier C)', () => {
     const onStart = vi.fn();
     global.Livewire = {
       interceptMessage(cb) {
@@ -304,7 +304,7 @@ describe('bridge v4', () => {
     expect(onStart).not.toHaveBeenCalled();
   });
 
-  it('wires onPostPaint through onSuccess -> onRender (post-paint removal timing, SPEC-INT-04)', () => {
+  it('wires onPostPaint through onSuccess -> onRender (post-paint removal timing)', () => {
     const onPostPaint = vi.fn();
     let capturedRenderCb;
     global.Livewire = {
@@ -326,7 +326,7 @@ describe('bridge v4', () => {
     expect(onPostPaint).toHaveBeenCalledOnce();
   });
 
-  it('wires onFinish for the error, failure, cancel, and finish paths individually (SPEC-INT-05)', () => {
+  it('wires onFinish for the error, failure, cancel, and finish paths individually', () => {
     for (const hook of ['onError', 'onFailure', 'onCancel', 'onFinish']) {
       const onFinish = vi.fn();
       let capturedHookCb;
@@ -359,7 +359,7 @@ describe('bridge v4', () => {
   // bug. This test fires TWO terminal callbacks for the SAME message, as
   // Livewire's real internals do, and asserts handlers.onFinish still runs
   // exactly once (single finalization point, actually enforced).
-  it('calls handlers.onFinish exactly once when Livewire fires two terminal hooks for the same message (e.g. onError then onFinish, SPEC-INT-05)', () => {
+  it('calls handlers.onFinish exactly once when Livewire fires two terminal hooks for the same message (e.g. onError then onFinish)', () => {
     const onFinish = vi.fn();
     let capturedOnError;
     let capturedOnFinish;

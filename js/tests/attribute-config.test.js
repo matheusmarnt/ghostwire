@@ -8,7 +8,7 @@ function elWithDataGhost(json) {
 }
 
 describe('parseAttributeConfig', () => {
-  it('returns null when data-ghost is absent (SPEC-API-32)', () => {
+  it('returns null when data-ghost is absent', () => {
     expect(parseAttributeConfig(elWithDataGhost(undefined))).toBeNull();
   });
 
@@ -26,29 +26,29 @@ describe('parseAttributeConfig', () => {
     expect(config).toMatchObject({ mode: 'freeze', only: ['a'], delay: 200, hold: 400, rows: 5, poll: true, sync: true, lazy: true, learning: true, name: 'orders-table' });
   });
 
-  it('discards the whole payload on invalid JSON (SPEC-SEC-02)', () => {
+  it('discards the whole payload on invalid JSON', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     expect(parseAttributeConfig(elWithDataGhost('not json'))).toBeNull();
     warn.mockRestore();
   });
 
-  it('discards the whole payload on an unknown key (closed schema, SPEC-SEC-02)', () => {
+  it('discards the whole payload on an unknown key (closed schema)', () => {
     expect(parseAttributeConfig(elWithDataGhost('{"m":"synthesize","z":1}'))).toBeNull();
   });
 
-  it('discards the whole payload on a wrong-typed known key (SPEC-SEC-02)', () => {
+  it('discards the whole payload on a wrong-typed known key', () => {
     expect(parseAttributeConfig(elWithDataGhost('{"m":"synthesize","d":"not-a-number"}'))).toBeNull();
   });
 
-  it('clamps delay and hold to 0-60000ms (SPEC-SEC-03)', () => {
+  it('clamps delay and hold to 0-60000ms', () => {
     expect(parseAttributeConfig(elWithDataGhost('{"m":"synthesize","d":-5,"h":999999}'))).toMatchObject({ delay: 0, hold: 60000 });
   });
 
-  it('clamps rows to 0-1000 (SPEC-SEC-03)', () => {
+  it('clamps rows to 0-1000', () => {
     expect(parseAttributeConfig(elWithDataGhost('{"m":"synthesize","r":5000}'))).toMatchObject({ rows: 1000 });
   });
 
-  it('discards action names in only/except over 64 chars or with invalid characters (SPEC-SEC-03)', () => {
+  it('discards action names in only/except over 64 chars or with invalid characters', () => {
     const tooLong = 'a'.repeat(65);
     const config = parseAttributeConfig(elWithDataGhost(`{"m":"synthesize","o":["${tooLong}","valid_Name1","bad-name"]}`));
     expect(config.only).toEqual(['valid_Name1']);
@@ -88,7 +88,7 @@ describe('parseAttributeConfig', () => {
     expect(config.actionOverrides.save).toEqual({ panels: true });
   });
 
-  describe('"a" (method-level action overrides, SPEC-API-10)', () => {
+  describe('"a" (method-level action overrides)', () => {
     it('parses a valid "a" payload into config.actionOverrides with full field names and correct clamping', () => {
       const config = parseAttributeConfig(elWithDataGhost(
         '{"m":"synthesize","a":{"increment":{"m":"freeze","d":-5,"h":999999,"r":5000,"p":true,"s":true,"l":true}}}'
@@ -98,11 +98,11 @@ describe('parseAttributeConfig', () => {
       });
     });
 
-    it('discards the whole payload when an action entry has an unknown key (SPEC-SEC-02)', () => {
+    it('discards the whole payload when an action entry has an unknown key', () => {
       expect(parseAttributeConfig(elWithDataGhost('{"m":"synthesize","a":{"increment":{"z":1}}}'))).toBeNull();
     });
 
-    it('discards the whole payload when "a" has an invalid action name (SPEC-SEC-02)', () => {
+    it('discards the whole payload when "a" has an invalid action name', () => {
       expect(parseAttributeConfig(elWithDataGhost('{"m":"synthesize","a":{"bad-name!":{"m":"freeze"}}}'))).toBeNull();
     });
 

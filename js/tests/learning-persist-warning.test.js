@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // hoisted — co-locating this with learning-wiring.test.js's real-synthesizer
 // tests would silently replace their real import too. learning/store.js is
 // deliberately left unmocked: put()'s over-cap rejection below is real
-// (Task 2's own MAX_BONES validation), not simulated.
+// (the store's own MAX_BONES validation), not simulated.
 vi.mock('../src/synthesizer/index.js', () => {
   const captured = { onSynthesized: null };
   return {
@@ -49,7 +49,7 @@ function fakeStorage() {
   };
 }
 
-// Finding 2: put() fails silently by design (SPEC-SEC-04) — this exercises the
+// Finding 2: put() fails silently by design — this exercises the
 // call site's own responsibility to surface that failure to a developer.
 describe('learning persist-failure warning (Finding 2)', () => {
   beforeEach(() => {
@@ -109,14 +109,14 @@ describe('learning persist-failure warning (Finding 2)', () => {
     warn.mockRestore();
   });
 
-  // F7 / SPEC-LRN-04 (final review): the case above's name: null would fail put()'s own
+  // F7 (final review): the case above's name: null would fail put()'s own
   // validation anyway, so it can never discriminate "the guard blocked the write" from
   // "the write was attempted and rejected downstream". This is the shape a tampered
   // data-ghost='{"n":"orders-table"}' actually produces — g/n are parsed independently
   // (attributeConfig.js) — and it is the exact case "a client can never turn learning on
   // for itself" exists to refuse. Spying put directly is what makes this test able to see
   // the guard fail: measured (see brief) to move below the put() call and stay green.
-  it('does not call put() when a client sends learning:false with an otherwise-valid component name (SPEC-LRN-04)', () => {
+  it('does not call put() when a client sends learning:false with an otherwise-valid component name', () => {
     boot();
     const putSpy = vi.spyOn(__capturedStore.instance, 'put');
 

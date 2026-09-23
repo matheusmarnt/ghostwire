@@ -5,10 +5,9 @@
 // A Renderless-triggered commit must not activate a host,
 // "no configurable exception, either line."
 //
-// Investigation (Task 6, mirrors A9/A12's empirical discipline — full
-// findings in .superpowers/sdd/m4-ghost-attribute/task-6-report.md):
-// captured the real message/response shape for DemoTable::renderlessBump(),
-// a genuine #[Renderless] action (tests/Browser/Fixtures/DemoTable.php), via
+// Investigation captured the real message/response shape for
+// DemoTable::renderlessBump(), a genuine #[Renderless] action
+// (tests/Browser/Fixtures/DemoTable.php), via
 // a temporary interceptor logging to window.__gw and reading it back with
 // $page->script(). Two confirmed facts drove js/src/bridge/v4.js's
 // implementation:

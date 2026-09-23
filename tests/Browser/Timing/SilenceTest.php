@@ -39,7 +39,7 @@
 // vacuously via the show-delay window alone rather than proving silence.
 //
 // Recording (not a fixed-offset snapshot) follows the same technique as
-// FreezeLifecycleTest.php and Task 10's tests/Browser/Morph/GhostLayerMorphTest.php:
+// FreezeLifecycleTest.php and tests/Browser/Morph/GhostLayerMorphTest.php:
 // a MutationObserver is armed on #summary's class attribute BEFORE the
 // trigger fires, and records whether gw-frozen was EVER added at any point
 // during a generous window — not just whether it's absent at one sampled

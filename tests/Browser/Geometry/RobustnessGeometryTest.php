@@ -4,8 +4,8 @@
 //
 // M3 acceptance gate for the robustness synthesis pipeline (repeat sampling,
 // scroll clipping, sticky-header geometry) plus an extension of the
-// zero-CLS gate to the three new M3 gallery fixtures Task 6
-// built (RepeatList, ScrollableKanban, NodeCount).
+// zero-CLS gate to the three new M3 gallery fixtures
+// (RepeatList, ScrollableKanban, NodeCount).
 //
 // Follows the exact MutationObserver-at-first-sighting pattern established
 // in tests/Browser/Geometry/GalleryGeometryTest.php: geometry is captured

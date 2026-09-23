@@ -23,10 +23,10 @@ export function createV4Bridge() {
 
         // Default silence: wire:poll sets metadata.type === 'poll'
         // on its action (confirmed by capturing a real poll-triggered message —
-        // see js/tests/bridge-v4.test.js). Unlike v3 (A12, no
+        // see js/tests/bridge-v4.test.js). Unlike v3 (no
         // payload marker so it needs a DOM-origin heuristic), v4 exposes this
         // natively, so no heuristic is needed here — a clean metadata check.
-        // Reported as a fact on ctx now (Task 6) — index.js's per-host loop
+        // Reported as a fact on ctx now — index.js's per-host loop
         // decides silence, this bridge no longer unilaterally swallows the
         // message.
         const isPoll = message.getActions().length > 0
@@ -40,7 +40,7 @@ export function createV4Bridge() {
         // the same category) for client-side promise bookkeeping, even though
         // no user-defined component method ran. Mirror the "every action name
         // matches a known-non-activating pattern" style already used in v3.js's
-        // A12 poll heuristic: treat an actions list where every action is one
+        // poll heuristic: treat an actions list where every action is one
         // of these magic sync markers as sync too.
         const isSync = actionNames.length === 0 || actionNames.every((name) => name === '$set' || name === '$commit');
 
@@ -56,8 +56,7 @@ export function createV4Bridge() {
         // (matches "no configurable exception" fully for this case).
         // (2) Deferred, response-shape: a #[Renderless]-attributed PHP method
         // invoked via a *plain* wire:click carries NO client-side marker at all
-        // — confirmed by a real capture (see the temporary investigation test
-        // described in the Task 6 report): action.metadata was `{}` at
+        // — confirmed by a real capture: action.metadata was `{}` at
         // intercept time for DemoTable::renderlessBump() (a genuine
         // #[Renderless] action), same as any ordinary action — grepped
         // vendor/livewire/livewire/src for every "Renderless"/

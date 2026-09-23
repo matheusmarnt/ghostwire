@@ -17,7 +17,7 @@ class FakeResizeObserver {
 }
 FakeResizeObserver.instances = [];
 
-describe('SPEC-PERF-01/02: read-before-write ordering', () => {
+describe('read-before-write ordering', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     FakeResizeObserver.instances = [];
@@ -26,7 +26,7 @@ describe('SPEC-PERF-01/02: read-before-write ordering', () => {
 
   it('never calls getBoundingClientRect or getComputedStyle after the first DOM write during a full synthesize+render cycle', () => {
     // Set up host with content. jsdom's real getBoundingClientRect always
-    // returns an all-zero rect, which would make SPEC-SYN-12's zero-size
+    // returns an all-zero rect, which would make the zero-size
     // filter reject every candidate — so Element.prototype.getBoundingClientRect
     // is patched below to unconditionally return a fixed, non-zero rect for
     // every element. Per-element shadowing (e.g. host.el.getBoundingClientRect = ...)
@@ -79,7 +79,7 @@ describe('SPEC-PERF-01/02: read-before-write ordering', () => {
     const readsAfterFirstWrite = events.slice(firstWriteIndex + 1).filter((e) => e.type === 'read');
 
     expect(firstWriteIndex).toBeGreaterThan(-1); // sanity: a write actually happened
-    expect(readsAfterFirstWrite).toHaveLength(0); // SPEC-PERF-01/02: no read after the first write
+    expect(readsAfterFirstWrite).toHaveLength(0); // no read after the first write
   });
 });
 
@@ -96,7 +96,7 @@ describe('SPEC-PERF-01/02: read-before-write ordering', () => {
 // end-to-end proof is tests/Browser/{SmokeTest,Timing,Morph} against
 // tests/Browser/Fixtures/views/demo-table.blade.php, which has 2 hosts
 // (#summary/#list) reacting to the same click.
-describe('SPEC-PERF-01/02: onPostPaint-style batching across multiple hosts on one component', () => {
+describe('onPostPaint-style batching across multiple hosts on one component', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
   });
@@ -164,7 +164,7 @@ describe('SPEC-PERF-01/02: onPostPaint-style batching across multiple hosts on o
 
     expect(readIndices).toHaveLength(2); // one getBoundingClientRect per host
     expect(writeIndices).toHaveLength(8); // 4 style props x 2 hosts
-    // SPEC-PERF-01/02: every read strictly before every write — proves the
+    // Every read strictly before every write — proves the
     // batching, not merely that both functions exist/work in isolation.
     expect(Math.max(...readIndices)).toBeLessThan(Math.min(...writeIndices));
 
@@ -173,14 +173,14 @@ describe('SPEC-PERF-01/02: onPostPaint-style batching across multiple hosts on o
   });
 });
 
-// SPEC-PERF-01/02 for the REAL show burst: everything js/src/index.js's
+// For the REAL show burst: everything js/src/index.js's
 // onShow does, in order, through boot() — not a hand-assembled
 // synthesize+mount+render sequence. The whole-branch review of 2026-09-19
 // found that onShow wrote first (renderer.markBusy: aria-busy on the host,
 // the live region's textContent) and read afterwards (regionForHost,
 // synthesize, mountLayer) — a forced layout per cycle that the two describes
 // above could never see because neither of them calls onShow.
-describe('SPEC-PERF-01/02: the real onShow burst reads everything before its first DOM write', () => {
+describe('the real onShow burst reads everything before its first DOM write', () => {
   class FakeResizeObserver {
     constructor(callback) { this.callback = callback; }
     observe() {}
@@ -219,7 +219,7 @@ describe('SPEC-PERF-01/02: the real onShow burst reads everything before its fir
     };
     // Writes are recorded only for CONNECTED nodes: a write to a detached
     // node (renderer.prepareLayer styling the not-yet-appended layer) never
-    // dirties document layout and is not what SPEC-PERF-02 is about.
+    // dirties document layout and is not what this test is about.
     Node.prototype.appendChild = function (...args) {
       if (this.isConnected) events.push({ type: 'write', source: 'appendChild' });
       return origAppendChild.apply(this, args);

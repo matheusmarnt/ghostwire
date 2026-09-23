@@ -9,7 +9,7 @@ describe('scheduler', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  it('does not show if finish arrives before the delay elapses (SPEC-TIME-01)', () => {
+  it('does not show if finish arrives before the delay elapses', () => {
     const onShow = vi.fn();
     const onHide = vi.fn();
     const scheduler = createScheduler({ onShow, onHide }, { delay: 120, hold: 300, timeout: 15000 });
@@ -55,7 +55,7 @@ describe('scheduler', () => {
     expect(host.state).toBe('idle');
   });
 
-  it('ref-counts concurrent messages on the same host (SPEC-INT-11)', () => {
+  it('ref-counts concurrent messages on the same host', () => {
     const onHide = vi.fn();
     const scheduler = createScheduler({ onShow: vi.fn(), onHide }, { delay: 120, hold: 300, timeout: 15000 });
     const host = makeHost();
@@ -74,7 +74,7 @@ describe('scheduler', () => {
     expect(onHide).toHaveBeenCalledOnce();
   });
 
-  it('force-removes unconditionally at the absolute timeout (SPEC-INT-12)', () => {
+  it('force-removes unconditionally at the absolute timeout', () => {
     const onHide = vi.fn();
     const scheduler = createScheduler({ onShow: vi.fn(), onHide }, { delay: 120, hold: 300, timeout: 15000 });
     const host = makeHost();

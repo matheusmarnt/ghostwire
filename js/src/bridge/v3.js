@@ -37,12 +37,12 @@ export function createV3Bridge() {
         const actionNames = commit.calls.map((call) => call.method);
         const isSync = actionNames.length === 0;
 
-        // A12: no payload marker distinguishes a poll-triggered
+        // No payload marker distinguishes a poll-triggered
         // commit from any other in Livewire 3. Heuristic: every call name
         // resolves to an element carrying a matching wire:poll directive in
         // the component root -> treat as polling and silence (default).
         // Any call name with no matching wire:poll element falls
-        // through as "not polling". Reported as a fact on ctx now (Task 6) --
+        // through as "not polling". Reported as a fact on ctx now --
         // index.js's per-host loop decides silence, this bridge no longer
         // unilaterally swallows the message.
         const looksLikePoll = actionNames.length > 0 && actionNames.every((name) => isPolledMethod(component, name));
@@ -63,8 +63,8 @@ export function createV3Bridge() {
         // genuine #[Renderless] action, tests/Browser/Fixtures/DemoTable.php)
         // delivered succeed(response) with effects: {returns: [...]} -- no
         // "html" key -- versus effects: {returns: [...], html: "..."} for an
-        // ordinary action, both captured with the temporary investigation test
-        // described in the Task 6 report. That signal only exists once the
+        // ordinary action, both captured with that temporary investigation
+        // test. That signal only exists once the
         // response arrives, in the `succeed` callback below -- not at commit
         // time like isSync/isPoll -- so ctx.isRenderless starts false and is
         // corrected here, once the response arrives. NOTE: index.js's

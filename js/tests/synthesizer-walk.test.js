@@ -66,7 +66,7 @@ describe('synthesizer/walk', () => {
     expect(candidates[0].depth).toBe(1);
   });
 
-  it('collectAndClassify stops at a nested wire:ghost host (SPEC-API-03)', () => {
+  it('collectAndClassify stops at a nested wire:ghost host', () => {
     const host = makeHost('<div><p>outer</p><section><p>inner</p></section></div>');
     const registry = createRegistry();
     const innerSection = host.el.querySelector('section');
@@ -87,7 +87,7 @@ describe('synthesizer/walk', () => {
     expect(candidates.map((c) => c.el.textContent)).toEqual(['visible']);
   });
 
-  it('collectAndClassify degrades to a block bone when maxDepth is exceeded (SPEC-SYN-13)', () => {
+  it('collectAndClassify degrades to a block bone when maxDepth is exceeded', () => {
     const host = makeHost('<div><div><div><p>deep</p></div></div></div>');
     const registry = createRegistry();
 
@@ -288,7 +288,7 @@ describe('synthesizer/walk', () => {
     expect(blocks.every((b) => b.depth === 2)).toBe(true);
   });
 
-  it('SPEC-SYN-11: samples the first repeatSampleSize items of a uniform run of >= 3 siblings', () => {
+  it('samples the first repeatSampleSize items of a uniform run of >= 3 siblings', () => {
     const { host } = makeUniformHost(6);
     const registry = createRegistry();
 
@@ -303,7 +303,7 @@ describe('synthesizer/walk', () => {
     expect(extras[0].repeatGroup).toEqual({ id: 0, index: 2 });
   });
 
-  it('SPEC-SYN-11: a run exactly at the sample size produces no repeat-extra marker', () => {
+  it('a run exactly at the sample size produces no repeat-extra marker', () => {
     const { host } = makeUniformHost(3);
     const registry = createRegistry();
 
@@ -313,7 +313,7 @@ describe('synthesizer/walk', () => {
     expect(candidates.filter((c) => c.repeatGroup)).toHaveLength(3);
   });
 
-  it('SPEC-SYN-11: a run below the 3-sibling minimum is walked individually, untagged', () => {
+  it('a run below the 3-sibling minimum is walked individually, untagged', () => {
     const { host } = makeUniformHost(2);
     const registry = createRegistry();
 
@@ -323,7 +323,7 @@ describe('synthesizer/walk', () => {
     expect(candidates.every((c) => !c.repeatGroup)).toBe(true);
   });
 
-  it('SPEC-SYN-11: an unequal-height run is walked individually, not sampled (protects fixtures like CardGrid)', () => {
+  it('an unequal-height run is walked individually, not sampled (protects fixtures like CardGrid)', () => {
     const { host, items } = makeUniformHost(3);
     items[1].getBoundingClientRect = () => ({ top: 0, left: 0, right: 100, bottom: 80, width: 100, height: 80 }); // 4x its siblings' height
     const registry = createRegistry();
@@ -335,7 +335,7 @@ describe('synthesizer/walk', () => {
     expect(candidates).toHaveLength(3);
   });
 
-  it('SPEC-SYN-11: SVG siblings with different classes are not folded into the same repeat group (className is an SVGAnimatedString on SVG elements, not a plain string)', () => {
+  it('SVG siblings with different classes are not folded into the same repeat group (className is an SVGAnimatedString on SVG elements, not a plain string)', () => {
     const el = document.createElement('div');
     const svgNS = 'http://www.w3.org/2000/svg';
     for (let i = 0; i < 3; i++) {
@@ -355,7 +355,7 @@ describe('synthesizer/walk', () => {
     expect(candidates.every((c) => c.type === 'icon')).toBe(true);
   });
 
-  it('SPEC-SYN-11: siblings with the same tag/class but different child counts are not folded into the same repeat group (protects layouts like a colspan group-header row mixed with data rows)', () => {
+  it('siblings with the same tag/class but different child counts are not folded into the same repeat group (protects layouts like a colspan group-header row mixed with data rows)', () => {
     const table = document.createElement('table');
     const headerRow = document.createElement('tr');
     const headerCell = document.createElement('td');
