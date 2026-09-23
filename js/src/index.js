@@ -264,6 +264,12 @@ export function boot() {
 
   window.Ghostwire.clearLearned = function clearLearned() {
     learningStore.clear();
+    // Clearing the persisted store alone isn't enough: a host already
+    // measured once keeps returning its cached Bone Tree - and skipping the
+    // persist callback - for any later commit whose DOM still matches that
+    // earlier measurement. Forgetting each attached host's synthesizer cache
+    // entry too is what makes the next real synthesis actually re-persist.
+    for (const host of registry.allHosts()) synthesizer.forget(host);
   };
 
   window.Livewire.directive('ghost', ({ el, directive, component, cleanup }) => {
