@@ -10,7 +10,7 @@
 //   of times.
 //   No long task — nothing above 50ms attributable to synthesis —
 //   enforced here in its structural form: work is bounded by the
-//   candidate cap (reads at 800 nodes equal reads at 400), so no host can
+//   candidate cap (reads at 4000 nodes equal reads at 2000), so no host can
 //   make a synthesis arbitrarily long; the adaptive freeze remains the
 //   user-facing guard against a genuinely slow synthesis.
 //   Authority: controller ruling R2 of 2026-09-19, recorded in the
@@ -37,8 +37,8 @@
 //
 // Against the /gallery/node-count?nodes=N fixture (unique per-item classes,
 // so repeat sampling never engages) the expected shape is: reads grow
-// ~linearly up to the 300-candidate cap and are then flat —
-// 400 and 800 nodes cost exactly the same, because walk.js stops collecting
+// ~linearly up to the 1500-candidate cap and are then flat —
+// 2000 and 4000 nodes cost exactly the same, because walk.js stops collecting
 // at the cap and measure.js only ever sees collected candidates.
 
 test('layout reads per show cycle grow sub-quadratically with host node count', function () {
@@ -53,11 +53,11 @@ test('layout reads per show cycle grow sub-quadratically with host node count', 
     }
 });
 
-test('synthesis work is bounded by the candidate cap — 800 nodes cost exactly what 400 nodes cost', function () {
-    $at400 = gwShowBurst('/gallery/node-count?nodes=400')['reads'];
-    $at800 = gwShowBurst('/gallery/node-count?nodes=800')['reads'];
+test('synthesis work is bounded by the candidate cap — 4000 nodes cost exactly what 2000 nodes cost', function () {
+    $at2000 = gwShowBurst('/gallery/node-count?nodes=2000')['reads'];
+    $at4000 = gwShowBurst('/gallery/node-count?nodes=4000')['reads'];
 
-    // Capture floor: 300 capped candidates (walk.js MAX_CANDIDATES)
+    // Capture floor: 1500 capped candidates (walk.js MAX_CANDIDATES)
     // x 3 reads each (getComputedStyle + getBoundingClientRect + Range.getClientRects
     // for a text candidate) is the minimum a burst that actually contains synthesis
     // can measure. Those 3 reads per text candidate are an ASSUMPTION about the
@@ -68,7 +68,7 @@ test('synthesis work is bounded by the candidate cap — 800 nodes cost exactly 
     // introduced between synthesize() and attachLayer(): the flush would then fire
     // with inShow still false, discard the pre-boundary reads, and the equality
     // below would hold vacuously on a smaller-but-still-bounded number.
-    expect($at800)->toBeGreaterThanOrEqual(3 * 300, "burst captured only {$at800} reads for 800 nodes — below the 900-read floor a real synthesis must clear; the equality below would be vacuous otherwise");
+    expect($at4000)->toBeGreaterThanOrEqual(3 * 1500, "burst captured only {$at4000} reads for 4000 nodes — below the 4500-read floor a real synthesis must clear; the equality below would be vacuous otherwise");
 
-    expect($at800)->toBe($at400, "past the 300-candidate cap the per-cycle work must stop growing: 400 nodes -> {$at400} reads, 800 nodes -> {$at800}");
+    expect($at4000)->toBe($at2000, "past the 1500-candidate cap the per-cycle work must stop growing: 2000 nodes -> {$at2000} reads, 4000 nodes -> {$at4000}");
 });

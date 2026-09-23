@@ -99,7 +99,7 @@ describe('synthesizer/walk', () => {
 
   it('stops at MAX_CANDIDATES without emitting an aggregate block bone', () => {
     const el = document.createElement('div');
-    for (let i = 0; i < 305; i++) {
+    for (let i = 0; i < 1505; i++) {
       const p = document.createElement('p');
       p.textContent = `row ${i}`;
       el.appendChild(p);
@@ -110,18 +110,18 @@ describe('synthesizer/walk', () => {
 
     const candidates = collectAndClassify(host, registry, 12);
 
-    // The cap trips after exactly 300 real leaf candidates; the remaining 5
+    // The cap trips after exactly 1500 real leaf candidates; the remaining 5
     // children are discarded instead of being flattened into a host-sized
-    // block that would paint over the 300 already collected.
-    expect(candidates).toHaveLength(300);
+    // block that would paint over the 1500 already collected.
+    expect(candidates).toHaveLength(1500);
     expect(candidates[0].type).toBe('text');
     expect(candidates.filter((c) => c.el === host.el)).toHaveLength(0);
-  });
+  }, 15000);
 
   it('the count cap discards the un-walked tail instead of covering it with an aggregate block', () => {
     const el = document.createElement('div');
     const a = document.createElement('div'); // container A: fills the cap exactly on its own
-    for (let i = 0; i < 300; i++) {
+    for (let i = 0; i < 1500; i++) {
       const p = document.createElement('p');
       p.textContent = `a-row ${i}`;
       a.appendChild(p);
@@ -138,14 +138,136 @@ describe('synthesizer/walk', () => {
 
     const candidates = collectAndClassify(host, registry, 12);
 
-    // No aggregate block at all: A's 300 children are all present and intact,
+    // No aggregate block at all: A's 1500 children are all present and intact,
     // B's content is simply absent — the cheaper, more-legible tradeoff over
     // a host-sized block that would cover A's real bones.
     expect(candidates.filter((c) => c.type === 'block')).toHaveLength(0);
-    expect(candidates).toHaveLength(300);
+    expect(candidates).toHaveLength(1500);
     expect(candidates.every((c) => c.el.textContent.startsWith('a-row'))).toBe(true);
     expect(candidates.some((c) => c.el.textContent === 'b-row')).toBe(false);
+  }, 15000);
+
+  it('prunes a display:none subtree before it can spend the candidate budget, so a visible block after it is still found', () => {
+    const el = document.createElement('div');
+
+    const hidden = document.createElement('div'); // e.g. a mobile-nav duplicate of a responsive header
+    hidden.style.display = 'none';
+    for (let i = 0; i < 1505; i++) {
+      const p = document.createElement('p');
+      p.textContent = `hidden row ${i}`;
+      hidden.appendChild(p);
+    }
+    el.appendChild(hidden);
+
+    const visible = document.createElement('div');
+    const visibleText = document.createElement('p');
+    visibleText.textContent = 'visible content';
+    visible.appendChild(visibleText);
+    el.appendChild(visible);
+
+    document.body.appendChild(el);
+    const host = { el, component: { id: 'c1' }, config: {}, state: 'idle', pending: 0, layer: null };
+    const registry = createRegistry();
+
+    const candidates = collectAndClassify(host, registry, 12);
+
+    // Without the display:none prune, the hidden subtree alone (1505
+    // candidates) would exhaust MAX_CANDIDATES before the walk ever reaches
+    // `visible`, which sits later in the DOM than the hidden block.
+    expect(candidates.some((c) => c.el === visibleText)).toBe(true);
+    expect(candidates.some((c) => c.el.textContent.startsWith('hidden row'))).toBe(false);
+  }, 15000);
+
+  it('does not prune a display:contents wrapper, so its children still appear as candidates (regression guard: a bounding-rect-based check would false-positive here)', () => {
+    const el = document.createElement('div');
+
+    const before = document.createElement('p');
+    before.textContent = 'before';
+    el.appendChild(before);
+
+    const wrapper = document.createElement('div'); // e.g. a @foreach/x-for grouping wrapper with no box of its own
+    wrapper.style.display = 'contents';
+    const wrapped = document.createElement('p');
+    wrapped.textContent = 'wrapped';
+    wrapper.appendChild(wrapped);
+    el.appendChild(wrapper);
+
+    const after = document.createElement('p');
+    after.textContent = 'after';
+    el.appendChild(after);
+
+    document.body.appendChild(el);
+    const host = { el, component: { id: 'c1' }, config: {}, state: 'idle', pending: 0, layer: null };
+    const registry = createRegistry();
+
+    const candidates = collectAndClassify(host, registry, 12);
+
+    // display:contents reports a zero-size bounding rect by spec, exactly
+    // like display:none — the two are only distinguishable via computed
+    // display, which is why isCollapsed() checks that instead of a rect.
+    expect(candidates.map((c) => c.el.textContent)).toEqual(['before', 'wrapped', 'after']);
   });
+
+  // The next three pin that the candidate cap is enforced on candidates
+  // actually collected, never on how many raw siblings were scanned. A
+  // scan-count cutoff looks equivalent for a flat list of distinct leaves,
+  // but silently loses real content whenever siblings and candidates stop
+  // being one-to-one: a uniform run costs only a few candidates however many
+  // siblings it spans, and some siblings classify as nothing at all.
+  it('samples a uniform run far longer than the candidate budget against its full length, not a truncated prefix', () => {
+    const { host, items } = makeUniformHost(2000);
+    const registry = createRegistry();
+
+    const candidates = collectAndClassify(host, registry, 12, 3);
+
+    // 3 samples + 1 repeat-extra marker: the cap is nowhere near tripping, so
+    // the marker must describe every real row, through to the very last one.
+    expect(candidates).toHaveLength(4);
+    const extras = candidates.filter((c) => c.type === 'repeat-extra');
+    expect(extras).toHaveLength(1);
+    expect(extras[0].repeatExtra.count).toBe(1997);
+    expect(extras[0].repeatExtra.extraEls).toHaveLength(1997);
+    expect(extras[0].repeatExtra.extraEls[1996]).toBe(items[1999]);
+  }, 15000);
+
+  it('still collects content that follows a uniform run longer than the candidate budget', () => {
+    const { host } = makeUniformHost(1600);
+    const footer = document.createElement('p');
+    footer.className = 'footer';
+    footer.textContent = 'footer';
+    host.el.appendChild(footer);
+    const registry = createRegistry();
+
+    const candidates = collectAndClassify(host, registry, 12, 3);
+
+    // The whole 1600-row run costs 4 candidates, leaving ample budget for
+    // the footer after it.
+    expect(candidates).toHaveLength(5);
+    expect(candidates.find((c) => c.type === 'repeat-extra').repeatExtra.count).toBe(1597);
+    expect(candidates.some((c) => c.el === footer && c.type === 'text')).toBe(true);
+  }, 15000);
+
+  it('siblings that yield no candidate (e.g. <hr> separators) do not shrink how many real candidates the budget admits', () => {
+    const el = document.createElement('div');
+    for (let i = 0; i < 2000; i++) {
+      const item = document.createElement('div');
+      item.className = `item item-${i}`; // distinct classes: never sampled as a repeat run, every item walked individually
+      item.textContent = `Item ${i}`;
+      el.appendChild(item);
+      el.appendChild(document.createElement('hr')); // classifies as nothing
+    }
+    document.body.appendChild(el);
+    const host = { el, component: { id: 'c1' }, config: {}, state: 'idle', pending: 0, layer: null };
+    const registry = createRegistry();
+
+    const candidates = collectAndClassify(host, registry, 12);
+
+    // 4000 siblings, half of which produce no candidate: the cap still trips
+    // on 1500 real items, not after 1500 scanned siblings (750 items).
+    expect(candidates).toHaveLength(1500);
+    expect(candidates.every((c) => c.type === 'text')).toBe(true);
+    expect(candidates[1499].el.textContent).toBe('Item 1499');
+  }, 15000);
 
   it('the depth cap still aggregates per-container, independent of the count cap', () => {
     // Two sibling containers, each nested exactly at maxDepth (maxDepth: 1
@@ -407,7 +529,7 @@ describe('collectAndClassifyRange', () => {
     const start = document.createComment('start');
     wrapper.appendChild(start);
 
-    for (let i = 0; i < 305; i++) {
+    for (let i = 0; i < 1525; i++) {
       const container = document.createElement('div');
       const text = document.createElement('p');
       text.textContent = `item ${i}`;
@@ -424,7 +546,45 @@ describe('collectAndClassifyRange', () => {
 
     const candidates = collectAndClassifyRange(start, end, host, registry, 12, 3);
 
-    expect(candidates).toHaveLength(300);
+    expect(candidates).toHaveLength(1500);
     expect(candidates.every((c) => c.type === 'container' || c.type === 'text')).toBe(true);
-  });
+  }, 15000);
+
+  it('prunes a display:none sibling within the range before it can spend the candidate budget, so visible content later in the range is still found', () => {
+    const registry = createRegistry();
+    const wrapper = document.createElement('div');
+    const start = document.createComment('start');
+    wrapper.appendChild(start);
+
+    const hidden = document.createElement('div'); // e.g. a closed dropdown or an off-screen panel sitting inside the island range
+    hidden.style.display = 'none';
+    for (let i = 0; i < 1505; i++) {
+      const p = document.createElement('p');
+      p.textContent = `hidden row ${i}`;
+      hidden.appendChild(p);
+    }
+    wrapper.appendChild(hidden);
+
+    const visible = document.createElement('div');
+    const visibleText = document.createElement('p');
+    visibleText.textContent = 'visible content';
+    visible.appendChild(visibleText);
+    wrapper.appendChild(visible);
+
+    const end = document.createComment('end');
+    wrapper.appendChild(end);
+    document.body.appendChild(wrapper);
+
+    const host = { el: document.createElement('div'), config: {}, component: { id: 'c1' }, state: 'idle', pending: 0, layer: null };
+
+    const candidates = collectAndClassifyRange(start, end, host, registry);
+
+    // Without the range loop's own isCollapsed check, `hidden` would still be
+    // handed to visit(), which would recurse into its 1505-element subtree
+    // and exhaust MAX_CANDIDATES before the loop's nextSibling walk ever
+    // reaches `visible` — the same starvation bug as visit()'s children
+    // loop, one level shallower (at sibling-iteration instead of recursion).
+    expect(candidates.some((c) => c.el === visibleText)).toBe(true);
+    expect(candidates.some((c) => c.el.textContent.startsWith('hidden row'))).toBe(false);
+  }, 15000);
 });

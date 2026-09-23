@@ -366,4 +366,126 @@ describe('paintLazyPlaceholders (SPEC-LRN-02)', () => {
     expect(placeholder.classList.contains('gw-lazy')).toBe(true);
     expect(placeholder.querySelectorAll('.gw-bone')).toHaveLength(1);
   });
+
+  // A #[Lazy] component that hydrates from placeholder to real HTML
+  // must trigger learning-capture during the 'morphed' hook, deferred via rAF,
+  // but only on first recovery (when no hosts exist yet).
+  describe('lazy hydration learning-capture', () => {
+    let hadGetClientRects2;
+    let originalGetClientRects2;
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      hadGetClientRects2 = Object.prototype.hasOwnProperty.call(Range.prototype, 'getClientRects');
+      originalGetClientRects2 = Range.prototype.getClientRects;
+      if (!Range.prototype.getClientRects) {
+        Range.prototype.getClientRects = () => [{ top: 10, left: 10, right: 90, bottom: 30, width: 80, height: 20 }];
+      }
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+      if (hadGetClientRects2) {
+        Range.prototype.getClientRects = originalGetClientRects2;
+      } else if (Range.prototype.getClientRects) {
+        delete Range.prototype.getClientRects;
+      }
+    });
+
+    // Fixture: lazy component starts with placeholder (no data-ghost),
+    // then morphs in real content. Matches production: component.init attaches nothing,
+    // 'morphed' sees hadNoHosts === true and runs the new code path.
+    function makeLazyLearningComponent() {
+      const el = document.createElement('div');
+      el.setAttribute('data-ghost-lazy', 'orders-table'); // Livewire's placeholder marker
+      document.body.appendChild(el);
+      return { id: 'c1', el };
+    }
+
+    function morphInRealContent(el, { width = 200, height = 100 } = {}) {
+      el.removeAttribute('data-ghost-lazy');
+      el.setAttribute('data-ghost', JSON.stringify({ m: 'synthesize', g: true, n: 'orders-table' }));
+      el.innerHTML = '<p>Hello world</p>';
+      el.getBoundingClientRect = () => ({ top: 0, left: 0, right: width, bottom: height, width, height });
+      for (const child of el.querySelectorAll('*')) {
+        child.getBoundingClientRect = () => ({ top: 10, left: 10, right: 90, bottom: 30, width: 80, height: 20 });
+      }
+    }
+
+    // Requirement (a): captures learning on first morphed after lazy hydration
+    // with the real post-morph geometry. Uses Idiom A: read back through fresh store.
+    it('captures learning on the first morphed after a lazy hydration, with the real post-morph geometry', () => {
+      const storage = fakeStorage();
+      vi.stubGlobal('localStorage', storage);
+      vi.stubGlobal('requestAnimationFrame', (cb) => { cb(); return 0; }); // sync for this test
+
+      const livewire = fakeLivewire();
+      window.Livewire = livewire;
+      boot();
+
+      const component = makeLazyLearningComponent();
+      livewire.trigger('component.init', { component, cleanup: () => {} }); // no data-ghost -> attaches nothing
+
+      morphInRealContent(component.el, { width: 200, height: 100 });
+      livewire.trigger('morphed', { component }); // hadNoHosts was true -> attach retry + synthesis
+
+      const learned = createLearningStore({ storage }).get('orders-table', bandFor(window.innerWidth));
+      expect(learned).not.toBeNull(); // Synthesis ran and persisted
+      expect(learned.width).toBe(200);
+      expect(learned.height).toBe(100);
+      expect(learned.bones.length).toBeGreaterThan(0);
+    });
+
+    // Requirement (b): does not re-trigger learning-capture on a second morphed
+    // for an already-hosted component. Uses Idiom B: spy on setItem call count.
+    it('does not re-trigger learning-capture on a second morphed for an already-hosted component', () => {
+      const storage = fakeStorage();
+      vi.stubGlobal('localStorage', storage);
+      vi.stubGlobal('requestAnimationFrame', (cb) => { cb(); return 0; });
+      const setItemSpy = vi.spyOn(storage, 'setItem');
+
+      const livewire = fakeLivewire();
+      window.Livewire = livewire;
+      boot();
+
+      const component = makeLazyLearningComponent();
+      livewire.trigger('component.init', { component, cleanup: () => {} });
+      morphInRealContent(component.el, { width: 200, height: 100 });
+      livewire.trigger('morphed', { component }); // first: learns, hadNoHosts was true
+
+      const callsAfterFirst = setItemSpy.mock.calls.length;
+      expect(callsAfterFirst).toBeGreaterThan(0);
+
+      livewire.trigger('morphed', { component }); // second: already hosted, hadNoHosts is false
+      expect(setItemSpy.mock.calls.length).toBe(callsAfterFirst); // no new persist from learning path
+    });
+
+    // Requirement (c): measures the settled post-morph geometry, not mid-transition size.
+    // Proves rAF deferral is necessary. Uses capturing rAF stub + Idiom A.
+    it('measures the settled post-morph geometry, not a mid-transition size (rAF deferral regression)', () => {
+      const storage = fakeStorage();
+      vi.stubGlobal('localStorage', storage);
+      let pending;
+      vi.stubGlobal('requestAnimationFrame', (cb) => { pending = cb; return 0; }); // capture, don't fire
+
+      const livewire = fakeLivewire();
+      window.Livewire = livewire;
+      boot();
+
+      const component = makeLazyLearningComponent();
+      livewire.trigger('component.init', { component, cleanup: () => {} });
+      morphInRealContent(component.el, { width: 200, height: 100 }); // mid-transition at 'morphed' time
+      livewire.trigger('morphed', { component }); // attach + schedule synthesize, not yet measure
+
+      // Layout settles AFTER 'morphed', before rAF fires — this is what the fix defers past:
+      component.el.getBoundingClientRect = () => ({ top: 0, left: 0, right: 1776, bottom: 2589.5, width: 1776, height: 2589.5 });
+
+      pending(); // flush — this is what rAF gives: measuring after layout settles
+
+      const learned = createLearningStore({ storage }).get('orders-table', bandFor(window.innerWidth));
+      expect(learned.width).toBe(1776); // settled size, not the 200 at 'morphed' time
+      expect(learned.height).toBe(2589.5);
+      expect(learned.bones.length).toBeGreaterThan(0);
+    });
+  });
 });

@@ -6,6 +6,28 @@ import { boot } from '../src/index.js';
 import { SCHEMA_VERSION, STORAGE_KEY } from '../src/learning/store.js';
 import { setDebugForTests } from '../src/debug.js';
 
+// Mock scheduler to verify messageStart is/isn't called in integration tests
+vi.mock('../src/scheduler.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  const instances = [];
+  return {
+    createScheduler: (...args) => {
+      const real = actual.createScheduler(...args);
+      const spied = {
+        ...real,
+        messageStart: vi.fn(real.messageStart),
+        messagePostPaint: vi.fn(real.messagePostPaint),
+        messageFinish: vi.fn(real.messageFinish),
+      };
+      instances.push(spied);
+      return spied;
+    },
+    __instances: instances,
+  };
+});
+
+import { __instances as schedulerInstances } from '../src/scheduler.js';
+
 function elWith(payload) {
   const el = document.createElement('div');
   el.setAttribute('data-ghost', JSON.stringify(payload));
@@ -181,6 +203,7 @@ describe('window.Ghostwire.exportLearned / clearLearned wiring', () => {
     delete window.Ghostwire;
     anchorClick.mockRestore();
     vi.unstubAllGlobals();
+    vi.useRealTimers(); // only the cache-forgetting test below arms fake timers; harmless no-op otherwise
   });
 
   it('exportLearned() returns the persisted store as JSON', () => {
@@ -198,6 +221,71 @@ describe('window.Ghostwire.exportLearned / clearLearned wiring', () => {
     window.Ghostwire.clearLearned();
 
     expect(JSON.parse(window.Ghostwire.exportLearned())).toEqual({ v: SCHEMA_VERSION, e: {}, c: {} });
+  });
+
+  // clearLearned() must not leave the synthesizer's own per-host signature
+  // cache warm. If it did, a commit right after the clear that measures the
+  // exact same DOM recomputes the exact same signature, hits that still-warm
+  // cache entry, and returns the cached Bone Tree without ever calling the
+  // persist callback - silently leaving the just-cleared store empty instead
+  // of re-learning. Drives a real boot()/component.init/onStart cycle (the
+  // same hookCallbacks/interceptMessage-capture idiom the
+  // 'learning capture decoupled...' tests below use), not a reimplementation
+  // of it, because the thing worth protecting is the interaction between the
+  // real store and the real synthesizer cache.
+  it('re-persists on the next commit after clearLearned(), even when that commit measures identical DOM', () => {
+    vi.stubGlobal('localStorage', fakeStorage());
+    vi.useFakeTimers(); // keeps scheduler's own setTimeout from firing/leaking past this test - only onStart's synchronous learning capture is under test here
+
+    const hookCallbacks = new Map();
+    let interceptedCallback;
+    window.Livewire = {
+      interceptMessage: (cb) => { interceptedCallback = cb; return () => {}; },
+      hook: (name, cb) => {
+        if (!hookCallbacks.has(name)) hookCallbacks.set(name, []);
+        hookCallbacks.get(name).push(cb);
+      },
+      directive: () => {},
+    };
+
+    global.ResizeObserver = class { observe() {} disconnect() {} };
+    if (!Range.prototype.getClientRects) {
+      Range.prototype.getClientRects = () => [{ top: 10, left: 10, right: 90, bottom: 30, width: 80, height: 20 }];
+    }
+
+    const el = document.createElement('div');
+    el.getBoundingClientRect = () => ({ top: 0, left: 0, right: 200, bottom: 100, width: 200, height: 100 });
+    el.innerHTML = '<p>Hello world</p>';
+    el.setAttribute('data-ghost', JSON.stringify({ m: 'synthesize', g: true, n: 'orders-table' }));
+    document.body.appendChild(el);
+    for (const child of el.querySelectorAll('*')) {
+      child.getBoundingClientRect = () => ({ top: 10, left: 10, right: 90, bottom: 30, width: 80, height: 20 });
+    }
+    const component = { id: 'c1', el };
+
+    boot();
+    hookCallbacks.get('component.init').at(-1)({ component, cleanup: () => {} });
+
+    // Same message shape on both commits - same DOM in between them, so the
+    // synthesizer computes the identical signature both times. That identical
+    // signature is the crux of the bug: it's what would hit the stale cache.
+    const commit = () => interceptedCallback({
+      message: { isSkipped: () => false, component, getActions: () => [{ name: 'save' }] },
+      onSuccess: () => {},
+      onError: () => {},
+      onFailure: () => {},
+      onCancel: () => {},
+      onFinish: (cb) => cb(),
+    });
+
+    commit();
+    expect(JSON.parse(window.Ghostwire.exportLearned()).e).not.toEqual({});
+
+    window.Ghostwire.clearLearned();
+    expect(JSON.parse(window.Ghostwire.exportLearned())).toEqual({ v: SCHEMA_VERSION, e: {}, c: {} });
+
+    commit(); // identical DOM, identical signature - must re-persist, not silently hit the forgotten-or-not synthesizer cache
+    expect(JSON.parse(window.Ghostwire.exportLearned()).e).not.toEqual({});
   });
 });
 
@@ -331,7 +419,7 @@ describe('learning capture decoupled from the visible-skeleton delay (SPEC-LRN-0
     expect(storage.getItem('ghostwire.learned.v1')).toContain('orders-table');
   });
 
-  it('does not capture learning for a host the same eligibility gates silence (sync-only message, no override)', () => {
+  it('captures learning even for a message the same eligibility gates silence on the VISIBLE skeleton (sync-only, no override)', () => {
     const storage = fakeStorage();
     vi.stubGlobal('localStorage', storage);
     vi.useFakeTimers();
@@ -340,6 +428,10 @@ describe('learning capture decoupled from the visible-skeleton delay (SPEC-LRN-0
     const component = makeLazyLearningComponent(); // host.config.sync stays undefined — no override
     componentInitCallback()({ component, cleanup: () => {} });
 
+    // Simulates a sync-only commit (isSync=true, no user actions) that would
+    // normally silence the visible skeleton update, but learning capture runs
+    // ahead of that gate and is unaffected by it. The learningStore should
+    // have data even though scheduler.messageStart is silenced.
     interceptedCallback({
       message: { isSkipped: () => false, component, getActions: () => [] }, // no actions at all -> isSync (v4 bridge)
       onSuccess: () => {},
@@ -349,7 +441,8 @@ describe('learning capture decoupled from the visible-skeleton delay (SPEC-LRN-0
       onFinish: (cb) => cb(),
     });
 
-    expect(JSON.parse(window.Ghostwire.exportLearned())).toEqual({ v: SCHEMA_VERSION, e: {}, c: {} });
+    expect(JSON.parse(window.Ghostwire.exportLearned()).e).not.toEqual({});
+    expect(storage.getItem('ghostwire.learned.v1')).toContain('orders-table');
   });
 
   it('does not double-persist when synthesize() runs again later inside onShow for an unchanged host (delay crossed)', () => {
@@ -437,5 +530,89 @@ describe('learning capture decoupled from the visible-skeleton delay (SPEC-LRN-0
     });
 
     expect(JSON.parse(window.Ghostwire.exportLearned())).toEqual({ v: SCHEMA_VERSION, e: {}, c: {} });
+  });
+
+  it('captures learning even for a poll-only message (isPoll=true, no override)', () => {
+    const storage = fakeStorage();
+    vi.stubGlobal('localStorage', storage);
+    vi.useFakeTimers();
+
+    boot();
+    const component = makeLazyLearningComponent(); // host.config.poll stays undefined — no override
+    componentInitCallback()({ component, cleanup: () => {} });
+
+    // Simulates a poll-only commit (isPoll=true, all actions are poll-typed)
+    // that would normally silence the visible skeleton update, but learning
+    // capture should still run. The v4 bridge (js/src/bridge/v4.js:32-33)
+    // computes isPoll as: getActions().length > 0 && all actions have
+    // metadata?.type === 'poll'.
+    const scheduler = schedulerInstances.at(-1);
+    interceptedCallback({
+      message: {
+        isSkipped: () => false,
+        component,
+        getActions: () => [{ name: 'poll', metadata: { type: 'poll' } }],
+      },
+      onSuccess: () => {},
+      onError: () => {},
+      onFailure: () => {},
+      onCancel: () => {},
+      onFinish: (cb) => cb(),
+    });
+
+    expect(JSON.parse(window.Ghostwire.exportLearned()).e).not.toEqual({});
+    expect(storage.getItem('ghostwire.learned.v1')).toContain('orders-table');
+    // Regression: scheduler.messageStart should still be silenced for poll-only
+    expect(scheduler.messageStart).not.toHaveBeenCalled();
+  });
+
+  it('does not capture learning when mode:off is set (sync-only or not)', () => {
+    const storage = fakeStorage();
+    vi.stubGlobal('localStorage', storage);
+    vi.useFakeTimers();
+
+    boot();
+    const component = makeLazyLearningComponent({ m: 'off' });
+    componentInitCallback()({ component, cleanup: () => {} });
+
+    interceptedCallback({
+      message: { isSkipped: () => false, component, getActions: () => [] }, // sync-only
+      onSuccess: () => {},
+      onError: () => {},
+      onFailure: () => {},
+      onCancel: () => {},
+      onFinish: (cb) => cb(),
+    });
+
+    expect(JSON.parse(window.Ghostwire.exportLearned())).toEqual({ v: SCHEMA_VERSION, e: {}, c: {} });
+  });
+
+  it('still silences visible skeleton (scheduler.messageStart) for sync-only message while capturing learning', () => {
+    // Learning capture happens before the sync/poll visibility gate runs, so
+    // it stays decoupled from the visible skeleton's silencing. This test
+    // verifies the visible skeleton remains silenced (messageStart not
+    // called) even though learning IS captured.
+    const storage = fakeStorage();
+    vi.stubGlobal('localStorage', storage);
+    vi.useFakeTimers();
+
+    boot();
+    const component = makeLazyLearningComponent(); // host.config.sync stays undefined
+    componentInitCallback()({ component, cleanup: () => {} });
+
+    const scheduler = schedulerInstances.at(-1);
+    interceptedCallback({
+      message: { isSkipped: () => false, component, getActions: () => [] }, // sync-only
+      onSuccess: () => {},
+      onError: () => {},
+      onFailure: () => {},
+      onCancel: () => {},
+      onFinish: (cb) => cb(),
+    });
+
+    // Learning is captured (storage not empty)
+    expect(JSON.parse(window.Ghostwire.exportLearned()).e).not.toEqual({});
+    // But visible skeleton is still silenced (scheduler.messageStart not called)
+    expect(scheduler.messageStart).not.toHaveBeenCalled();
   });
 });

@@ -11,11 +11,11 @@ All theming is pure CSS, driven by custom properties on `:root` — no JS involv
 | `--ghostwire-bone-color-dark` | `oklch(0.42 0.012 250)` | Base skeleton color (dark) |
 | `--ghostwire-bone-highlight` | `oklch(0.97 0.005 250)` | Shimmer sheen color (light) |
 | `--ghostwire-bone-highlight-dark` | `oklch(0.55 0.015 250)` | Shimmer sheen color (dark) |
-| `--ghostwire-panel-color` | `oklch(0.955 0.005 250)` | Panel bone color (light) |
-| `--ghostwire-panel-color-dark` | `oklch(0.32 0.01 250)` | Panel bone color (dark) |
+| `--ghostwire-panel-color` | `oklch(0 0 0 / 0.035)` | Panel bone color — translucent dark overlay (light) |
+| `--ghostwire-panel-color-dark` | `oklch(1 0 0 / 0.05)` | Panel bone color — translucent light overlay (dark) |
 | `--ghostwire-bone-radius` | `0.375rem` | Corner radius on each bone |
 | `--ghostwire-bone-gap` | `0.5rem` | Spacing between stacked bones |
-| `--ghostwire-animation` | `shimmer` | Animation name — `shimmer`, `pulse`, `wave`, or `none` |
+| `--ghostwire-animation` | `gw-shimmer` | Animation name — `gw-shimmer`, `gw-pulse`, `gw-wave`, or `none` |
 | `--ghostwire-animation-speed` | `1.4s` | Animation cycle duration |
 | `--ghostwire-fade-duration` | `150ms` | Show/hide cross-fade duration |
 
@@ -43,7 +43,7 @@ from the rest of the page. Override the base tokens — not the `-dark` ones
 
 ## Reduced motion
 
-`prefers-reduced-motion: reduce` disables the shimmer/pulse/wave animation automatically, falling back to the sheen's static (invisible) state — same as setting `--ghostwire-animation: none` by hand.
+`prefers-reduced-motion: reduce` disables the gw-shimmer/gw-pulse/gw-wave animation automatically, falling back to the sheen's static (invisible) state — same as setting `--ghostwire-animation: none` by hand.
 
 ## Overriding
 
@@ -52,7 +52,7 @@ Set any token on `:root` (or scoped to a container) in your own CSS, after Ghost
 ```css
 :root {
   --ghostwire-bone-color: #e2e8f0;
-  --ghostwire-animation: pulse;
+  --ghostwire-animation: gw-pulse;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -67,6 +67,6 @@ Scoped to one part of your app instead of the whole page:
 ```css
 .dashboard-widgets {
   --ghostwire-bone-radius: 9999px;
-  --ghostwire-animation: wave;
+  --ghostwire-animation: gw-wave;
 }
 ```

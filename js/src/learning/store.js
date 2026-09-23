@@ -18,7 +18,7 @@ import { bandFor, BAND_NAMES } from './bands.js';
 export const SCHEMA_VERSION = 1;
 export const STORAGE_KEY = 'ghostwire.learned.v1';
 export const MAX_COORD = 20000;
-export const MAX_BONES = 300;
+export const MAX_BONES = 1000;
 export const BONE_TYPES = new Set(['text', 'avatar', 'block', 'icon', 'media', 'control', 'heading', 'panel']);
 export const NAME_PATTERN = /^[a-z0-9\-.]{1,64}$/;
 
@@ -34,7 +34,7 @@ const BONE_KEYS = ['type', 'x', 'y', 'width', 'height'];
 // whole entry (component+band) a missed learning opportunity, never a
 // validation bypass.
 const OPTIONAL_BONE_KEYS = ['borderRadius'];
-const BORDER_RADIUS_PATTERN = /^\d+(\.\d+)?(px|%|em|rem)( \d+(\.\d+)?(px|%|em|rem)){0,3}$/;
+const BORDER_RADIUS_PATTERN = /^\d+(\.\d+)?(e[+-]?\d+)?(px|%|em|rem)( \d+(\.\d+)?(e[+-]?\d+)?(px|%|em|rem)){0,3}$/;
 const ENTRY_KEY_PATTERN = /^(\d{1,10})\|([a-z0-9]{2,3})$/;
 
 function clamp(value, min, max) {

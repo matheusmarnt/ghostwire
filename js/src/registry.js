@@ -29,5 +29,13 @@ export function createRegistry() {
     return byElement.get(el) || null;
   }
 
-  return { attach, detach, hostsFor, hostFor };
+  function allHosts() {
+    const hosts = [];
+    for (const set of byComponentId.values()) {
+      for (const host of set) hosts.push(host);
+    }
+    return hosts;
+  }
+
+  return { attach, detach, hostsFor, hostFor, allHosts };
 }

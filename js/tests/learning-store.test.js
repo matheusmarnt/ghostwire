@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { createLearningStore, STORAGE_KEY, SCHEMA_VERSION, BONE_TYPES } from '../src/learning/store.js';
+import { createLearningStore, STORAGE_KEY, SCHEMA_VERSION, BONE_TYPES, MAX_BONES } from '../src/learning/store.js';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -166,10 +166,58 @@ describe('learning store', () => {
     ])).toBe(false);
   });
 
+  it('accepts a panel bone with scientific notation borderRadius (positive exponent)', () => {
+    expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
+      { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '3.35544e+07px' },
+    ])).toBe(true);
+  });
+
+  it('accepts a panel bone with scientific notation borderRadius (negative exponent)', () => {
+    expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
+      { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '1.5e-3px' },
+    ])).toBe(true);
+  });
+
+  it('accepts a panel bone with scientific notation borderRadius (unsigned exponent)', () => {
+    expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
+      { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '1.5e3px' },
+    ])).toBe(true);
+  });
+
+  it('rejects injection payloads using exponent-like syntax with prohibited characters', () => {
+    expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
+      { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '1e"onmouseover="alert(1)px' },
+    ])).toBe(false);
+    expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
+      { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '1e<svg>px' },
+    ])).toBe(false);
+    expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
+      { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '1e;javascript:alert(1)px' },
+    ])).toBe(false);
+  });
+
+  it('accepts a boneTree with multiple panel bones carrying scientific notation borderRadius', () => {
+    expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
+      { type: 'panel', x: 0, y: 0, width: 24, height: 24, borderRadius: '3.35544e+07px' },
+      { type: 'panel', x: 30, y: 0, width: 24, height: 24, borderRadius: '9.99999e+06px' },
+      { type: 'text', x: 60, y: 5, width: 100, height: 14 },
+    ])).toBe(true);
+  });
+
   it('rejects a panel bone carrying a 7th key beyond the 5 base keys plus borderRadius (SPEC-SEC-04)', () => {
     expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
       { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '8px', onclick: 'alert(1)' },
     ])).toBe(false);
+  });
+
+  it('accepts a boneTree well over the old 300-bone cap but under the new MAX_BONES, and still rejects one over it', () => {
+    const bone = { type: 'text', x: 0, y: 0, width: 1, height: 1 };
+
+    const fiveHundredBones = Array.from({ length: 500 }, () => bone);
+    expect(store.put('big-page', 1, 'lg', { width: 100, height: 100 }, fiveHundredBones)).toBe(true);
+
+    const tooManyBones = Array.from({ length: MAX_BONES + 1 }, () => bone);
+    expect(store.put('big-page', 2, 'lg', { width: 100, height: 100 }, tooManyBones)).toBe(false);
   });
 
   it('rejects a component name outside the allowed charset (SPEC-SEC-04)', () => {

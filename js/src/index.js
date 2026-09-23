@@ -264,6 +264,12 @@ export function boot() {
 
   window.Ghostwire.clearLearned = function clearLearned() {
     learningStore.clear();
+    // Clearing the persisted store alone isn't enough: a host already
+    // measured once keeps returning its cached Bone Tree - and skipping the
+    // persist callback - for any later commit whose DOM still matches that
+    // earlier measurement. Forgetting each attached host's synthesizer cache
+    // entry too is what makes the next real synthesis actually re-persist.
+    for (const host of registry.allHosts()) synthesizer.forget(host);
   };
 
   window.Livewire.directive('ghost', ({ el, directive, component, cleanup }) => {
@@ -479,8 +485,25 @@ export function boot() {
     // component.init's) — component.addCleanup() is the same underlying
     // teardown array, called with `?.` because some test doubles for
     // `component` (js/tests/*.js) construct a plain { id, el } without it.
-    if (registry.hostsFor(component.id).size === 0) {
+    const hadNoHosts = registry.hostsFor(component.id).size === 0;
+    if (hadNoHosts) {
       attachAttributeHost(component, (fn) => component.addCleanup?.(fn), true);
+    }
+
+    // For #[Lazy] components, the attach above is the first time a host is
+    // created after the real HTML lands. Capture learning immediately (but
+    // defer via rAF to measure after layout settles, not mid-transition).
+    // Only run on first recovery (hadNoHosts); subsequent morphs already
+    // have a host and will capture via onStart if needed.
+    if (hadNoHosts) {
+      requestAnimationFrame(() => {
+        for (const host of registry.hostsFor(component.id)) {
+          if (host.config.learning && host.config.name
+              && host.config.mode !== 'freeze' && !host.config.ignore && !host.config.keep) {
+            synthesizer.synthesize(host, regionForHost(host, bridgeName));
+          }
+        }
+      });
     }
 
     for (const host of registry.hostsFor(component.id)) {
@@ -567,8 +590,6 @@ export function boot() {
         applyActionOverride(host, ctx);
         if (host.config.mode === 'off') continue;
         if (ctx.isRenderless) continue; // no configurable exception, either line
-        if (ctx.isSync && !host.config.sync) continue; // default silence, overridable
-        if (ctx.isPoll && !host.config.poll) continue; // default silence, overridable
         if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
         if (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name))) continue;
         if (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name))) continue;
@@ -609,6 +630,8 @@ export function boot() {
           synthesizer.synthesize(host, regionForHost(host, bridgeName));
         }
 
+        if (ctx.isSync && !host.config.sync) continue; // default silence, overridable
+        if (ctx.isPoll && !host.config.poll) continue; // default silence, overridable
         scheduler.messageStart(host, pickOverrides(host.config));
       }
     },

@@ -1,6 +1,6 @@
 const LEAF_TAGS_MEDIA = ['IMG', 'VIDEO', 'PICTURE', 'CANVAS'];
 const LEAF_TAGS_CONTROL = ['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'];
-const MAX_CANDIDATES = 300; // raw safety cap; tripping it stops the walk and keeps what was already collected (see visit())
+const MAX_CANDIDATES = 1500; // raw safety cap; tripping it stops the walk and keeps what was already collected (see visit())
 
 export function classify(el) {
   if (el.tagName === 'svg' || el.tagName === 'SVG') return 'icon';
@@ -41,10 +41,13 @@ export function collectAndClassifyRange(startNode, endNode, host, registry, maxD
   const state = { groupSeq: 0 };
   let node = startNode.nextSibling;
   while (node && node !== endNode) {
-    if (node.nodeType === Node.ELEMENT_NODE && (!registry.hostFor(node) || node === host.el)) {
-      if (candidates.length >= MAX_CANDIDATES) {
-        return candidates;
-      }
+    // Checked before any per-sibling work (the display check included), so a
+    // range with far more siblings than the budget stops scanning the moment
+    // the cap is reached instead of style-reading every remaining sibling.
+    if (candidates.length >= MAX_CANDIDATES) {
+      return candidates;
+    }
+    if (node.nodeType === Node.ELEMENT_NODE && (!registry.hostFor(node) || node === host.el) && !isCollapsed(node)) {
       if (host.config.panels === true && classify(node) === 'container' && 0 < maxDepth) {
         const candidate = { el: node, type: 'container', depth: 0 };
         candidates.push(candidate);
@@ -64,16 +67,50 @@ export function collectAndClassifyRange(startNode, endNode, host, registry, maxD
 // over every candidate already collected.
 // A run of >= REPEAT_MIN_RUN uniform-height siblings sharing a
 // tag+class signature is sampled instead of walked in full.
+//
+// A display:none subtree is pruned right here, before any of its
+// descendants can spend the shared candidate budget. Checking only each
+// node's own computed display is enough — a display:none ancestor removes
+// its whole subtree from layout, so pruning stops the walk from ever
+// descending into it; no separate ancestor check is needed. Without this,
+// a large hidden block that sits earlier in the DOM than the real content (a
+// mobile-nav duplicate of a responsive header, a closed dropdown, an unopened
+// modal) can exhaust the walk before it ever reaches that later, visible
+// content. Checked via the computed display value rather than a zero-size
+// bounding rect: a display:contents wrapper also reports a zero-size rect by
+// spec even though its children render normally, so a rect-based check would
+// wrongly prune real content along with it.
+function isCollapsed(el) {
+  return window.getComputedStyle(el).display === 'none';
+}
+
 function visit(node, registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, exemptHostEl, panelsEnabled) {
+  // Eligible children are filtered on demand, only as far as the loop below
+  // actually reads, rather than all up front. The display check is a real
+  // style read, and a container with far more visible children than the
+  // candidate budget (a long flat list of distinct items) would otherwise pay
+  // it for every child, including all the ones the walk never reaches once
+  // the cap trips. (A display:none subtree never had this cost: its root
+  // fails the check once and nothing beneath it is visited.) Filtering
+  // lazily changes only how many children get checked, never which ones the
+  // walk sees: a repeat run is still read to its real end, however many
+  // siblings it spans, since the whole run costs only a few candidates.
   const children = [];
-  for (const child of node.children) {
-    if (registry.hostFor(child) && child !== exemptHostEl) continue; // nested wire:ghost host is a boundary — except the host this walk is for
-    if (child.getAttribute('aria-hidden') === 'true') continue;
-    children.push(child);
-  }
+  let next = node.firstElementChild;
+  const reach = (index) => {
+    while (children.length <= index && next) {
+      const child = next;
+      next = next.nextElementSibling;
+      if (registry.hostFor(child) && child !== exemptHostEl) continue; // nested wire:ghost host is a boundary — except the host this walk is for
+      if (child.getAttribute('aria-hidden') === 'true') continue;
+      if (isCollapsed(child)) continue;
+      children.push(child);
+    }
+    return index < children.length;
+  };
 
   let i = 0;
-  while (i < children.length) {
+  while (reach(i)) {
     if (out.length >= MAX_CANDIDATES) {
       // The aggregate block was meant to keep the un-walked tail from having
       // zero coverage, but it is sized to the WHOLE host and appended last, so
@@ -85,7 +122,7 @@ function visit(node, registry, out, depth, maxDepth, repeatSampleSize, state, re
       return;
     }
 
-    const runLength = matchingRunLength(children, i);
+    const runLength = matchingRunLength(children, i, reach);
     // Nested repeat detection is deliberately disabled while already inside a
     // sampled repeat item (repeatGroup is set): a repeat-of-repeats is rare,
     // and tagging every candidate with only its innermost group keeps the
@@ -129,7 +166,7 @@ function processChild(child, registry, out, depth, maxDepth, repeatSampleSize, s
         // that turn out not to be panels (panel-ness is decided later, by
         // measure.js's isPanel check) — deliberate: it's cheaper than a
         // second pass, and it means a deep DOM with panels enabled can hit
-        // the 300-candidate cap sooner than the same DOM with panels off.
+        // the 1500-candidate cap sooner than the same DOM with panels off.
         const candidate = { el: child, type: 'container', depth };
         if (repeatGroup) candidate.repeatGroup = repeatGroup;
         out.push(candidate);
@@ -148,10 +185,10 @@ function processChild(child, registry, out, depth, maxDepth, repeatSampleSize, s
   out.push(candidate);
 }
 
-function matchingRunLength(children, start) {
+function matchingRunLength(children, start, reach) {
   const signature = siblingSignature(children[start]);
   let end = start + 1;
-  while (end < children.length && siblingSignature(children[end]) === signature) end++;
+  while (reach(end) && siblingSignature(children[end]) === signature) end++;
   return end - start;
 }
 
