@@ -609,7 +609,6 @@ export function boot() {
 
         if (ctx.isSync && !host.config.sync) continue; // default silence, overridable
         if (ctx.isPoll && !host.config.poll) continue; // default silence, overridable
-
         scheduler.messageStart(host, pickOverrides(host.config));
       }
     },

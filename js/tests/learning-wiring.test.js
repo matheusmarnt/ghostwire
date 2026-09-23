@@ -6,6 +6,28 @@ import { boot } from '../src/index.js';
 import { SCHEMA_VERSION, STORAGE_KEY } from '../src/learning/store.js';
 import { setDebugForTests } from '../src/debug.js';
 
+// Mock scheduler to verify messageStart is/isn't called in integration tests
+vi.mock('../src/scheduler.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  const instances = [];
+  return {
+    createScheduler: (...args) => {
+      const real = actual.createScheduler(...args);
+      const spied = {
+        ...real,
+        messageStart: vi.fn(real.messageStart),
+        messagePostPaint: vi.fn(real.messagePostPaint),
+        messageFinish: vi.fn(real.messageFinish),
+      };
+      instances.push(spied);
+      return spied;
+    },
+    __instances: instances,
+  };
+});
+
+import { __instances as schedulerInstances } from '../src/scheduler.js';
+
 function elWith(payload) {
   const el = document.createElement('div');
   el.setAttribute('data-ghost', JSON.stringify(payload));
@@ -454,15 +476,17 @@ describe('learning capture decoupled from the visible-skeleton delay (SPEC-LRN-0
     const component = makeLazyLearningComponent(); // host.config.poll stays undefined — no override
     componentInitCallback()({ component, cleanup: () => {} });
 
-    // Simulates a poll-only commit (isPoll=true) that would normally silence
-    // the visible skeleton update, but learning capture should still run.
-    // Use a fake message that v4 bridge would mark as isPoll.
+    // Simulates a poll-only commit (isPoll=true, all actions are poll-typed)
+    // that would normally silence the visible skeleton update, but learning
+    // capture should still run. The v4 bridge (js/src/bridge/v4.js:32-33)
+    // computes isPoll as: getActions().length > 0 && all actions have
+    // metadata?.type === 'poll'.
+    const scheduler = schedulerInstances.at(-1);
     interceptedCallback({
       message: {
         isSkipped: () => false,
         component,
-        getActions: () => [],
-        isPoll: true, // This would trigger isPoll in the v4 bridge
+        getActions: () => [{ name: 'poll', metadata: { type: 'poll' } }],
       },
       onSuccess: () => {},
       onError: () => {},
@@ -473,6 +497,8 @@ describe('learning capture decoupled from the visible-skeleton delay (SPEC-LRN-0
 
     expect(JSON.parse(window.Ghostwire.exportLearned()).e).not.toEqual({});
     expect(storage.getItem('ghostwire.learned.v1')).toContain('orders-table');
+    // Regression: scheduler.messageStart should still be silenced for poll-only
+    expect(scheduler.messageStart).not.toHaveBeenCalled();
   });
 
   it('does not capture learning when mode:off is set (sync-only or not)', () => {
@@ -496,24 +522,22 @@ describe('learning capture decoupled from the visible-skeleton delay (SPEC-LRN-0
     expect(JSON.parse(window.Ghostwire.exportLearned())).toEqual({ v: SCHEMA_VERSION, e: {}, c: {} });
   });
 
-  it('does not capture learning when isRenderless is true (sync-only or not)', () => {
+  it('still silences visible skeleton (scheduler.messageStart) for sync-only message while capturing learning', () => {
+    // Regression test for Task 1 fix: the sync/poll gates were moved AFTER
+    // learning-capture to decouple learning from the visible-skeleton silence.
+    // This test verifies the visible skeleton remains silenced (messageStart not
+    // called) even though learning IS captured.
     const storage = fakeStorage();
     vi.stubGlobal('localStorage', storage);
     vi.useFakeTimers();
 
     boot();
-    const component = makeLazyLearningComponent();
+    const component = makeLazyLearningComponent(); // host.config.sync stays undefined
     componentInitCallback()({ component, cleanup: () => {} });
 
-    // The Livewire message interceptor doesn't directly set isRenderless,
-    // but in real usage this happens after hydration of renderless components.
-    // For now, we verify that mode:off blocks it (which gates renderless
-    // alongside other conditions). A full isRenderless test would need to
-    // mock the bridge's internal logic. This test documents the expectation.
-    // The gate at line 569 (if (ctx.isRenderless) continue) prevents learning
-    // capture regardless of sync/poll state.
+    const scheduler = schedulerInstances.at(-1);
     interceptedCallback({
-      message: { isSkipped: () => false, component, getActions: () => [] },
+      message: { isSkipped: () => false, component, getActions: () => [] }, // sync-only
       onSuccess: () => {},
       onError: () => {},
       onFailure: () => {},
@@ -521,11 +545,9 @@ describe('learning capture decoupled from the visible-skeleton delay (SPEC-LRN-0
       onFinish: (cb) => cb(),
     });
 
-    // This test documents that renderless components should skip learning.
-    // The real renderless filtering happens in the bridge (ctx.isRenderless),
-    // which is harder to inject in this integration test. The mode:off test
-    // above covers the immediate gate structure. For full coverage of
-    // isRenderless, see bridge unit tests.
+    // Learning is captured (storage not empty)
     expect(JSON.parse(window.Ghostwire.exportLearned()).e).not.toEqual({});
+    // But visible skeleton is still silenced (scheduler.messageStart not called)
+    expect(scheduler.messageStart).not.toHaveBeenCalled();
   });
 });
