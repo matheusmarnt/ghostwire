@@ -479,8 +479,25 @@ export function boot() {
     // component.init's) — component.addCleanup() is the same underlying
     // teardown array, called with `?.` because some test doubles for
     // `component` (js/tests/*.js) construct a plain { id, el } without it.
-    if (registry.hostsFor(component.id).size === 0) {
+    const hadNoHosts = registry.hostsFor(component.id).size === 0;
+    if (hadNoHosts) {
       attachAttributeHost(component, (fn) => component.addCleanup?.(fn), true);
+    }
+
+    // For #[Lazy] components, the attach above is the first time a host is
+    // created after the real HTML lands. Capture learning immediately (but
+    // defer via rAF to measure after layout settles, not mid-transition).
+    // Only run on first recovery (hadNoHosts); subsequent morphs already
+    // have a host and will capture via onStart if needed.
+    if (hadNoHosts) {
+      requestAnimationFrame(() => {
+        for (const host of registry.hostsFor(component.id)) {
+          if (host.config.learning && host.config.name
+              && host.config.mode !== 'freeze' && !host.config.ignore && !host.config.keep) {
+            synthesizer.synthesize(host, regionForHost(host, bridgeName));
+          }
+        }
+      });
     }
 
     for (const host of registry.hostsFor(component.id)) {
