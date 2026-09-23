@@ -567,8 +567,6 @@ export function boot() {
         applyActionOverride(host, ctx);
         if (host.config.mode === 'off') continue;
         if (ctx.isRenderless) continue; // no configurable exception, either line
-        if (ctx.isSync && !host.config.sync) continue; // default silence, overridable
-        if (ctx.isPoll && !host.config.poll) continue; // default silence, overridable
         if (host.targetActions && !ctx.actionNames.some((name) => host.targetActions.includes(name))) continue;
         if (host.config.only && !ctx.actionNames.some((name) => host.config.only.includes(name))) continue;
         if (host.config.except && ctx.actionNames.some((name) => host.config.except.includes(name))) continue;
@@ -608,6 +606,9 @@ export function boot() {
             && host.config.mode !== 'freeze' && !host.config.ignore && !host.config.keep) {
           synthesizer.synthesize(host, regionForHost(host, bridgeName));
         }
+
+        if (ctx.isSync && !host.config.sync) continue; // default silence, overridable
+        if (ctx.isPoll && !host.config.poll) continue; // default silence, overridable
 
         scheduler.messageStart(host, pickOverrides(host.config));
       }
