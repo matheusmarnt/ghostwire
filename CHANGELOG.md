@@ -15,6 +15,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > The `[1.0.0]` section below predates that and is hand-curated. It stays as
 > written, including its `Scope` subsection recording what 1.0.0 ships without.
 
+## [2.0.0](https://github.com/matheusmarnt/ghostwire/compare/v1.3.0...v2.0.0) (2026-09-23)
+
+
+### ⚠ BREAKING CHANGES
+
+* anyone who set --ghostwire-animation: shimmer/wave/pulse by hand (rather than relying on the default) must update to gw-shimmer/gw-wave/gw-pulse. No alias or deprecation period is provided; this project has no external users yet.
+
+### Bug Fixes
+
+* accept scientific notation in border-radius validation ([05f03a2](https://github.com/matheusmarnt/ghostwire/commit/05f03a22b113533356a57f21d016383c77cb47c0))
+* allow learning-capture to run independently of sync/poll gate ([0c93b41](https://github.com/matheusmarnt/ghostwire/commit/0c93b4167f1b8ec7fd029f51ab8dc82a2e3b4938))
+* bound the synthesizer walk's display check by how far the walk gets ([a84329a](https://github.com/matheusmarnt/ghostwire/commit/a84329a8a75f8d584fc1452c2054c5084b13c509))
+* capture lazy-hydration learning on first morphed via deferred rAF ([3eaa0cf](https://github.com/matheusmarnt/ghostwire/commit/3eaa0cfff8df266bb7ce81ace2524a1d3a8ecbff))
+* forget synthesizer host cache in clearLearned() too ([607e1e0](https://github.com/matheusmarnt/ghostwire/commit/607e1e051c1a4eedc0d3c8c387b57dd441c1e670))
+* namespace bone keyframes to gw-shimmer/gw-wave/gw-pulse ([0088c78](https://github.com/matheusmarnt/ghostwire/commit/0088c787b6509c652c2ef9c868e9a813b4df5b57))
+* panels:true skeleton doesn't reflect the real page (6 root-cause fixes) ([24104d1](https://github.com/matheusmarnt/ghostwire/commit/24104d12217fc13cf6a90fe4de1cd810f6b8cb39))
+* prevent panels walk from starving inside hidden DOM subtrees ([f90635a](https://github.com/matheusmarnt/ghostwire/commit/f90635af3575e69ac6a53afc502180deba93b9ee))
+* prune display:none siblings in collectAndClassifyRange too ([54a58e7](https://github.com/matheusmarnt/ghostwire/commit/54a58e729e47e09148dec940eb595ae25905df18))
+
 ## [1.3.0](https://github.com/matheusmarnt/ghostwire/compare/v1.2.1...v1.3.0) (2026-09-22)
 
 
