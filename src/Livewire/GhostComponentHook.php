@@ -7,7 +7,7 @@ use Ghostwire\Support\LearnedTree;
 use Livewire\ComponentHook;
 use Livewire\Drawer\Utils;
 
-// Pendency A9 — confirmed against vendor/livewire/livewire v3.8.7:
+// Confirmed against vendor/livewire/livewire v3.8.7:
 // `Livewire\ComponentHook` (vendor/livewire/livewire/src/ComponentHook.php) is
 // the real, public base class. Its `render($view, $data)` method — not
 // `dehydrate()` or any "effects" hook — is the one whose return value carries

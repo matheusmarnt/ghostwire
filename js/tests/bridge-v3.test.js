@@ -36,7 +36,7 @@ describe('bridge v3', () => {
     });
   });
 
-  it('reads action names from commit.calls[].method (SPEC-API-20 silence-by-default relies on this list being accurate)', () => {
+  it('reads action names from commit.calls[].method (silence-by-default relies on this list being accurate)', () => {
     document.body.innerHTML = '<div id="root"><button wire:click="save"></button></div>';
     const componentEl = document.getElementById('root');
     const captured = [];
@@ -52,7 +52,7 @@ describe('bridge v3', () => {
     expect(captured[0].isSync).toBe(false);
   });
 
-  it('emulates post-paint removal via succeed -> two chained rAF (SPEC-INT-21)', () => {
+  it('emulates post-paint removal via succeed -> two chained rAF', () => {
     const onPostPaint = vi.fn();
     let capturedSucceedCb;
     global.Livewire = {
@@ -103,7 +103,7 @@ describe('bridge v3', () => {
     expect(onPostPaint).not.toHaveBeenCalled();
   });
 
-  it('A12: reports isPoll true for a commit whose sole call name matches an element with wire:poll in the component root (conservative default) — index.js decides silence now', () => {
+  it('reports isPoll true for a commit whose sole call name matches an element with wire:poll in the component root (conservative default) — index.js decides silence now', () => {
     document.body.innerHTML = '<div id="root"><button wire:poll.5s="refresh"></button></div>';
     const componentEl = document.getElementById('root');
     const onStart = vi.fn();
@@ -123,7 +123,7 @@ describe('bridge v3', () => {
     expect(onStart.mock.calls[0][0].isPoll).toBe(true);
   });
 
-  it('A12: reports isPoll true when wire:poll is declared directly on the component root element itself', () => {
+  it('reports isPoll true when wire:poll is declared directly on the component root element itself', () => {
     document.body.innerHTML = '<div id="root" wire:poll.5s="refresh"></div>';
     const componentEl = document.getElementById('root');
     const onStart = vi.fn();
@@ -143,7 +143,7 @@ describe('bridge v3', () => {
     expect(onStart.mock.calls[0][0].isPoll).toBe(true);
   });
 
-  it('A12: does not report isPoll for a call name that matches no wire:poll element', () => {
+  it('does not report isPoll for a call name that matches no wire:poll element', () => {
     document.body.innerHTML = '<div id="root"><button wire:click="save"></button></div>';
     const componentEl = document.getElementById('root');
     const onStart = vi.fn();
@@ -170,7 +170,7 @@ describe('bridge v3', () => {
   // existed anywhere in it. A bare wire:poll's own commit triggers
   // Livewire's $refresh (empty calls array), which is already silenced by
   // the separate isSync check, so this heuristic should never match it.
-  it('A12: a bare wire:poll (no explicit target) does not silence a save() action call', () => {
+  it('a bare wire:poll (no explicit target) does not silence a save() action call', () => {
     document.body.innerHTML = '<div id="root"><span wire:poll>loading</span><button wire:click="save"></button></div>';
     const componentEl = document.getElementById('root');
     const onStart = vi.fn();
@@ -189,12 +189,12 @@ describe('bridge v3', () => {
     expect(onStart).toHaveBeenCalledOnce();
   });
 
-  // SPEC-API-22: confirmed via a real capture (tests/Browser/Timing/
-  // RenderlessTest.php, see the Task 6 report) that a #[Renderless]-triggered
+  // Confirmed via a real capture (tests/Browser/Timing/
+  // RenderlessTest.php) that a #[Renderless]-triggered
   // v3 commit's response omits the "html" effect key entirely. ctx.isRenderless
   // starts false (unknown until the response arrives) and is corrected inside
   // the succeed(response) callback, before onFinish/onPostPaint run.
-  it('SPEC-API-22: reports isRenderless false at onStart (not yet knowable) and true by onFinish/onPostPaint when the response has no "html" effect', () => {
+  it('reports isRenderless false at onStart (not yet knowable) and true by onFinish/onPostPaint when the response has no "html" effect', () => {
     let capturedSucceedCb;
     const captured = [];
     global.Livewire = {
@@ -223,7 +223,7 @@ describe('bridge v3', () => {
     expect(onPostPaintCtx.isRenderless).toBe(true);
   });
 
-  it('SPEC-API-22: reports isRenderless false when the response has an "html" effect (ordinary action)', () => {
+  it('reports isRenderless false when the response has an "html" effect (ordinary action)', () => {
     let capturedSucceedCb;
     let onFinishCtx = null;
     global.Livewire = {
@@ -272,7 +272,7 @@ describe('bridge v3', () => {
     expect(onStart).not.toHaveBeenCalled();
   });
 
-  it('subscribe returns an unsubscribe function even though Livewire.hook itself returns nothing (SPEC-INT-24: no documented v3 unsubscribe)', () => {
+  it('subscribe returns an unsubscribe function even though Livewire.hook itself returns nothing (no documented v3 unsubscribe)', () => {
     global.Livewire = { hook() { /* no return value, matches real v3 */ } };
 
     const unsub = createV3Bridge().subscribe({ onStart: () => {}, onPostPaint: () => {}, onFinish: () => {} });

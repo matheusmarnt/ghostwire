@@ -80,7 +80,7 @@ describe('synthesizer/measure', () => {
     expect(measured.results[0].lineRects).toEqual([]);
   });
 
-  it('computes a clipRect equal to the host rect when no ancestor clips (SPEC-SYN-14)', () => {
+  it('computes a clipRect equal to the host rect when no ancestor clips', () => {
     const host = makeHost();
     const p = document.createElement('p');
     p.getBoundingClientRect = () => ({ top: 10, left: 10, right: 90, bottom: 30, width: 80, height: 20 });
@@ -91,7 +91,7 @@ describe('synthesizer/measure', () => {
     expect(measured.results[0].clipRect).toEqual(host.el.getBoundingClientRect());
   });
 
-  it('intersects clipRect with a scrollable ancestor between the candidate and the host (SPEC-SYN-14)', () => {
+  it('intersects clipRect with a scrollable ancestor between the candidate and the host', () => {
     const host = makeHost();
     const scrollBox = document.createElement('div');
     scrollBox.getBoundingClientRect = () => ({ top: 0, left: 0, right: 200, bottom: 50, width: 200, height: 50 });
@@ -109,7 +109,7 @@ describe('synthesizer/measure', () => {
     expect(measured.results[0].clipRect.bottom).toBe(50); // clamped to the scrollable ancestor's own bottom edge
   });
 
-  it('SPEC-SYN-11: measures pitch and item rect for a repeat-extra candidate', () => {
+  it('measures pitch and item rect for a repeat-extra candidate', () => {
     const host = makeHost();
     const items = [0, 1, 2].map((i) => {
       const el = document.createElement('div');
@@ -131,7 +131,7 @@ describe('synthesizer/measure', () => {
     expect(measured.results[0].repeatGroup).toEqual({ id: 0, index: 2 });
   });
 
-  it('SPEC-SYN-11/10: measures real text line rects for a repeat-extra whose item itself is the text leaf', () => {
+  it('measures real text line rects for a repeat-extra whose item itself is the text leaf', () => {
     const host = makeHost();
     const sampleEls = [0, 1, 2].map((i) => {
       const li = document.createElement('li');
@@ -162,7 +162,7 @@ describe('synthesizer/measure', () => {
     expect(measured.results[0].repeat.extraTextBones).toEqual([[[extraRect]]]);
   });
 
-  it('SPEC-SYN-11/10: measures real text line rects per cell for a repeat-extra whose item is a container of text-leaf children', () => {
+  it('measures real text line rects per cell for a repeat-extra whose item is a container of text-leaf children', () => {
     const host = makeHost();
     const sampleEls = [0, 1, 2].map((i) => {
       const row = document.createElement('tr');
@@ -218,12 +218,12 @@ describe('synthesizer/measure', () => {
     expect(result.hostRect).toEqual(host.el.getBoundingClientRect());
   });
 
-  // SPEC-INT-13 + SPEC-SYN-14. An island-scoped candidate is a SIBLING of the
+  // An island-scoped candidate is a SIBLING of the
   // host, not a descendant, so the clip walk would never reach host.el and
   // would run all the way to <html>, folding an app shell's own
   // `overflow: hidden` into every island bone and dropping the ones currently
   // scrolled out of view. The island's container is the correct ceiling.
-  it('stops the clip walk at clipRootEl, so an island-scoped candidate is not clipped by ancestors above the island (SPEC-INT-13)', () => {
+  it('stops the clip walk at clipRootEl, so an island-scoped candidate is not clipped by ancestors above the island', () => {
     const host = makeHost(); // host.el is a sibling of the island content, not its parent
 
     const appShell = document.createElement('div'); // stands in for a page shell with overflow:hidden
@@ -254,9 +254,9 @@ describe('synthesizer/measure', () => {
   });
 });
 
-// Issue #21: a SPEC-SYN-21 resize re-synthesis runs while the skeleton is
+// Issue #21: a resize re-synthesis runs while the skeleton is
 // showing, i.e. with .gw-concealed on host.el. Its `visibility: hidden` is
-// inherited by every candidate, and SPEC-SYN-12's filter would drop them
+// inherited by every candidate, and the filter would drop them
 // all — the host would degrade to freeze on every resize. Hidden-ness that
 // comes from Ghostwire's own concealment is not the author's and must not
 // count; an author's own visibility: hidden on a non-concealed host must.
@@ -297,7 +297,7 @@ describe('visibility under Ghostwire\'s own concealment (issue #21)', () => {
     expect(measured.results[0].visibility).toBe('visible');
   });
 
-  it('records a candidate hidden by a concealed ANCESTOR host as visible too (nested hosts, SPEC-API-03)', () => {
+  it('records a candidate hidden by a concealed ANCESTOR host as visible too (nested hosts)', () => {
     const outer = hostWith('<div id="inner"><p>Nested</p></div>', 'gw-concealed');
     const innerEl = outer.el.querySelector('#inner');
     const inner = { el: innerEl, config: {} };
@@ -308,7 +308,7 @@ describe('visibility under Ghostwire\'s own concealment (issue #21)', () => {
     expect(measured.results[0].visibility).toBe('visible');
   });
 
-  it('still records an author\'s own visibility: hidden on a host that is not concealed (SPEC-SYN-12)', () => {
+  it('still records an author\'s own visibility: hidden on a host that is not concealed', () => {
     const host = hostWith('<p class="author-hidden">Hidden by the app</p>');
     const candidates = [{ el: host.el.firstElementChild, type: 'text', depth: 0 }];
 

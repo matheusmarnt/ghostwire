@@ -1,0 +1,45 @@
+---
+title: Escolhendo entre diretiva e atributo
+description: Quando usar cada modo — uma página de decisão.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+**A diretiva decide *onde*. O atributo decide *quando*.**
+
+- Use **`wire:ghost`** quando você estiver marcando um elemento específico e quiser que o esqueleto fique restrito exatamente àquela subárvore — o caso comum de uma única tabela, grade de cards ou painel.
+- Use **`#[Ghost]`** quando quiser configurar o comportamento de um componente inteiro sem tocar em nada na sua view — ideal para migrar em massa muitos componentes existentes, ou para sobreposições em nível de método atreladas a ações específicas em vez de markup específico.
+
+<Tabs>
+<TabItem label="Diretiva wire:ghost">
+
+Restrinja o esqueleto à subárvore de um elemento, direto na view:
+
+```blade
+<div wire:ghost.delay.100ms>
+    <h2>{{ $product->name }}</h2>
+    <p>{{ $product->description }}</p>
+</div>
+```
+
+</TabItem>
+<TabItem label="Atributo #[Ghost]">
+
+Configure o componente inteiro a partir da classe — sem mudanças na view:
+
+```php
+use Ghostwire\Attributes\Ghost;
+
+#[Ghost(mode: 'synthesize', delay: 100)]
+class ProductCard extends Component
+{
+    public Product $product;
+}
+```
+
+</TabItem>
+</Tabs>
+
+Eles se combinam: coloque `#[Ghost(mode: 'freeze')]` na classe como padrão, e depois uma diretiva `wire:ghost.delay.50ms` em um elemento específico de carregamento particularmente lento dentro dele para sobrepor só a temporização daquele host. A cascata de precedência em [`/docs/ghost-attribute`](/ghostwire/docs/ghost-attribute/) resolve a combinação.
+
+Se você está migrando 60 componentes legados sem tocar em nenhuma view — coloque `#[Ghost]` na classe base que eles compartilham: sob o `strategy: 'opt-in'` padrão, o atributo herdado instrumenta cada subclasse, então nenhum `strategy: 'global'` é necessário; adicione sobreposições em nível de diretiva somente onde um elemento específico precisar de temporização ou modo diferente do resto do seu componente.

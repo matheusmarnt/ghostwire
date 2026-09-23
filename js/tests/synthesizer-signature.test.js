@@ -6,7 +6,7 @@ class FakeResizeObserver {
   observe(el, options) { this.observed = el; this.observedOptions = options; }
   disconnect() { this.observed = null; }
   // Real browsers deliver borderBoxSize when { box: 'border-box' } is passed to
-  // observe() (SPEC-SYN-20 fix) — exercise that path, not just contentRect,
+  // observe() (a fix) — exercise that path, not just contentRect,
   // since borderBoxSize is what production code now reads first.
   trigger(width) {
     this.callback([{ contentRect: { width }, borderBoxSize: [{ inlineSize: width }] }]);
@@ -58,7 +58,7 @@ describe('synthesizer/signature', () => {
     expect(sigA).not.toBe(sigC);
   });
 
-  it('computeSignature differs when repeatExtra.count differs (a repeat run with a changed real item count must not hash identically — SPEC-SYN-11 preserve-real-count fix)', () => {
+  it('computeSignature differs when repeatExtra.count differs (a repeat run with a changed real item count must not hash identically — preserve-real-count fix)', () => {
     const cache = createSignatureCache();
     const el = document.createElement('div');
 
@@ -100,7 +100,7 @@ describe('synthesizer/signature', () => {
     expect(cache.get(host, 43)).toBeNull();
   });
 
-  it('SPEC-SYN-21: a width change past the 4px threshold invalidates the cache', () => {
+  it('a width change past the 4px threshold invalidates the cache', () => {
     const cache = createSignatureCache();
     const host = makeHost();
     const onInvalidate = vi.fn();
@@ -112,7 +112,7 @@ describe('synthesizer/signature', () => {
     expect(onInvalidate).toHaveBeenCalledWith(host);
   });
 
-  it('SPEC-SYN-21: a width change under the 4px threshold keeps the cache', () => {
+  it('a width change under the 4px threshold keeps the cache', () => {
     const cache = createSignatureCache();
     const host = makeHost();
     cache.set(host, 42, [{ type: 'text', x: 0, y: 0, width: 10, height: 10 }]);
@@ -122,7 +122,7 @@ describe('synthesizer/signature', () => {
     expect(cache.get(host, 42)).not.toBeNull();
   });
 
-  it('observes with { box: "border-box" } so the callback receives borderBoxSize (SPEC-SYN-20 fix)', () => {
+  it('observes with { box: "border-box" } so the callback receives borderBoxSize (fix)', () => {
     const cache = createSignatureCache();
     const host = makeHost();
     cache.set(host, 42, [{ type: 'text', x: 0, y: 0, width: 10, height: 10 }]);

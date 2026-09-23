@@ -1,0 +1,100 @@
+---
+title: Directiva wire:ghost
+description: Catálogo de modificadores, cada uno con una demo.
+---
+
+`wire:ghost` activa la síntesis en el subárbol del elemento. Todos los modificadores:
+
+| Modificador | Efecto |
+|---|---|
+| `wire:ghost` | Modo de síntesis (el predeterminado) |
+| `wire:ghost.freeze` | Atenúa y deshabilita el host en vivo en su lugar, en vez de sintetizar |
+| `wire:ghost.off` | Excluye este elemento por completo (terminal — ningún otro modificador cambia esto) |
+| `wire:ghost.ignore` | Excluye este elemento y su subárbol del recorrido del host padre |
+| `wire:ghost.keep` | Mantiene este elemento visible incluso mientras un host ancestro está oculto |
+| `wire:ghost.island` | Acota el esqueleto al bloque `@island` envolvente más cercano en lugar de todo el componente (solo Livewire 4 — no-op documentado en 3.x) |
+| `wire:ghost.delay.<N>ms` | Anula el retraso de aparición predeterminado de 120ms |
+| `wire:ghost.hold.<N>ms` | Anula la duración mínima visible predeterminada de 300ms |
+| `wire:ghost.rows.<N>` | Pista de filas repetidas usada cuando el host se renderiza vacío |
+| `.panels` | Promueve los contenedores con fondo, borde o sombra visualmente distintivos a su propio panel bone |
+| `wire:ghost="actionName"` | Solo se activa para esta acción específica (selección mediante expresión) |
+
+Los modificadores se combinan entre sí: `wire:ghost.freeze.delay.200ms` es válido.
+
+## Ejemplos
+
+```blade
+{/* Default: synthesize a skeleton from this element's own markup */}
+<div wire:ghost>
+    <h2>{{ $order->title }}</h2>
+    <p>{{ $order->summary }}</p>
+</div>
+
+{/* Freeze the live content in place instead of synthesizing */}
+<table wire:ghost.freeze>
+    @foreach ($rows as $row)
+        <tr>{{ $row->label }}</tr>
+    @endforeach
+</table>
+
+{/* Exclude this subtree from the parent host's walk entirely */}
+<div wire:ghost>
+    <div wire:ghost.ignore>
+        <x-third-party-widget />
+    </div>
+    <p>{{ $summary }}</p>
+</div>
+
+{/* Keep this element visible even while an ancestor host is concealed */}
+<div wire:ghost>
+    <nav wire:ghost.keep>
+        <x-breadcrumbs />
+    </nav>
+    <table>...</table>
+</div>
+
+{/* Scope the skeleton to the nearest enclosing @island block (Livewire 4 only) */}
+@island
+    <div wire:ghost.island>
+        {{ $liveChart }}
+    </div>
+@endisland
+
+{/* Custom timing: wait 200ms before showing, stay up at least 500ms */}
+<div wire:ghost.delay.200ms.hold.500ms>
+    {{ $widget }}
+</div>
+
+{/* Repeat-row hint: render 5 skeleton rows when the table has no data yet */}
+<div wire:ghost.rows.5>
+    @foreach ($orders as $order)
+        <tr>{{ $order->reference }}</tr>
+    @endforeach
+</div>
+
+{/* Promote visually distinct cards to their own panel bone */}
+<div wire:ghost.panels class="grid grid-cols-3 gap-4">
+    @foreach ($products as $product)
+        <div class="rounded-lg bg-white p-4 shadow-sm">
+            <h3>{{ $product->name }}</h3>
+            <p>{{ $product->price }}</p>
+        </div>
+    @endforeach
+</div>
+
+{/* Only activate for this specific action */}
+<div wire:ghost="loadMore">
+    @foreach ($items as $item)
+        <x-item :item="$item" />
+    @endforeach
+</div>
+
+{/* Opt this element out of ghost handling entirely — terminal, no other modifier changes it */}
+<div wire:ghost.off>
+    <x-static-sidebar />
+</div>
+```
+
+## Pruébalo
+
+Todos los modificadores anteriores se muestran en vivo en el [playground](/ghostwire/playground/) y en la [gallery](/ghostwire/gallery/).

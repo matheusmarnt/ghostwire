@@ -17,7 +17,7 @@
 // These tests replace the plan's fixed-offset "wait Nms then snapshot"
 // pattern with in-browser event recording (a MutationObserver on #summary's
 // class attribute, timestamped with performance.now()), following the same
-// correction Task 10 made in tests/Browser/Morph/GhostLayerMorphTest.php: a
+// correction made in tests/Browser/Morph/GhostLayerMorphTest.php: a
 // point-in-time snapshot at a guessed offset is sensitive to exactly when
 // Livewire's request/render cycle happens to land in this environment and
 // was empirically flaky here, whereas recording the real transition
@@ -100,7 +100,7 @@ it('holds visible for at least 300ms after becoming visible, even though the req
     // (first mutation where gw-frozen is absent) and got ~147ms, well under
     // the 300ms hold. That was a measurement bug, not a runtime one: the
     // morph that lands the refreshed HTML strips gw-frozen via Livewire's
-    // own attribute diffing, and js/src/index.js's `morphed` hook (Task 10's
+    // own attribute diffing, and js/src/index.js's `morphed` hook (the
     // fix for the hold-bypass bug) reapplies it synchronously right after —
     // so the *first* removal is a transient strip-then-reapply mid-morph,
     // not the genuine end of the hold. Debounce: only count a removal as the

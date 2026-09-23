@@ -1,0 +1,30 @@
+---
+title: Testes
+description: Helpers do Pest e testes de navegador.
+---
+
+A própria suíte de testes do Ghostwire (Vitest para o núcleo JS, Pest 4 + Orchestra Testbench para PHP, Pest 4 + Playwright para geometria/acessibilidade em navegador real) é a referência para testar aplicações que o utilizam.
+
+## Testando um componente que usa `wire:ghost`
+
+O próprio helper `Livewire::test()` do Livewire funciona sem mudanças — o comportamento do Ghostwire é inteiramente JS do lado do cliente, então os testes de componente em nível de PHP não precisam saber que ele existe.
+
+## Testando o comportamento do esqueleto no navegador
+
+Use o plugin de navegador do Pest 4 (`pestphp/pest-plugin-browser`) diretamente contra sua aplicação:
+
+```php
+it('shows a skeleton while the table refreshes', function () {
+    $page = visit('/products');
+    $page->click('#refresh-btn');
+    $page->assertVisible('.gw-bone');
+});
+```
+
+## Acessibilidade
+
+`assertNoAccessibilityIssues()` (axe-core, através do mesmo plugin de navegador do Pest) é como a própria CI do Ghostwire verifica zero problemas de acessibilidade — recomendado no nível mais estrito (`assertNoAccessibilityIssues(3)`), não no padrão 1 do próprio método.
+
+## Pegadinha de CI, se você usar o `pest-plugin-browser` por conta própria
+
+Nunca redirecione `vendor/bin/pest` por um `| tail` em segundo plano — os processos `playwright run-server` disparados pelo plugin herdam o file descriptor do pipe e nunca o fecham, travando indefinidamente independentemente da velocidade real dos testes. Chame `vendor/bin/pest` diretamente.

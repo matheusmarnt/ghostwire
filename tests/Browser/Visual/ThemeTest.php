@@ -3,7 +3,7 @@
 // tests/Browser/Visual/ThemeTest.php
 //
 // Proves the animation-token wiring and automatic
-// dark-mode swap added in Task 1 (js/src/style.css) render correctly against
+// dark-mode swap (js/src/style.css) render correctly against
 // a real browser and the real compiled runtime (resources/dist/ghostwire.css).
 //
 // prefers-reduced-motion has no emulation hook in the installed

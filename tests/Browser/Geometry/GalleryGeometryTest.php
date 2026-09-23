@@ -3,7 +3,7 @@
 // tests/Browser/Geometry/GalleryGeometryTest.php
 //
 // M2 Definition-of-Done gate. Drives a real browser against the three
-// gallery fixtures Task 8 built and the real built runtime
+// gallery fixtures and the real built runtime
 // (resources/dist/ghostwire.js) to prove the synthesizer's geometry
 // contract: every synthesized bone must overlap the real content element
 // it stands in for, within a 2px tolerance.

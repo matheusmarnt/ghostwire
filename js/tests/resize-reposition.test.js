@@ -1,5 +1,5 @@
 // Issue #21: js/src/index.js's onResize callback (wired into createSynthesizer
-// as the SPEC-SYN-21 invalidation hook) re-synthesized and repainted a host's
+// as the invalidation hook) re-synthesized and repainted a host's
 // bones but never repositioned its Ghost Layer, so the fresh bones — laid out
 // relative to the host's NEW rect — were painted inside a layer still sitting
 // at the OLD rect until the next onPostPaint happened to re-apply it.
@@ -51,11 +51,11 @@ describe('onResize repositions the Ghost Layer (issue #21)', () => {
     document.body.innerHTML = '';
     // The real concealment rule from js/src/style.css: while the skeleton is
     // showing, host.el carries .gw-concealed and every descendant inherits
-    // visibility: hidden — the exact state a SPEC-SYN-21 resize re-synthesis
+    // visibility: hidden — the exact state a resize re-synthesis
     // runs in. jsdom's getComputedStyle inherits it like a browser does.
     // Without this rule the harness measured "visible" content the real
     // browser never sees, which is how the resize path's degrade-to-freeze
-    // went unnoticed (issue #21, found by Task 3's browser test).
+    // went unnoticed (issue #21, found by this project's browser test suite).
     document.head.innerHTML = '<style>.gw-concealed { visibility: hidden; }</style>';
     FakeResizeObserver.instances = [];
     global.ResizeObserver = FakeResizeObserver;
@@ -147,7 +147,7 @@ describe('onResize repositions the Ghost Layer (issue #21)', () => {
     return layer;
   }
 
-  // Fires the SPEC-SYN-21 observer the signature cache registered on host.el,
+  // Fires the observer the signature cache registered on host.el,
   // with a border-box width far past the 4px threshold, exactly the way a
   // real ResizeObserver would after a viewport change.
   function resizeHostTo(nextRect) {
@@ -177,7 +177,7 @@ describe('onResize repositions the Ghost Layer (issue #21)', () => {
     expect(layerBox(layer)).toEqual({ top: '40px', left: '8px', width: '120px', height: '100px' });
   });
 
-  it('uses the island region\'s rect, not the host\'s, on the .island path (SPEC-INT-13)', () => {
+  it('uses the island region\'s rect, not the host\'s, on the .island path', () => {
     const layer = showHost(['island'], { inIsland: true });
     expect(layerBox(layer)).toEqual({ top: '5px', left: '5px', width: '180px', height: '90px' }); // mounted at the island rect
 
@@ -187,7 +187,7 @@ describe('onResize repositions the Ghost Layer (issue #21)', () => {
     expect(layerBox(layer)).toEqual({ top: '30px', left: '12px', width: '100px', height: '90px' });
   });
 
-  it('keeps SPEC-PERF-01/02 on the resize path: no layout read after the first DOM write', () => {
+  it('keeps read-before-write ordering on the resize path: no layout read after the first DOM write', () => {
     const layer = showHost([]);
     const styleProto = Object.getPrototypeOf(layer.style);
     const styleProps = ['top', 'left', 'width', 'height'];

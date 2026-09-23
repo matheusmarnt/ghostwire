@@ -1,0 +1,104 @@
+---
+import { Image } from 'astro:assets';
+import '../styles/landing.css';
+import ThemeToggle from './ThemeToggle.astro';
+import LanguageSwitcher from './LanguageSwitcher.astro';
+import ghostwireLogo from '../assets/ghostwire.png';
+import ghostwireLogoLight from '../assets/ghostwire-light.png';
+import { useTranslations, htmlLang, pagePath, type Locale } from '../i18n/ui';
+
+interface Props {
+  lang: Locale;
+}
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+const base = import.meta.env.BASE_URL;
+---
+<html lang={htmlLang[lang]}>
+<head>
+  <script is:inline>
+    const storedTheme =
+      typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+    const theme =
+      storedTheme ||
+      (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+  </script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{t('home.title')}</title>
+  <meta name="description" content={t('home.description')} />
+  <link rel="icon" href={`${base}favicon.svg`} />
+</head>
+<body>
+  <ThemeToggle />
+  <LanguageSwitcher page="" lang={lang} base={base} />
+  <section class="gw-hero">
+    <Image src={ghostwireLogo} alt="Ghostwire" class="gw-logo gw-logo-dark" width={288} height={96} />
+    <Image src={ghostwireLogoLight} alt="Ghostwire" class="gw-logo gw-logo-light" width={288} height={96} />
+    <h1>{t('home.heroTitle')}</h1>
+    <p set:html={t('home.heroBody')} />
+    <div class="gw-cta">
+      <a class="primary" href={pagePath('docs/install/', 'en', base)}>{t('home.ctaStart')}</a>
+      <a class="secondary" href={pagePath('playground/', lang, base)}>{t('home.ctaPlayground')}</a>
+      <a class="secondary" href={pagePath('gallery/', lang, base)}>{t('home.ctaGallery')}</a>
+    </div>
+  </section>
+
+  <div class="gw-slider-wrap">
+    <label for="latency">{t('home.latencyLabel')} <strong id="latency-value">500ms</strong></label>
+    <input type="range" id="latency" min="0" max="2" step="1" value="1" />
+    <div class="gw-latency-demo">
+      <div class="gw-latency-panel">
+        <h3>{t('home.withoutGhostwire')}</h3>
+        <div id="blank-panel" data-loading-text={t('home.blankLoadingEllipsis')}>
+          <p style="color:var(--gw-muted);font-size:0.9rem;">{t('home.blankLoading')}</p>
+        </div>
+      </div>
+      <div class="gw-latency-panel">
+        <h3>{t('home.withGhostwire')}</h3>
+        <div class="gw-row bone w60"></div>
+        <div class="gw-row bone w80"></div>
+        <div class="gw-row bone w40"></div>
+      </div>
+    </div>
+  </div>
+
+  <section class="gw-features">
+    <div class="gw-feature"><h3>{t('home.feature1Title')}</h3><p>{t('home.feature1Body')}</p></div>
+    <div class="gw-feature"><h3>{t('home.feature2Title')}</h3><p>{t('home.feature2Body')}</p></div>
+    <div class="gw-feature"><h3>{t('home.feature3Title')}</h3><p>{t('home.feature3Body')}</p></div>
+    <div class="gw-feature"><h3>{t('home.feature4Title')}</h3><p set:html={t('home.feature4Body')} /></div>
+  </section>
+
+  <nav class="gw-footer-nav">
+    <a href={pagePath('docs/install/', 'en', base)}>{t('nav.docs')}</a>
+    <a href={pagePath('playground/', lang, base)}>{t('nav.playground')}</a>
+    <a href={pagePath('gallery/', lang, base)}>{t('nav.gallery')}</a>
+    <a href={pagePath('about/', lang, base)}>{t('nav.about')}</a>
+    <a href="https://github.com/matheusmarnt/ghostwire">{t('nav.github')}</a>
+  </nav>
+
+  <script>
+    const slider = document.getElementById('latency');
+    const label = document.getElementById('latency-value');
+    const blankPanel = document.getElementById('blank-panel');
+    const loadingHtml = `<p style="color:var(--gw-muted);font-size:0.9rem;">${blankPanel.dataset.loadingText}</p>`;
+    const LEVELS = [
+      { ms: 100, text: '100ms' },
+      { ms: 500, text: '500ms' },
+      { ms: 2000, text: '2s' },
+    ];
+    let timer = null;
+    function render(level) {
+      label.textContent = level.text;
+      clearTimeout(timer);
+      blankPanel.innerHTML = loadingHtml;
+      timer = setTimeout(() => {
+        blankPanel.innerHTML = '<div class="gw-row content w60"></div><div class="gw-row content w80"></div><div class="gw-row content w40"></div>';
+      }, level.ms);
+    }
+    slider.addEventListener('input', () => render(LEVELS[Number(slider.value)]));
+    render(LEVELS[1]);
+  </script>
+</body></html>

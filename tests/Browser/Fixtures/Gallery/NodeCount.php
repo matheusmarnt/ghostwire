@@ -22,7 +22,7 @@ class NodeCount extends Component
         // onShow (and therefore synthesize()) never fires at all — the ghost
         // never appears. This was 50ms and silently broke both this and every
         // other test relying on the node-count fixture's ghost showing at
-        // all (Task 8 discovered it via window.__ghostwireLastSynthesisMs
+        // all (discovered via window.__ghostwireLastSynthesisMs
         // staying undefined). 200ms matches the CardGrid/PaginatedTable
         // fixtures' existing convention.
         usleep(200_000);

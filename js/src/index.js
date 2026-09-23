@@ -128,7 +128,7 @@ export function boot() {
   const learningStore = createLearningStore({ storage, quotaBytes: 256 * 1024 });
 
   // Paints a persisted skeleton into a lazy placeholder root
-  // BEFORE Livewire ever renders real content into it (Task 1's
+  // BEFORE Livewire ever renders real content into it (the
   // 'render.placeholder' listener is what tags the root with
   // data-ghost-lazy in the first place — never present when the developer
   // declared their own placeholder). data-ghost-lazy-painted
@@ -146,7 +146,7 @@ export function boot() {
 
       const learned = learningStore.get(name, band);
       if (!learned) {
-        // Nothing learned at this width yet (SDD §15: no skeleton, not an error).
+        // Nothing learned at this width yet — no skeleton, not an error.
         // Mark it resolved anyway: this function runs on EVERY morph, and without
         // this the miss path repeats getItem + JSON.parse + full envelope
         // re-validation for the lifetime of the page — the common case in
@@ -192,7 +192,7 @@ export function boot() {
       if (!host.config.learning || !host.config.name) return;
 
       const persisted = learningStore.put(host.config.name, signature, bandFor(window.innerWidth), hostRect, boneTree);
-      // put() fails silently by design (Task 2) on any validation
+      // put() fails silently by design on any validation
       // path — the most likely one in practice is a component's real bone count
       // exceeding MAX_BONES (emit.js fans out per text line and per repeated
       // row, well past walk.js's MAX_CANDIDATES cap). A dev-only warning here
@@ -428,8 +428,8 @@ export function boot() {
 
     // Only reached once a real attach happens above — an early return (no
     // directive, no config, mode:'off', or already-hosted) must never
-    // register a cleanup. js/tests/directive.test.js's SPEC-API-13 tests
-    // assert this directly (a `cleanup` that throws if ever called), and the
+    // register a cleanup. js/tests/directive.test.js asserts this directly
+    // (a `cleanup` that throws if ever called), and the
     // morphed retry's zero-hosts gate below depends on the same invariant: a
     // failed attach must leave nothing behind for a later morph to find.
     registerCleanup(() => {
@@ -564,8 +564,7 @@ export function boot() {
   // filtering) and PHP-side validation guarantees they never coexist, but
   // the two checks are independent and correct regardless.
   //
-  // host.config.mode === 'off' DOES need mirroring here (Task 2,
-  // runtime transport, #9). It didn't used to: the directive and the
+  // host.config.mode === 'off' DOES need mirroring here. It didn't used to: the directive and the
   // attribute-only auto-attach path both refuse to ever call
   // registry.attach() for a statically mode:'off' host, so at attach time
   // the registry can never contain one. But applyActionOverride() (called
@@ -619,7 +618,7 @@ export function boot() {
         // only once a skeleton was actually about to show, 120ms later.
         // Learning defaults off and is refused outright in production
         // (GhostComponentHook::learningEnabled()), so this cost is confined
-        // to opted-in, non-production use -- consistent with ADR-007.
+        // to opted-in, non-production use.
         //
         // Safe to call synthesize() again here even when onShow later
         // re-synthesizes the same unchanged host: synthesize() is

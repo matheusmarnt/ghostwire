@@ -53,13 +53,13 @@ describe('learning store', () => {
     store = createLearningStore({ storage, quotaBytes: 256 * 1024, now: () => 1000 });
   });
 
-  it('round-trips a learned tree by component and band (SPEC-LRN-01)', () => {
+  it('round-trips a learned tree by component and band', () => {
     expect(store.put('orders-table', 3141592653, 'lg', { width: 960, height: 320 }, TREE)).toBe(true);
 
     expect(store.get('orders-table', 'lg')).toEqual({ width: 960, height: 320, bones: TREE });
   });
 
-  it('indexes entries by signature and band, with a component pointer (SPEC-LRN-01)', () => {
+  it('indexes entries by signature and band, with a component pointer', () => {
     store.put('orders-table', 3141592653, 'lg', { width: 960, height: 320 }, TREE);
 
     const envelope = JSON.parse(storage.raw);
@@ -75,7 +75,7 @@ describe('learning store', () => {
     expect(store.get('other-table', 'lg')).toBeNull();
   });
 
-  it('discards the whole store on a schema version mismatch (SPEC-SEC-04)', () => {
+  it('discards the whole store on a schema version mismatch', () => {
     storage.seed(JSON.stringify({ v: 999, e: { '1|lg': { t: 1, n: 'x', w: 1, h: 1, b: TREE } }, c: { 'x|lg': '1' } }));
 
     expect(store.get('x', 'lg')).toBeNull();
@@ -107,14 +107,14 @@ describe('learning store', () => {
     expect(storage.getItem(STORAGE_KEY)).not.toBeNull();
   });
 
-  it('discards unparseable JSON silently (SPEC-SEC-04)', () => {
+  it('discards unparseable JSON silently', () => {
     storage.seed('}{ not json');
 
     expect(() => store.get('x', 'lg')).not.toThrow();
     expect(store.get('x', 'lg')).toBeNull();
   });
 
-  it('drops only the corrupt entry, keeping valid siblings (SPEC-SEC-04)', () => {
+  it('drops only the corrupt entry, keeping valid siblings', () => {
     storage.seed(JSON.stringify({
       v: SCHEMA_VERSION,
       e: {
@@ -128,15 +128,15 @@ describe('learning store', () => {
     expect(store.get('bad-one', 'lg')).toBeNull();
   });
 
-  it('rejects a bone carrying an unknown type (SPEC-SEC-04)', () => {
+  it('rejects a bone carrying an unknown type', () => {
     expect(store.put('x', 1, 'lg', { width: 10, height: 10 }, [{ type: 'script', x: 0, y: 0, width: 1, height: 1 }])).toBe(false);
   });
 
-  it('rejects a bone carrying extra keys, so nothing smuggled survives (SPEC-SEC-04)', () => {
+  it('rejects a bone carrying extra keys, so nothing smuggled survives', () => {
     expect(store.put('x', 1, 'lg', { width: 10, height: 10 }, [{ type: 'text', x: 0, y: 0, width: 1, height: 1, onclick: 'alert(1)' }])).toBe(false);
   });
 
-  it('accepts a panel bone carrying a valid borderRadius (SPEC-SEC-04)', () => {
+  it('accepts a panel bone carrying a valid borderRadius', () => {
     expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
       { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '8px' },
     ])).toBe(true);
@@ -146,7 +146,7 @@ describe('learning store', () => {
     ]);
   });
 
-  it('accepts a panel bone with no borderRadius, using just the 5 base keys (SPEC-SEC-04)', () => {
+  it('accepts a panel bone with no borderRadius, using just the 5 base keys', () => {
     // The common case: most panels have no rounded corner at all, so toBone()
     // never adds the key in the first place.
     expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
@@ -154,13 +154,13 @@ describe('learning store', () => {
     ])).toBe(true);
   });
 
-  it('accepts a multi-corner borderRadius (up to 4 space-separated tokens) (SPEC-SEC-04)', () => {
+  it('accepts a multi-corner borderRadius (up to 4 space-separated tokens)', () => {
     expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
       { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '8px 4px 8px 4px' },
     ])).toBe(true);
   });
 
-  it('rejects a panel bone whose borderRadius does not match the strict pattern (SPEC-SEC-04)', () => {
+  it('rejects a panel bone whose borderRadius does not match the strict pattern', () => {
     expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
       { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '8px" onmouseover="alert(1)' },
     ])).toBe(false);
@@ -204,7 +204,7 @@ describe('learning store', () => {
     ])).toBe(true);
   });
 
-  it('rejects a panel bone carrying a 7th key beyond the 5 base keys plus borderRadius (SPEC-SEC-04)', () => {
+  it('rejects a panel bone carrying a 7th key beyond the 5 base keys plus borderRadius', () => {
     expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
       { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '8px', onclick: 'alert(1)' },
     ])).toBe(false);
@@ -220,11 +220,11 @@ describe('learning store', () => {
     expect(store.put('big-page', 2, 'lg', { width: 100, height: 100 }, tooManyBones)).toBe(false);
   });
 
-  it('rejects a component name outside the allowed charset (SPEC-SEC-04)', () => {
+  it('rejects a component name outside the allowed charset', () => {
     expect(store.put('<img src=x>', 1, 'lg', { width: 10, height: 10 }, TREE)).toBe(false);
   });
 
-  it('clamps geometry read back out of the store (SPEC-SEC-04)', () => {
+  it('clamps geometry read back out of the store', () => {
     storage.seed(JSON.stringify({
       v: SCHEMA_VERSION,
       e: { '1|lg': { t: 1, n: 'clampy', w: 1e9, h: 0, b: [{ type: 'text', x: -1e9, y: 0, width: 1e9, height: 0 }] } },
@@ -245,7 +245,7 @@ describe('learning store', () => {
   // size the quota just above it so a second entry always forces an eviction.
   // The scenario and assertions (LRU order, that eviction happens, that the
   // survivor set is right) are otherwise unchanged from the brief's intent.
-  it('evicts least-recently-used entries when over quota (SPEC-SEC-04)', () => {
+  it('evicts least-recently-used entries when over quota', () => {
     const probeStorage = fakeStorage();
     createLearningStore({ storage: probeStorage, now: () => 1000 })
       .put('first', 1, 'lg', { width: 10, height: 10 }, TREE);
@@ -266,7 +266,7 @@ describe('learning store', () => {
     expect(tiny.get('first', 'lg')).toBeNull();
   });
 
-  // Task 5 (perf: stop the learning store writing on every read): this test
+  // Since the learning store no longer writes on every read, this test
   // used to prove get() refreshed LRU recency, keeping a re-read `hot` entry
   // alive over a never-re-read `cold` one. That write is gone - recency now
   // comes from put() alone - so this is the corrected counterpart: reading
@@ -330,7 +330,7 @@ describe('learning store', () => {
     expect(s.put('x', 1, 'lg', { width: 1, height: 1 }, TREE)).toBe(false);
   });
 
-  it('exposes the whole validated envelope for export (SPEC-LRN-03)', () => {
+  it('exposes the whole validated envelope for export', () => {
     store.put('orders-table', 7, 'lg', { width: 960, height: 320 }, TREE);
 
     const all = store.all();
@@ -357,7 +357,7 @@ describe('learning store', () => {
   // What it deliberately excludes, and why: `container` and `repeat-extra`
   // are internal-only walk entry types that never reach emit.js as a bone's
   // own `type` - `container` is converted to `{type:'block'}` or recursed
-  // into (walk.js:93-97, SPEC-SYN-13), and `repeat-extra` entries are
+  // into (walk.js:93-97), and `repeat-extra` entries are
   // skipped by emit.js (emit.js:8) and expanded into bones carrying the
   // sampled template's own already-whitelisted type. Both are named here so
   // the next person to touch this vocabulary understands what the alarm
@@ -392,7 +392,7 @@ describe('learning store', () => {
     const found = new Set([...typeLiteralsIn(walkSrc), ...typeLiteralsIn(emitSrc)]);
 
     const INTERNAL_ONLY = new Set([
-      'container', // walk.js:93-97 (SPEC-SYN-13): converted to {type:'block'} or recursed into - never itself a bone type
+      'container', // walk.js:93-97: converted to {type:'block'} or recursed into - never itself a bone type
       'repeat-extra', // walk.js:71, skipped by emit.js:8 and expanded into bones carrying the sampled template's own type
     ]);
 
@@ -433,7 +433,7 @@ describe('learning store', () => {
   // extractToBoneBody() (real brace-depth counting, not a `\n}` guess) so it
   // can never wander into a later function's own conditional if toBone()'s
   // real one were ever deleted.
-  it("keeps store.js's bone key set in sync with emit.js's toBone() shape, base and optional (SPEC-SEC-04)", () => {
+  it("keeps store.js's bone key set in sync with emit.js's toBone() shape, base and optional", () => {
     const storeSrc = readFileSync(path.join(dir, '../src/learning/store.js'), 'utf8');
     const emitSrc = readFileSync(path.join(dir, '../src/synthesizer/emit.js'), 'utf8');
 

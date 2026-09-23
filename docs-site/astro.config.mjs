@@ -24,8 +24,15 @@ export default defineConfig({
     starlight({
       title: 'Ghostwire',
       description: 'Automatic runtime skeleton loaders for Livewire — synthesized from your live DOM, zero markup.',
+      defaultLocale: 'root',
+      locales: {
+        root: { label: 'English', lang: 'en' },
+        'pt-br': { label: 'Português do Brasil', lang: 'pt-BR' },
+        es: { label: 'Español', lang: 'es' },
+      },
       logo: {
-        src: './src/assets/ghostwire.png',
+        light: './src/assets/ghostwire-light.png',
+        dark: './src/assets/ghostwire.png',
         replacesTitle: true,
       },
       favicon: '/favicon.svg',
@@ -45,33 +52,37 @@ export default defineConfig({
       sidebar: [
         {
           label: 'Getting Started',
+          translations: { 'pt-BR': 'Primeiros Passos', es: 'Primeros Pasos' },
           items: [
-            { label: 'Install', slug: 'docs/install' },
-            { label: 'Choosing directive vs. attribute', slug: 'docs/choosing' },
+            { label: 'Install', translations: { 'pt-BR': 'Instalação', es: 'Instalación' }, slug: 'docs/install' },
+            { label: 'Choosing directive vs. attribute', translations: { 'pt-BR': 'Escolhendo entre diretiva e atributo', es: 'Elegir entre directiva y atributo' }, slug: 'docs/choosing' },
           ],
         },
         {
           label: 'Usage',
+          translations: { 'pt-BR': 'Uso', es: 'Uso' },
           items: [
-            { label: 'wire:ghost directive', slug: 'docs/wire-ghost' },
-            { label: '#[Ghost] attribute', slug: 'docs/ghost-attribute' },
-            { label: 'Learning', slug: 'docs/learning' },
-            { label: 'Theming', slug: 'docs/theming' },
+            { label: 'wire:ghost directive', translations: { 'pt-BR': 'Diretiva wire:ghost', es: 'Directiva wire:ghost' }, slug: 'docs/wire-ghost' },
+            { label: '#[Ghost] attribute', translations: { 'pt-BR': 'Atributo #[Ghost]', es: 'Atributo #[Ghost]' }, slug: 'docs/ghost-attribute' },
+            { label: 'Learning', translations: { 'pt-BR': 'Aprendizado', es: 'Aprendizaje' }, slug: 'docs/learning' },
+            { label: 'Theming', translations: { 'pt-BR': 'Temas', es: 'Temas' }, slug: 'docs/theming' },
           ],
         },
         {
           label: 'Compatibility & Security',
+          translations: { 'pt-BR': 'Compatibilidade e Segurança', es: 'Compatibilidad y Seguridad' },
           items: [
-            { label: 'Livewire 3/4 compatibility', slug: 'docs/compat' },
-            { label: 'Security', slug: 'docs/security' },
+            { label: 'Livewire 3/4 compatibility', translations: { 'pt-BR': 'Compatibilidade com Livewire 3/4', es: 'Compatibilidad con Livewire 3/4' }, slug: 'docs/compat' },
+            { label: 'Security', translations: { 'pt-BR': 'Segurança', es: 'Seguridad' }, slug: 'docs/security' },
           ],
         },
         {
           label: 'Reference',
+          translations: { 'pt-BR': 'Referência', es: 'Referencia' },
           items: [
-            { label: 'How it works', slug: 'docs/how-it-works' },
-            { label: 'Testing', slug: 'docs/testing' },
-            { label: 'Interop', slug: 'docs/interop' },
+            { label: 'How it works', translations: { 'pt-BR': 'Como funciona', es: 'Cómo funciona' }, slug: 'docs/how-it-works' },
+            { label: 'Testing', translations: { 'pt-BR': 'Testes', es: 'Pruebas' }, slug: 'docs/testing' },
+            { label: 'Interop', translations: { 'pt-BR': 'Interoperabilidade', es: 'Interoperabilidad' }, slug: 'docs/interop' },
           ],
         },
       ],

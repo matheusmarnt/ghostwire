@@ -1,6 +1,6 @@
 // js/tests/perf-bundle-budget.test.js
 //
-// SPEC-PERF-08: the shipped runtime must stay at or under 10.5 KB gzip with
+// The shipped runtime must stay at or under 10.5 KB gzip with
 // both bridges included and zero runtime dependencies. This reads the
 // committed resources/dist/ghostwire.js (in CI the js job runs `npm run
 // build` right before `npm test`, and security.yml's dist-reproducible job
@@ -22,16 +22,16 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 // client+server transport stack), with modest headroom for future growth.
 const BUDGET_BYTES = 10.5 * 1024;
 
-describe('SPEC-PERF-08: bundle budget', () => {
+describe('bundle budget', () => {
   it('ships resources/dist/ghostwire.js at or under 10.5 KB gzip', () => {
     const raw = readFileSync(path.join(root, 'resources/dist/ghostwire.js'));
     const gzip = gzipSync(raw).length; // zlib's default level, what a web server uses
 
-    expect(gzip, `resources/dist/ghostwire.js is ${gzip} bytes gzip (${raw.length} raw); SPEC-PERF-08 allows ${BUDGET_BYTES}`)
+    expect(gzip, `resources/dist/ghostwire.js is ${gzip} bytes gzip (${raw.length} raw); budget allows ${BUDGET_BYTES}`)
       .toBeLessThanOrEqual(BUDGET_BYTES);
   });
 
-  it('declares zero runtime JS dependencies (SPEC-PERF-08 / SPEC-SEC-08)', () => {
+  it('declares zero runtime JS dependencies', () => {
     const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
 
     expect(pkg.dependencies).toBeUndefined();

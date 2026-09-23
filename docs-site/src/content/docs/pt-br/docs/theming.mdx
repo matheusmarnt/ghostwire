@@ -1,0 +1,72 @@
+---
+title: Temas
+description: Tokens, dark mode, animações.
+---
+
+Tudo relacionado a temas é CSS puro, orientado por custom properties em `:root` — sem nenhum JS envolvido.
+
+| Token | Padrão | Finalidade |
+|---|---|---|
+| `--ghostwire-bone-color` | `oklch(0.92 0.005 250)` | Cor base do esqueleto (claro) |
+| `--ghostwire-bone-color-dark` | `oklch(0.42 0.012 250)` | Cor base do esqueleto (escuro) |
+| `--ghostwire-bone-highlight` | `oklch(0.97 0.005 250)` | Cor do brilho do shimmer (claro) |
+| `--ghostwire-bone-highlight-dark` | `oklch(0.55 0.015 250)` | Cor do brilho do shimmer (escuro) |
+| `--ghostwire-panel-color` | `oklch(0 0 0 / 0.035)` | Cor do panel bone — sobreposição escura translúcida (claro) |
+| `--ghostwire-panel-color-dark` | `oklch(1 0 0 / 0.05)` | Cor do panel bone — sobreposição clara translúcida (escuro) |
+| `--ghostwire-bone-radius` | `0.375rem` | Raio de canto de cada bone |
+| `--ghostwire-bone-gap` | `0.5rem` | Espaçamento entre bones empilhados |
+| `--ghostwire-animation` | `gw-shimmer` | Nome da animação — `gw-shimmer`, `gw-pulse`, `gw-wave`, ou `none` |
+| `--ghostwire-animation-speed` | `1.4s` | Duração do ciclo da animação |
+| `--ghostwire-fade-duration` | `150ms` | Duração do cross-fade de exibir/ocultar |
+
+## Dark mode
+
+Automático via `prefers-color-scheme: dark` — as variantes de token `-dark` se aplicam sem nenhuma configuração.
+
+### Dark mode baseado em classe (ex.: Tailwind)
+
+Esse é o caso comum em aplicações Tailwind, não um caso extremo: o
+`@custom-variant dark (&:where(.dark, .dark *))` do Tailwind controla o dark mode a partir de
+uma classe `.dark` que a aplicação alterna, e não pela media query
+`prefers-color-scheme` do SO/navegador. Os próprios tokens `-dark` do Ghostwire só reagem à
+media query, então sempre que a preferência do SO e o tema ativo da aplicação divergem (ex.: SO
+claro + aplicação alternada para `.dark`, ou o contrário), os bones do Ghostwire
+dessincronizam do resto da página. Sobreponha os tokens base — não os `-dark`
+— dentro do seu próprio seletor `.dark`:
+
+```css
+.dark {
+  --ghostwire-bone-color: oklch(0.42 0.012 250);
+  --ghostwire-bone-highlight: oklch(0.55 0.015 250);
+}
+```
+
+## Movimento reduzido
+
+`prefers-reduced-motion: reduce` desativa automaticamente a animação gw-shimmer/gw-pulse/gw-wave, recaindo no estado estático (invisível) do brilho — o mesmo que definir `--ghostwire-animation: none` manualmente.
+
+## Sobrescrevendo
+
+Defina qualquer token em `:root` (ou restrito a um container) no seu próprio CSS, depois que a stylesheet do Ghostwire carregar. Sobrescreva o par claro e escuro juntos — sobrescrever só o valor claro deixa o dark mode no padrão do próprio Ghostwire, que pode não corresponder mais à sua paleta:
+
+```css
+:root {
+  --ghostwire-bone-color: #e2e8f0;
+  --ghostwire-animation: gw-pulse;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ghostwire-bone-color: #1e293b;
+  }
+}
+```
+
+Restrito a uma parte da sua aplicação em vez da página inteira:
+
+```css
+.dashboard-widgets {
+  --ghostwire-bone-radius: 9999px;
+  --ghostwire-animation: gw-wave;
+}
+```

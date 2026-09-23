@@ -54,7 +54,7 @@ describe('synthesizer/index', () => {
     expect(synthesizer.synthesize(host)).toBeNull();
   });
 
-  it('honors host.config.rows as the SPEC-SYN-17 hint for an empty host', () => {
+  it('honors host.config.rows as the hint for an empty host', () => {
     const registry = createRegistry();
     const synthesizer = createSynthesizer(registry);
     const host = makeHost('', { rows: 3 });
@@ -64,7 +64,7 @@ describe('synthesizer/index', () => {
     expect(bones).toHaveLength(3);
   });
 
-  it('returns a cached Bone Tree on a second call with unchanged content (SPEC-SYN-20)', () => {
+  it('returns a cached Bone Tree on a second call with unchanged content', () => {
     const registry = createRegistry();
     const synthesizer = createSynthesizer(registry);
     const host = makeHost('<p>Hello world</p>');
@@ -88,7 +88,7 @@ describe('synthesizer/index', () => {
     expect(second).toEqual(first);
   });
 
-  it('SPEC-SYN-21: invokes the onResize callback when the signature cache invalidates past the resize threshold', () => {
+  it('invokes the onResize callback when the signature cache invalidates past the resize threshold', () => {
     const registry = createRegistry();
     const onResize = vi.fn();
     const synthesizer = createSynthesizer(registry, undefined, onResize);
@@ -103,7 +103,7 @@ describe('synthesizer/index', () => {
     expect(onResize).toHaveBeenCalledWith(host);
   });
 
-  it('SPEC-PERF-07: skips synthesis only after two consecutive slow synthesize() calls, not a single one', () => {
+  it('skips synthesis only after two consecutive slow synthesize() calls, not a single one', () => {
     const registry = createRegistry();
     let call = 0;
     const now = () => { call += 1; return call % 2 === 0 ? 1000 : 0; }; // every odd call is a "start" (0), every even call is an "end" 1000ms later — every synthesize() call measures as 1000ms (slow)
@@ -117,10 +117,10 @@ describe('synthesizer/index', () => {
     expect(second).not.toBeNull(); // 2nd slow call: streak was only 1 at entry, so this one still completes too — streak becomes 2 only after it finishes
 
     const third = synthesizer.synthesize(host);
-    expect(third).toBeNull(); // streak is now 2 (the limit) at entry: SPEC-PERF-07 skips straight to freeze
+    expect(third).toBeNull(); // streak is now 2 (the limit) at entry: skips straight to freeze
   });
 
-  it('SPEC-PERF-07: a fast synthesis resets the slow-streak counter, so isolated jitter never triggers freeze', () => {
+  it('a fast synthesis resets the slow-streak counter, so isolated jitter never triggers freeze', () => {
     const registry = createRegistry();
     const durations = [0, 1000, 2000, 2001, 2002, 2003]; // call1: 0->1000 (slow, 1000ms); call2: 2000->2001 (fast, 1ms) resets the streak; call3: 2002->2003 (fast, 1ms)
     let call = 0;
@@ -172,7 +172,7 @@ describe('synthesizer/index', () => {
 
     // A control OUTSIDE the island's start/end markers but still directly
     // inside host.el: a whole-host synthesize must see it; a region-scoped
-    // one must not. This is the actual SPEC-INT-13 guarantee under test — a
+    // one must not. This is the actual guarantee under test — a
     // region narrower than the host excludes out-of-region content — not
     // merely "the region path executes" or "an unstubbed host rect degrades
     // to null" (both true of the previous revision, but incidental per
@@ -212,14 +212,14 @@ describe('synthesizer/index', () => {
     expect(wholeHostTree.some((bone) => bone.type === 'control')).toBe(true);
   });
 
-  // SPEC-LRN-01 + SPEC-INT-13. onSynthesized feeds the learning store, which
+  // onSynthesized feeds the learning store, which
   // keys on the COMPONENT name and whose entries ghost:export turns into a
   // committed Blade @placeholder for the whole component. An island-scoped
   // tree is measured against the island's rect and laid out from the island's
   // origin, so persisting it would stand an island-sized skeleton in for the
   // entire component — permanently, in an exported artifact a developer
   // commits. Collection is dev-only; the artifact is not.
-  it('never reports an island-scoped tree to onSynthesized, only a whole-component one (SPEC-LRN-01)', () => {
+  it('never reports an island-scoped tree to onSynthesized, only a whole-component one', () => {
     const registry = createRegistry();
     const onSynthesized = vi.fn();
     const host = { el: document.createElement('div'), config: {} };

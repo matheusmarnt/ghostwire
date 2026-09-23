@@ -1,0 +1,20 @@
+---
+title: Interoperabilidade
+description: '@placeholder, Wirebones, Flux, livecharts, scoutify.'
+---
+
+## Outras ferramentas de esqueleto/placeholder para Livewire
+
+A abordagem do Ghostwire (síntese de DOM em runtime, zero markup) é deliberadamente diferente de ferramentas markup-first como a própria diretiva `@placeholder` do Livewire ou pacotes da comunidade como o Wirebones (templates de placeholder escritos à mão). Elas não são mutuamente exclusivas — o Ghostwire coexiste com `@placeholder` na mesma página; só não aplique os dois ao mesmo elemento, já que o `@placeholder` já é o dono completo do markup de estado de carregamento daquele elemento.
+
+## Flux
+
+Componentes do Flux renderizam elementos DOM padrão por baixo dos panos, então o `wire:ghost` classifica sua saída renderizada da mesma forma que qualquer outro markup — nenhuma integração especial é necessária.
+
+## livecharts
+
+`livecharts` renderiza gráficos baseados em canvas/SVG, que o `wire:ghost` classifica da mesma forma que qualquer outro componente não textual (`icon`/`media`, sem entrar neles), em vez de tentar sintetizar sua estrutura interna. Os dois pacotes coexistem na mesma página sem interferência.
+
+## scoutify
+
+O modal de busca ⌘K do `scoutify` é um componente Livewire padrão como qualquer outro, então ele funciona junto com o `wire:ghost` sem tratamento especial — o Ghostwire e o `scoutify` não interferem um com o outro na mesma página.

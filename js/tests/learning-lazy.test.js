@@ -42,7 +42,7 @@ describe('paintBones', () => {
     expect(container.textContent).toBe('');
   });
 
-  it('never produces markup from persisted data (SPEC-SEC-04)', () => {
+  it('never produces markup from persisted data', () => {
     const renderer = createRenderer();
     const container = document.createElement('div');
 
@@ -59,12 +59,12 @@ describe('paintBones', () => {
   });
 });
 
-// SPEC-LRN-02: js/src/index.js's paintLazyPlaceholders() is not exported —
+// js/src/index.js's paintLazyPlaceholders() is not exported —
 // it is only reachable through boot() itself, at the end of boot() and again
 // from the real Livewire.hook('morphed', ...) handler. These tests exercise
 // it exactly that way (a real boot() call, a real fake-Livewire hook
 // dispatch), never a reimplementation of its logic.
-describe('paintLazyPlaceholders (SPEC-LRN-02)', () => {
+describe('paintLazyPlaceholders', () => {
   class FakeResizeObserver {
     observe() {}
     disconnect() {}
@@ -219,7 +219,7 @@ describe('paintLazyPlaceholders (SPEC-LRN-02)', () => {
     expect(control.classList.contains('gw-lazy')).toBe(true); // positive control: proves paintLazyPlaceholders() really ran this boot()
     expect(placeholder.classList.contains('gw-lazy')).toBe(false);
     expect(placeholder.querySelectorAll('.gw-bone')).toHaveLength(0);
-    // Task 5: a miss is marked resolved too (not just a successful paint), so
+    // A miss is marked resolved too (not just a successful paint), so
     // the miss path isn't re-queried against storage on every later morph.
     expect(placeholder.dataset.ghostLazyPainted).toBe('1');
   });
@@ -252,7 +252,7 @@ describe('paintLazyPlaceholders (SPEC-LRN-02)', () => {
     expect(placeholder.classList.contains('gw-lazy')).toBe(false);
   });
 
-  it('ignores a data-ghost-lazy value that fails the component-name charset, without throwing (SPEC-SEC-04)', () => {
+  it('ignores a data-ghost-lazy value that fails the component-name charset, without throwing', () => {
     expect(NAME_PATTERN.test('<script>alert(1)</script>')).toBe(false); // precondition: this value genuinely fails the charset, not just "happens not to be learned"
 
     const storage = fakeStorage();
@@ -289,7 +289,7 @@ describe('paintLazyPlaceholders (SPEC-LRN-02)', () => {
 
     expect(() => boot()).not.toThrow();
 
-    // Painted as-is — SPEC-SEC-04 is about markup/selector injection, not
+    // Painted as-is — this is about markup/selector injection, not
     // visual containment, and .gw-lazy (Step 5) is deliberately not
     // overflow:hidden, so nothing clips this. Documented accepted behaviour.
     const bone = placeholder.querySelector('.gw-bone');
@@ -320,7 +320,7 @@ describe('paintLazyPlaceholders (SPEC-LRN-02)', () => {
     expect(placeholder.style.width).toBe('200px'); // unchanged — the painted flag skipped the repaint
   });
 
-  // Task 5 (perf): paintLazyPlaceholders() runs on EVERY morph. A pure
+  // paintLazyPlaceholders() runs on EVERY morph. A pure
   // "eventually painted" assertion can't tell "the miss was marked resolved,
   // so the second pass skipped it" apart from "the second pass repeated the
   // full getItem + JSON.parse + re-validation and happened to miss again" —

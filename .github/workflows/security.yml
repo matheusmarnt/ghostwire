@@ -35,7 +35,7 @@ jobs:
           node-version: '24'
       - run: npm ci
       - run: npm run build
-      - name: Verify resources/dist matches a fresh build (SPEC-SEC-07)
+      - name: Verify resources/dist matches a fresh build
         run: |
           if ! git diff --quiet -- resources/dist; then
             echo "::error::resources/dist/* is not reproducible from js/src — rebuild and commit before merging."

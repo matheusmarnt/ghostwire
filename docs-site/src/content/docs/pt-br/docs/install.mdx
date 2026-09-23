@@ -1,0 +1,72 @@
+---
+title: Instalação
+description: Instalação e primeiro efeito.
+---
+
+```bash
+composer require matheusmarnt/ghostwire
+```
+
+Publique a configuração (opcional — o pacote já vem com padrões sensatos mesmo sem isso):
+
+```bash
+php artisan vendor:publish --tag=ghostwire-config
+```
+
+Publique os assets JS/CSS compilados — sem essa etapa o navegador recebe um 404 para
+`ghostwire.js`/`ghostwire.css` e o `wire:ghost` nunca dispara:
+
+```bash
+php artisan vendor:publish --tag=ghostwire-assets
+```
+
+Em um ambiente `local`, o Ghostwire publica esses assets automaticamente na inicialização
+caso estejam faltando, então essa etapa manual importa principalmente para staging/produção.
+
+Adicione as duas diretivas ao seu layout principal, uma única vez — normalmente logo ao lado de
+`@livewireStyles`/`@livewireScripts`:
+
+```blade
+{{-- in <head> --}}
+@ghostwireStyles
+
+{{-- right before </body> --}}
+@ghostwireScripts
+```
+
+`php artisan ghost:install` executa a etapa de publicação acima e imprime esse mesmo lembrete,
+em um único comando. Execute `php artisan ghost:install --force` depois de uma atualização do
+pacote para republicar os assets atualizados — sem `--force`, os arquivos já publicados permanecem intactos.
+
+Adicione a diretiva a qualquer elemento dentro de um componente Livewire:
+
+```blade
+<div wire:ghost>
+    <h2>{{ $title }}</h2>
+    <p>{{ $body }}</p>
+</div>
+```
+
+Dispare qualquer atualização do Livewire nesse componente (uma chamada de ação, `wire:model.live`, etc.) — o Ghostwire sintetiza automaticamente um esqueleto correspondente a partir do DOM ao vivo, sem markup adicional necessário. Primeiro efeito visível: em menos de 60 segundos a partir do `composer require`.
+
+Não quer que a estratégia de carregamento seja aplicada em todo lugar? A chave `strategy` de `config/ghostwire.php` tem como padrão `'opt-in'`: um componente é instrumentado quando `#[Ghost]` é declarado nele, em um ancestral, em uma trait que ele usa, ou em um de seus métodos de ação — ou quando algum elemento da sua view carrega `wire:ghost` — ou quando `strategy` está definido como `'global'`. Mude `strategy` para `'global'` para aplicar a estratégia de carregamento a todo componente Livewire, e desative por componente com `wire:ghost.off` ou `#[Ghost(mode: 'off')]`.
+
+Quer que todo componente que optou por `#[Ghost]` emita panel bones por padrão, sem precisar declarar `#[Ghost(panels: true)]` em cada um? Defina `GHOSTWIRE_PANELS=true` (ou a chave `panels` de `config/ghostwire.php`) — o padrão é `false`. Um `#[Ghost(panels: ...)]` em nível de classe ainda sobrepõe esse padrão global por componente, com a mesma precedência de `mode`/`delay`/`hold`. Veja [`Atributo #[Ghost]`](/ghostwire/docs/ghost-attribute/) para entender o que `panels` faz.
+
+Defina `GHOSTWIRE_ENABLED=false` (o padrão é `true`) para desativar o Ghostwire por completo — sem registro de hooks, sem payload `data-ghost`, sem marcação de placeholder lazy, e `@ghostwireStyles`/`@ghostwireScripts` não emitem nada. Se `config/ghostwire.php` já foi cacheado (`php artisan config:cache`), a mudança dessa variável de ambiente só passa a valer depois de `php artisan config:clear` (ou um novo cache).
+
+### Qual mecanismo, para qual momento
+
+O Ghostwire vem com três mecanismos de carregamento distintos que são fáceis de confundir
+entre si — cada um cobre um momento diferente do ciclo de vida de uma página:
+
+| Mecanismo | Cobre |
+|---|---|
+| `wire:ghost` / `#[Ghost]` | Uma requisição do Livewire em uma página já carregada (uma chamada de ação, `wire:model.live`, polling) |
+| `#[Lazy]` + `#[Ghost(lazy: true)]` + [aprendizado](/ghostwire/docs/learning/) | O carregamento inicial da página / um refresh do navegador, em desenvolvimento — um esqueleto aprendido localmente é pintado no placeholder lazy |
+| `ghost:export` + `placeholder()` | O carregamento inicial da página / um refresh do navegador, em produção — um placeholder Blade estático, do lado do servidor, sem JS ou `localStorage` envolvidos |
+
+Nenhum dos três substitui o outro: o `wire:ghost` sozinho não faz nada em um carregamento
+completo de página (não há requisição do Livewire nem morph do DOM para interceptar), e o
+aprendizado nunca roda em produção, independentemente da config. Veja [`/docs/learning`](https://matheusmarnt.github.io/ghostwire/docs/learning/)
+para o passo a passo completo do segundo e do terceiro mecanismos.

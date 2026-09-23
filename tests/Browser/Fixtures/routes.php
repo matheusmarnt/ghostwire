@@ -15,7 +15,7 @@ Route::view('/gallery/node-count', 'ghostwire-fixtures::page', ['component' => '
 // Enforces a real, per-request-nonce CSP, at the strictest each Livewire
 // line actually supports (see the note inside the closure) — and passes
 // that same nonce into the fixture page, so
-// @ghostwireStyles($nonce)/@ghostwireScripts($nonce) (Task 2) are
+// @ghostwireStyles($nonce)/@ghostwireScripts($nonce) are
 // exercised end to end, not just in isolation.
 Route::get('/gallery/card-grid-strict-csp', function () {
     // Livewire evaluates wire:* expressions through Alpine's
@@ -82,7 +82,7 @@ Route::get('/ghostwire-lazy-declared-placeholder', function () {
 Route::get('/ghostwire-learn-demo', function () {
     config(['ghostwire.learning.enabled' => true]);
 
-    // Task 2: demo-table carries no #[Ghost] anywhere, so under the
+    // demo-table carries no #[Ghost] anywhere, so under the
     // default 'opt-in' strategy GhostComponentHook would gate off the whole
     // data-ghost transport — including the 'g'/'n' learning keys this route
     // exists to exercise. Forced global for this route only,

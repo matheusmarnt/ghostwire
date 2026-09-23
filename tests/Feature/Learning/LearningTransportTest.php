@@ -11,7 +11,7 @@ function ghostPayload(string $component): array
     return json_decode(html_entity_decode($matches[1] ?? '{}', ENT_QUOTES), true);
 }
 
-// Task 2: every test below is about the learning transport (what
+// Every test below is about the learning transport (what
 // data-ghost carries), not activation — the bare probe fixture carries no
 // #[Ghost], so each needs 'global' to emit data-ghost at all under the
 // opt-in default.

@@ -5,6 +5,9 @@ body { margin: 0; background: var(--gw-bg); color: var(--gw-fg); font-family: va
 .gw-hero { max-width: 880px; margin: 0 auto; padding: 4rem 1.5rem 2rem; text-align: center; }
 .gw-logo { height: 4.5rem; width: auto; max-width: 90%; margin: 0 auto 1.5rem; display: block; object-fit: contain; filter: drop-shadow(0 0 24px rgba(124, 58, 237, 0.35)); transition: filter 200ms ease; }
 .gw-logo:hover { filter: drop-shadow(0 0 32px rgba(124, 58, 237, 0.55)); }
+.gw-logo-light { display: none; }
+:root[data-theme='light'] .gw-logo-dark { display: none; }
+:root[data-theme='light'] .gw-logo-light { display: block; }
 .gw-hero h1 { font-size: clamp(2rem, 5vw, 3.25rem); margin: 0 0 0.75rem; }
 .gw-hero p { color: var(--gw-muted); font-size: 1.1rem; max-width: 620px; margin: 0 auto 2rem; }
 .gw-cta { display: inline-flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; }

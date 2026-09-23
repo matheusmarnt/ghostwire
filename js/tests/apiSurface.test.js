@@ -1,6 +1,6 @@
 // js/tests/apiSurface.test.js
 //
-// SPEC-API-50: freezes the wire:ghost directive's modifier vocabulary and
+// Freezes the wire:ghost directive's modifier vocabulary and
 // the data-ghost compact-key map. Both live as unexported constants inside
 // js/src/index.js and js/src/attributeConfig.js, so this test reads the
 // source text directly rather than importing private internals.

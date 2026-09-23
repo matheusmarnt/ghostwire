@@ -31,7 +31,7 @@ Agrega `wire:ghost` a cualquier elemento (o `#[Ghost]` a una clase de componente
 | Laravel | 12.x, 13.x |
 | Livewire | 3.6+, 4.x |
 
-### Matriz de tiers (FR-81)
+### Matriz de tiers
 
 La selección del bridge se basa en detección de características en tiempo de ejecución, nunca en una cadena de versión. Todo lo siguiente se verifica en ambas líneas en CI.
 
@@ -97,7 +97,7 @@ Documentación completa, playground en vivo y galería: **<https://matheusmarnt.
 
 ## Seguridad
 
-Consulta [`SECURITY.md`](SECURITY.md) y [`/docs/security`](https://matheusmarnt.github.io/ghostwire/docs/security/). Ningún dato del DOM sale del navegador; el aprendizaje es completamente local; cero telemetría (FR-93).
+Consulta [`SECURITY.md`](SECURITY.md) y [`/docs/security`](https://matheusmarnt.github.io/ghostwire/docs/security/). Ningún dato del DOM sale del navegador; el aprendizaje es completamente local; cero telemetría.
 
 ## Otros paquetes del autor
 

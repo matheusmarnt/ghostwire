@@ -1,6 +1,6 @@
-// SPEC-PERF-11: "nenhum crescimento de memória após 500 ciclos de montagem e
+// "nenhum crescimento de memória após 500 ciclos de montagem e
 // desmontagem". jsdom cannot measure bytes, and a byte count would be exactly
-// the kind of absolute threshold ADR-007 retired. What can grow across cycles
+// the kind of absolute threshold now retired. What can grow across cycles
 // in this runtime, structurally, is: Ghost Layer / bone elements left in the
 // document, ResizeObservers left observing (signature.js registers one per
 // fresh synthesis), scheduler timers left armed, and the live region being
@@ -19,7 +19,7 @@ FakeResizeObserver.instances = [];
 const origGetClientRects = Range.prototype.getClientRects;
 const origBCR = Element.prototype.getBoundingClientRect;
 
-describe('SPEC-PERF-11: 500 show/hide cycles leak nothing', () => {
+describe('500 show/hide cycles leak nothing', () => {
   let registeredCallback;
   let interceptedCallback;
   let hostEl;
@@ -95,7 +95,7 @@ describe('SPEC-PERF-11: 500 show/hide cycles leak nothing', () => {
     runCycle();
     const elementsAfterFirstCycle = document.body.querySelectorAll('*').length; // host, its <p>s, the one live region
     const activeObserversAfterFirstCycle = FakeResizeObserver.instances.filter((o) => o.active).length;
-    expect(activeObserversAfterFirstCycle).toBe(1); // sanity: synthesis registered its SPEC-SYN-21 observer
+    expect(activeObserversAfterFirstCycle).toBe(1); // sanity: synthesis registered its own observer
 
     for (let i = 0; i < 499; i++) runCycle();
 

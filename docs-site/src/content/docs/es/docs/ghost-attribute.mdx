@@ -1,0 +1,136 @@
+---
+title: 'Atributo #[Ghost]'
+description: Parámetros, alcances, herencia, migración en bloque.
+---
+
+Aplícalo a una clase de componente — no se requieren cambios en la vista:
+
+```php
+use Ghostwire\Attributes\Ghost;
+
+#[Ghost(mode: 'synthesize', delay: 200, hold: 400)]
+class ProductTable extends Component
+{
+    // ...
+}
+```
+
+## Parámetros
+
+| Parámetro | Tipo | Predeterminado | Significado |
+|---|---|---|---|
+| `mode` | `'synthesize'｜'freeze'｜'off'` | `'synthesize'` | Estrategia de carga para este componente |
+| `only` | `array<string>｜null` | `null` | Acciones que activan el ghost |
+| `except` | `array<string>｜null` | `null` | Acciones que nunca lo activan |
+| `delay` | `int｜null` | `null` (predeterminado del paquete: 120ms) | Retraso antes de que aparezca el ghost |
+| `hold` | `int｜null` | `null` (predeterminado del paquete: 300ms) | Duración mínima visible |
+| `rows` | `int｜null` | `null` | Pista de filas repetidas para un host vacío |
+| `poll` | `bool` | `false` | Permite que los mensajes de polling activen el ghost |
+| `sync` | `bool` | `false` | Permite que los mensajes de solo propiedad (sync) lo activen |
+| `lazy` | `bool` | `false` | Reutiliza el árbol aprendido como placeholder lazy |
+| `panels` | `bool` | `false` | Promueve los contenedores visualmente distintivos a su propio panel bone |
+
+## Más ejemplos
+
+Filtrado de acciones — restringe o excluye acciones específicas desde la config a nivel de clase:
+
+```php
+#[Ghost(only: ['loadMore', 'applyFilters'])]
+class ProductList extends Component
+{
+    // ...
+}
+```
+
+Solo `loadMore` y `applyFilters` activan el ghost; cualquier otra acción lo deja intacto.
+
+```php
+#[Ghost(except: ['toggleFavorite'])]
+class ProductList extends Component
+{
+    // ...
+}
+```
+
+Todas las acciones activan el ghost, excepto `toggleFavorite`.
+
+```php
+#[Ghost(rows: 5)]
+class OrderTable extends Component
+{
+    // ...
+}
+```
+
+Renderiza 5 filas de esqueleto cuando la tabla todavía no tiene datos — el equivalente en atributo de `wire:ghost.rows.5`.
+
+```php
+#[Ghost(poll: true)]
+class LiveTicker extends Component
+{
+    // ...
+}
+```
+
+Permite que un refresco impulsado por `wire:poll` también active el ghost; los mensajes de polling son silenciosos por defecto.
+
+```php
+#[Ghost(sync: true)]
+class SearchResults extends Component
+{
+    // ...
+}
+```
+
+Permite que una actualización de solo propiedad (p. ej. `wire:model.live`) también active el ghost; los mensajes de sync son silenciosos por defecto.
+
+```php
+#[Ghost(lazy: true)]
+class Dashboard extends Component
+{
+    // ...
+}
+```
+
+Reutiliza un Bone Tree previamente aprendido como placeholder de carga lazy — consulta [Aprendizaje](/ghostwire/docs/learning/) para ver la configuración completa.
+
+```php
+#[Ghost(panels: true)]
+class ProductGrid extends Component
+{
+    // ...
+}
+```
+
+Las tarjetas con fondo, borde o sombra visibles obtienen cada una su propio panel bone relleno — consulta [Cómo funciona](/ghostwire/docs/how-it-works/).
+
+## Cascada de precedencia
+
+Siete niveles, de más a menos específico:
+
+1. **Modificador de directiva en el elemento** — p. ej. `wire:ghost.freeze`
+2. **Expresión de directiva / selección de acción** — p. ej. `wire:ghost="applyFilters"`
+3. **`#[Ghost]` en el método de la acción en ejecución**
+4. **`#[Ghost]` en la clase del componente**
+5. **`#[Ghost]` heredado de una clase base o trait**
+6. **`config/ghostwire.php`**
+7. **Valores predeterminados del paquete**
+
+La directiva `wire:ghost` en el elemento tiene mayor prioridad que el atributo `#[Ghost]`: un ajuste a nivel de directiva anula lo que declaren los niveles de atributo, campo por campo. Cualquier campo que un nivel dado no declare cae al siguiente. Inspecciona exactamente qué nivel decidió la configuración en vivo de un componente con:
+
+```bash
+php artisan ghost:inspect
+```
+
+## Selección a nivel de método
+
+```php
+#[Ghost(mode: 'freeze')]
+class ReportTable extends Component
+{
+    #[Ghost(mode: 'synthesize', delay: 50)]
+    public function refresh() { /* ... */ }
+}
+```
+
+El propio atributo de `refresh()` anula el valor predeterminado a nivel de clase, solo para esa acción.

@@ -1,0 +1,48 @@
+---
+import { locales, pagePath, type Locale } from '../i18n/ui';
+
+interface Props {
+  page: string;
+  lang: Locale;
+  base: string;
+}
+const { page, lang, base } = Astro.props;
+
+const labels: Record<Locale, string> = { en: 'EN', 'pt-br': 'PT-BR', es: 'ES' };
+---
+
+<div class="gw-lang-switcher">
+  {locales.map((l) => (
+    l === lang
+      ? <span class="gw-lang-current" aria-current="true">{labels[l]}</span>
+      : <a href={pagePath(page, l, base)}>{labels[l]}</a>
+  ))}
+</div>
+
+<style>
+  .gw-lang-switcher {
+    position: fixed;
+    top: 1rem;
+    right: 3.75rem;
+    z-index: 20;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.4rem 0.6rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--gw-border);
+    background: var(--gw-panel-bg);
+  }
+  .gw-lang-switcher a {
+    color: var(--gw-muted);
+    text-decoration: none;
+  }
+  .gw-lang-switcher a:hover {
+    color: var(--sl-color-accent);
+  }
+  .gw-lang-current {
+    color: var(--sl-color-accent);
+  }
+</style>

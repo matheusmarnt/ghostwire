@@ -73,7 +73,7 @@ describe('renderer', () => {
     expect(host.el.classList.contains('gw-frozen')).toBe(false);
   });
 
-  it('freeze/unfreeze never mutate host innerHTML (SPEC-MORPH-03 acceptance check)', () => {
+  it('freeze/unfreeze never mutate host innerHTML (acceptance check)', () => {
     const renderer = createRenderer();
     const host = makeHost();
     host.el.innerHTML = '<p>content</p>';
@@ -100,7 +100,7 @@ describe('renderer', () => {
     expect(host.layer.style.height).toBe('50px');
   });
 
-  it('mountLayer replicates the host border-radius and clips overflow (SPEC-RND-02)', () => {
+  it('mountLayer replicates the host border-radius and clips overflow', () => {
     const renderer = createRenderer();
     const host = makeHost();
     host.el.getBoundingClientRect = () => ({ top: 10, left: 20, width: 100, height: 50 });

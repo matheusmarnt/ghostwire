@@ -8,7 +8,7 @@ describe('detectBridge', () => {
     setDebugForTests(false);
   });
 
-  it('picks v4 when Livewire.interceptMessage is a function (SPEC-INT-20)', () => {
+  it('picks v4 when Livewire.interceptMessage is a function', () => {
     window.Livewire = { interceptMessage: () => {}, hook: () => {} };
     expect(detectBridge().name).toBe('v4');
   });
