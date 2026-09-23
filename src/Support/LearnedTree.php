@@ -24,7 +24,7 @@ final class LearnedTree
 
     public const MAX_COORD = 20000;
 
-    public const MAX_BONES = 300;
+    public const MAX_BONES = 1000;
 
     public const BONE_TYPES = ['text', 'avatar', 'block', 'icon', 'media', 'control', 'heading', 'panel'];
 

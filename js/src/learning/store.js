@@ -18,7 +18,7 @@ import { bandFor, BAND_NAMES } from './bands.js';
 export const SCHEMA_VERSION = 1;
 export const STORAGE_KEY = 'ghostwire.learned.v1';
 export const MAX_COORD = 20000;
-export const MAX_BONES = 300;
+export const MAX_BONES = 1000;
 export const BONE_TYPES = new Set(['text', 'avatar', 'block', 'icon', 'media', 'control', 'heading', 'panel']);
 export const NAME_PATTERN = /^[a-z0-9\-.]{1,64}$/;
 

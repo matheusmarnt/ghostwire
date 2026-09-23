@@ -1,6 +1,6 @@
 const LEAF_TAGS_MEDIA = ['IMG', 'VIDEO', 'PICTURE', 'CANVAS'];
 const LEAF_TAGS_CONTROL = ['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'];
-const MAX_CANDIDATES = 300; // raw safety cap; tripping it stops the walk and keeps what was already collected (see visit())
+const MAX_CANDIDATES = 1500; // raw safety cap; tripping it stops the walk and keeps what was already collected (see visit())
 
 export function classify(el) {
   if (el.tagName === 'svg' || el.tagName === 'SVG') return 'icon';
@@ -64,11 +64,27 @@ export function collectAndClassifyRange(startNode, endNode, host, registry, maxD
 // over every candidate already collected.
 // A run of >= REPEAT_MIN_RUN uniform-height siblings sharing a
 // tag+class signature is sampled instead of walked in full.
+//
+// A display:none subtree (its own, not an inherited state — computed display
+// already resolves inheritance) is pruned right here, before any of its
+// descendants can spend the shared candidate budget. Without this, a large
+// hidden block that sits earlier in the DOM than the real content (a
+// mobile-nav duplicate of a responsive header, a closed dropdown, an unopened
+// modal) can exhaust the walk before it ever reaches that later, visible
+// content. Checked via the computed display value rather than a zero-size
+// bounding rect: a display:contents wrapper also reports a zero-size rect by
+// spec even though its children render normally, so a rect-based check would
+// wrongly prune real content along with it.
+function isCollapsed(el) {
+  return window.getComputedStyle(el).display === 'none';
+}
+
 function visit(node, registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, exemptHostEl, panelsEnabled) {
   const children = [];
   for (const child of node.children) {
     if (registry.hostFor(child) && child !== exemptHostEl) continue; // nested wire:ghost host is a boundary — except the host this walk is for
     if (child.getAttribute('aria-hidden') === 'true') continue;
+    if (isCollapsed(child)) continue;
     children.push(child);
   }
 
@@ -129,7 +145,7 @@ function processChild(child, registry, out, depth, maxDepth, repeatSampleSize, s
         // that turn out not to be panels (panel-ness is decided later, by
         // measure.js's isPanel check) — deliberate: it's cheaper than a
         // second pass, and it means a deep DOM with panels enabled can hit
-        // the 300-candidate cap sooner than the same DOM with panels off.
+        // the 1500-candidate cap sooner than the same DOM with panels off.
         const candidate = { el: child, type: 'container', depth };
         if (repeatGroup) candidate.repeatGroup = repeatGroup;
         out.push(candidate);
