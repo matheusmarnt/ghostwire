@@ -41,10 +41,13 @@ export function collectAndClassifyRange(startNode, endNode, host, registry, maxD
   const state = { groupSeq: 0 };
   let node = startNode.nextSibling;
   while (node && node !== endNode) {
+    // Checked before any per-sibling work (the display check included), so a
+    // range with far more siblings than the budget stops scanning the moment
+    // the cap is reached instead of style-reading every remaining sibling.
+    if (candidates.length >= MAX_CANDIDATES) {
+      return candidates;
+    }
     if (node.nodeType === Node.ELEMENT_NODE && (!registry.hostFor(node) || node === host.el) && !isCollapsed(node)) {
-      if (candidates.length >= MAX_CANDIDATES) {
-        return candidates;
-      }
       if (host.config.panels === true && classify(node) === 'container' && 0 < maxDepth) {
         const candidate = { el: node, type: 'container', depth: 0 };
         candidates.push(candidate);
@@ -80,16 +83,32 @@ function isCollapsed(el) {
 }
 
 function visit(node, registry, out, depth, maxDepth, repeatSampleSize, state, repeatGroup, exemptHostEl, panelsEnabled) {
+  // Eligible children are filtered on demand, only as far as the loop below
+  // actually reads, rather than all up front. The display check is a real
+  // style read, and a container with far more visible children than the
+  // candidate budget (a long flat list of distinct items) would otherwise pay
+  // it for every child, including all the ones the walk never reaches once
+  // the cap trips. (A display:none subtree never had this cost: its root
+  // fails the check once and nothing beneath it is visited.) Filtering
+  // lazily changes only how many children get checked, never which ones the
+  // walk sees: a repeat run is still read to its real end, however many
+  // siblings it spans, since the whole run costs only a few candidates.
   const children = [];
-  for (const child of node.children) {
-    if (registry.hostFor(child) && child !== exemptHostEl) continue; // nested wire:ghost host is a boundary — except the host this walk is for
-    if (child.getAttribute('aria-hidden') === 'true') continue;
-    if (isCollapsed(child)) continue;
-    children.push(child);
-  }
+  let next = node.firstElementChild;
+  const reach = (index) => {
+    while (children.length <= index && next) {
+      const child = next;
+      next = next.nextElementSibling;
+      if (registry.hostFor(child) && child !== exemptHostEl) continue; // nested wire:ghost host is a boundary — except the host this walk is for
+      if (child.getAttribute('aria-hidden') === 'true') continue;
+      if (isCollapsed(child)) continue;
+      children.push(child);
+    }
+    return index < children.length;
+  };
 
   let i = 0;
-  while (i < children.length) {
+  while (reach(i)) {
     if (out.length >= MAX_CANDIDATES) {
       // The aggregate block was meant to keep the un-walked tail from having
       // zero coverage, but it is sized to the WHOLE host and appended last, so
@@ -101,7 +120,7 @@ function visit(node, registry, out, depth, maxDepth, repeatSampleSize, state, re
       return;
     }
 
-    const runLength = matchingRunLength(children, i);
+    const runLength = matchingRunLength(children, i, reach);
     // Nested repeat detection is deliberately disabled while already inside a
     // sampled repeat item (repeatGroup is set): a repeat-of-repeats is rare,
     // and tagging every candidate with only its innermost group keeps the
@@ -164,10 +183,10 @@ function processChild(child, registry, out, depth, maxDepth, repeatSampleSize, s
   out.push(candidate);
 }
 
-function matchingRunLength(children, start) {
+function matchingRunLength(children, start, reach) {
   const signature = siblingSignature(children[start]);
   let end = start + 1;
-  while (end < children.length && siblingSignature(children[end]) === signature) end++;
+  while (reach(end) && siblingSignature(children[end]) === signature) end++;
   return end - start;
 }
 

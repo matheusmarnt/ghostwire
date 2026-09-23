@@ -208,6 +208,67 @@ describe('synthesizer/walk', () => {
     expect(candidates.map((c) => c.el.textContent)).toEqual(['before', 'wrapped', 'after']);
   });
 
+  // The next three pin that the candidate cap is enforced on candidates
+  // actually collected, never on how many raw siblings were scanned. A
+  // scan-count cutoff looks equivalent for a flat list of distinct leaves,
+  // but silently loses real content whenever siblings and candidates stop
+  // being one-to-one: a uniform run costs only a few candidates however many
+  // siblings it spans, and some siblings classify as nothing at all.
+  it('samples a uniform run far longer than the candidate budget against its full length, not a truncated prefix', () => {
+    const { host, items } = makeUniformHost(2000);
+    const registry = createRegistry();
+
+    const candidates = collectAndClassify(host, registry, 12, 3);
+
+    // 3 samples + 1 repeat-extra marker: the cap is nowhere near tripping, so
+    // the marker must describe every real row, through to the very last one.
+    expect(candidates).toHaveLength(4);
+    const extras = candidates.filter((c) => c.type === 'repeat-extra');
+    expect(extras).toHaveLength(1);
+    expect(extras[0].repeatExtra.count).toBe(1997);
+    expect(extras[0].repeatExtra.extraEls).toHaveLength(1997);
+    expect(extras[0].repeatExtra.extraEls[1996]).toBe(items[1999]);
+  }, 15000);
+
+  it('still collects content that follows a uniform run longer than the candidate budget', () => {
+    const { host } = makeUniformHost(1600);
+    const footer = document.createElement('p');
+    footer.className = 'footer';
+    footer.textContent = 'footer';
+    host.el.appendChild(footer);
+    const registry = createRegistry();
+
+    const candidates = collectAndClassify(host, registry, 12, 3);
+
+    // The whole 1600-row run costs 4 candidates, leaving ample budget for
+    // the footer after it.
+    expect(candidates).toHaveLength(5);
+    expect(candidates.find((c) => c.type === 'repeat-extra').repeatExtra.count).toBe(1597);
+    expect(candidates.some((c) => c.el === footer && c.type === 'text')).toBe(true);
+  }, 15000);
+
+  it('siblings that yield no candidate (e.g. <hr> separators) do not shrink how many real candidates the budget admits', () => {
+    const el = document.createElement('div');
+    for (let i = 0; i < 2000; i++) {
+      const item = document.createElement('div');
+      item.className = `item item-${i}`; // distinct classes: never sampled as a repeat run, every item walked individually
+      item.textContent = `Item ${i}`;
+      el.appendChild(item);
+      el.appendChild(document.createElement('hr')); // classifies as nothing
+    }
+    document.body.appendChild(el);
+    const host = { el, component: { id: 'c1' }, config: {}, state: 'idle', pending: 0, layer: null };
+    const registry = createRegistry();
+
+    const candidates = collectAndClassify(host, registry, 12);
+
+    // 4000 siblings, half of which produce no candidate: the cap still trips
+    // on 1500 real items, not after 1500 scanned siblings (750 items).
+    expect(candidates).toHaveLength(1500);
+    expect(candidates.every((c) => c.type === 'text')).toBe(true);
+    expect(candidates[1499].el.textContent).toBe('Item 1499');
+  }, 15000);
+
   it('the depth cap still aggregates per-container, independent of the count cap', () => {
     // Two sibling containers, each nested exactly at maxDepth (maxDepth: 1
     // here, mirroring the single-container depth-cap test above), each with

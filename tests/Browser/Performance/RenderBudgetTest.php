@@ -30,16 +30,16 @@ test('the show burst performs zero layout reads after its first DOM write', func
 
     expect($burst['readsAfterFirstWrite'])->toBe(0, "{$route}: {$burst['readsAfterFirstWrite']} layout read(s) landed after the burst's first DOM write — a forced reflow in the show cycle");
 })->with([
-    'node count, cap engaged' => ['/gallery/node-count?nodes=800'],
+    'node count, cap engaged' => ['/gallery/node-count?nodes=4000'],
     'repeat list' => ['/gallery/repeat-list'],
     'scrollable kanban' => ['/gallery/scrollable-kanban'],
     'card grid' => ['/gallery/card-grid'],
 ]);
 
 test('render budget: bones per cycle are bounded by the candidate cap, and exactly one layer mounts', function () {
-    $burst = gwShowBurst('/gallery/node-count?nodes=800');
+    $burst = gwShowBurst('/gallery/node-count?nodes=4000');
 
     expect($burst['bones'])->toBeGreaterThan(0)
-        ->and($burst['bones'])->toBeLessThanOrEqual(301) // (candidate cap x text lines per candidate) + 1 block bone; node-count's items are single-line, so 300 x 1 + 1 = 301 here — not a fixture-independent structural bound
+        ->and($burst['bones'])->toBeLessThanOrEqual(1501) // (candidate cap x text lines per candidate) + 1 block bone; node-count's items are single-line, so 1500 x 1 + 1 = 1501 here — not a fixture-independent structural bound
         ->and($burst['layerAppends'])->toBe(1);
 });
