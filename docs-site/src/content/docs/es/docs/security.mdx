@@ -1,0 +1,31 @@
+---
+title: Seguridad
+description: CSP, cadena de suministro, hardening de la superficie de datos, y privacidad.
+---
+
+## Content-Security-Policy
+
+Ghostwire se ejecuta bajo un CSP estricto — sin `<script>` inline, sin `eval`, sin `new Function`. El bundle compilado `resources/dist/ghostwire.js` nunca usa ninguno de los dos. Las directivas Blade `@ghostwireStyles`/`@ghostwireScripts` aceptan ambas un argumento nonce opcional para apps que hacen pasar un nonce de CSP por petición a través de su pipeline de assets.
+
+Verificado en CI: la propia gallery de tests del paquete se ejecuta bajo el CSP más estricto que cada línea de Livewire realmente soporta — sin `'unsafe-eval'` en absoluto en Livewire 4 con `csp_safe` habilitado, y `'unsafe-eval'` otorgado solo en Livewire 3, cuyo Alpine no puede evaluar expresiones `wire:*` sin él — no es solo una afirmación documentada.
+
+Livewire 4 ofrece un build de Alpine seguro para CSP, pero es opt-in: define `'csp_safe' => true` en tu `config/livewire.php` (por defecto es `false`). Con esto habilitado, tu política no necesita `'unsafe-eval'`. Dejado en el valor predeterminado, la política de una app en Livewire 4 sigue necesitando `'unsafe-eval'` — igual que Livewire 3, donde esa misma bandera no tiene efecto y la violación se sigue registrando de todos modos. De cualquier forma, este es un requisito de Livewire/Alpine, no de Ghostwire: el propio bundle de Ghostwire no necesita `eval` en ninguna de las dos líneas.
+
+## Cadena de suministro
+
+- **Auditoría de dependencias** — `composer audit` se ejecuta en CI en cada PR (`.github/workflows/security.yml`)
+- **Build reproducible de `dist/`** — se verifica en CI que los `resources/dist/ghostwire.js`/`.css` del repositorio coincidan con una ejecución fresca de `js/build.mjs` (esbuild) desde el código fuente, de modo que lo que se distribuye es demostrablemente lo que hay en el repo, no algo editado a mano después del build
+
+## Hardening de la superficie de datos
+
+- **Transporte servidor→cliente** — el payload `data-ghost` (claves compactas `m`/`o`/`x`/`d`/`h`/`r`/`p`/`s`/`l`/`v`/`g`/`n`/`a`, la última con los overrides de `#[Ghost]` a nivel de método por acción) se valida contra un esquema en el cliente: una clave desconocida descarta el payload *completo* en lugar de confiar en él parcialmente, y un valor malformado retrocede al valor predeterminado del paquete para ese campo, nunca a un pass-through sin validar
+- **Store de aprendizaje** — se valida en cada lectura, limitado a un tope fijo de 256 KB con desalojo de lo escrito menos recientemente, y solo contiene la forma estructural del bone tree — nunca contenido textual del DOM
+- **`ghost:export`** — con hardening contra path traversal: los nombres de componente se validan por charset, el destino se resuelve de forma canónica y se rechaza si queda fuera de `resources/views`, y un destino que sea un enlace simbólico o un directorio se rechaza sin importar `--force`. Consulta [Aprendizaje](/ghostwire/docs/learning/) para ver el flujo completo.
+
+## Privacidad
+
+Ningún dato del DOM del usuario sale jamás del navegador. El aprendizaje, cuando está habilitado (variable de entorno `GHOSTWIRE_LEARNING`, desactivada por defecto) y rechazado del lado del servidor en producción sin importar ese ajuste, es completamente local — nunca se transmite nada. Cero telemetría, punto.
+
+## Reportar una vulnerabilidad
+
+Consulta [`SECURITY.md`](https://github.com/matheusmarnt/ghostwire/blob/main/SECURITY.md) en el repositorio. Objetivo de respuesta: confirmación de recepción dentro de 5 días hábiles.

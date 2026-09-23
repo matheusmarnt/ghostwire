@@ -1,0 +1,114 @@
+---
+title: Aprendizado
+description: Persistência local de Bone Tree, esqueletos de placeholder lazy, e `php artisan ghost:export`.
+---
+
+Normalmente o Ghostwire sintetiza um esqueleto percorrendo o DOM *atual* no instante em que uma requisição do Livewire começa — então o primeiríssimo paint de um componente lazy, na primeiríssima visita de um visitante, ainda não tem nada para percorrer. O aprendizado fecha essa lacuna: ele lembra a Bone Tree de cada componente localmente, no navegador, e a repinta na próxima vez que esse componente estiver prestes a carregar de forma lazy, antes de qualquer conteúdo real existir. Essa captura roda em todo commit elegível no instante em que ele começa, independentemente do próprio atraso anti-flicker do esqueleto visível (`timing.delay`) — um commit que resolve instantaneamente é capturado exatamente da mesma forma que um lento o bastante para de fato mostrar seu próprio esqueleto.
+
+## Ativando
+
+O aprendizado vem desativado por padrão. Ative-o com uma variável de ambiente, ou a chave de config equivalente:
+
+```bash
+GHOSTWIRE_LEARNING=true
+```
+
+```php
+// config/ghostwire.php
+'learning' => [
+    'enabled' => true,
+],
+```
+
+A flag só ativa a captura do esqueleto e não produz nenhum efeito visível por conta própria — para ver um esqueleto aprendido sendo pintado, combine-a com `#[Ghost(lazy: true)]` no seu componente (e o `#[Lazy]` do Livewire, se você quiser que o esqueleto apareça já no carregamento inicial).
+
+Seja qual for o valor da flag, o Ghostwire também recusa coletar qualquer coisa enquanto `app()->isProduction()` for true — as duas verificações rodam no servidor, por requisição, então um cliente nunca consegue ativar o aprendizado por conta própria. O aprendizado também só roda contra o store `local` (`learning.store` em `config/ghostwire.php`); qualquer outro valor o recusa de imediato.
+
+## O que é armazenado, e onde
+
+As árvores aprendidas vivem no `localStorage`, sob a chave `ghostwire.learned.v1` — uma árvore por componente por [faixa de breakpoint](#breakpoints). Cada entrada é o próprio nome do componente, um timestamp usado para remoção, a largura/altura do host, e uma lista simples de bones (`type`, `x`, `y`, `width`, `height`): geometria e um tipo de bone de um enum fixo, nunca texto, nunca conteúdo do DOM, nada dos dados da própria página.
+
+Nada disso é enviado para lugar nenhum — não existe nenhuma requisição de rede nesse caminho. A única forma de dados aprendidos saírem do navegador é o download iniciado pelo usuário, descrito em Exportando, logo abaixo. Você pode limpar os dados aprendidos de um navegador a qualquer momento com `Ghostwire.clearLearned()`.
+
+O store é revalidado a cada leitura. Qualquer coisa que não corresponda ao formato esperado — um valor corrompido, uma entrada que falha na validação — é descartada silenciosamente, e o componente afetado simplesmente aprende de novo na próxima visita. O armazenamento tem um teto fixo de 256 KB, com as entradas escritas há mais tempo sendo removidas primeiro quando ele enche.
+
+## Versões de schema
+
+Árvores aprendidas são um cache, vinculado a uma versão de schema. Uma atualização do Ghostwire que eleva essa versão descarta toda árvore aprendida anteriormente — não existe caminho de migração, porque migrar um cache derivado seria over-engineering: cada entrada simplesmente é reaprendida na próxima visita, ao custo de uma nova síntese, e não há nada que o desenvolvedor precise fazer. A única parte que não se resolve sozinha é o valor antigo deixado no `localStorage`: ele é removido na próxima vez que for lido, em vez de ficar órfão ali para sempre.
+
+## `#[Ghost(lazy: true)]`
+
+```php
+use Ghostwire\Attributes\Ghost;
+
+#[Ghost(lazy: true)]
+class OrdersTable extends Component
+{
+    // ...
+}
+```
+
+Para um componente que usa o próprio lazy loading do Livewire, `lazy: true` instrui o Ghostwire a pintar o esqueleto aprendido no placeholder que o Livewire renderiza, antes que o conteúdo real do componente sequer carregue.
+
+Isso nunca se aplica se o componente já tiver seu próprio placeholder: um método `placeholder()`, um bloco `@placeholder` do Livewire 4, ou um placeholder padrão global configurado pela sua aplicação (`livewire.component_placeholder` no Livewire 4, `livewire.lazy_placeholder` no Livewire 3). Qualquer um desses prevalece de imediato — o Ghostwire só preenche um placeholder que, de outra forma, ficaria em branco.
+
+Combinando o próprio lazy loading do Livewire com o do Ghost — sem método `placeholder()`, então o esqueleto aprendido do Ghostwire preenche a lacuna assim que existir um para esse componente e breakpoint:
+
+```php
+use Livewire\Attributes\Lazy;
+use Ghostwire\Attributes\Ghost;
+
+#[Lazy]
+#[Ghost(lazy: true)]
+class OrdersTable extends Component
+{
+    // ...
+}
+```
+
+## Exportando uma árvore aprendida
+
+Transforme o que o aprendizado coletou em um placeholder Blade real e estático — sem nenhum navegador headless envolvido em momento algum:
+
+```
+// In the browser, on a page where learning has run:
+Ghostwire.exportLearned()      // downloads ghostwire-learned.json
+```
+
+```bash
+php artisan ghost:export --component=orders-table --breakpoint=lg \
+    --from=~/Downloads/ghostwire-learned.json
+```
+
+`ghost:export` revalida o arquivo baixado de forma independente de qualquer coisa que o navegador já tenha checado — no momento em que chega a esse comando, é um arquivo que passou pela pasta de downloads de um desenvolvedor. Ele escreve uma partial Blade estática por par `--component`/`--breakpoint` dentro de `resources/views` (`--output` para escolher onde; `--force` para sobrescrever um arquivo já existente nesse destino) e imprime o nome da view a ser usada:
+
+```php
+public function placeholder()
+{
+    return view('livewire.orders-table-placeholder');
+}
+```
+
+## Breakpoints
+
+Uma árvore aprendida é vinculada a uma de seis faixas de largura, correspondendo à largura do viewport no momento em que foi aprendida:
+
+| Faixa | Largura mínima |
+|---|---|
+| `xs` | 0 |
+| `sm` | 640 |
+| `md` | 768 |
+| `lg` | 1024 |
+| `xl` | 1280 |
+| `2xl` | 1536 |
+
+Um componente mantém uma árvore aprendida por faixa — redimensione a janela, ou veja em um dispositivo diferente, e uma árvore diferente passa a valer assim que uma tiver sido aprendida naquela largura.
+
+## Postura de segurança
+
+O aprendizado segue o mesmo hardening do restante do transporte do Ghostwire — veja [Segurança](/ghostwire/docs/security/) para o panorama completo. Específico a esse recurso:
+
+- O nome de um componente é validado contra `[a-z0-9.-]` (1–64 caracteres) antes de ser usado para buscar ou armazenar uma árvore, tanto no navegador quanto pelo `ghost:export`.
+- O destino do `ghost:export` é resolvido de forma canônica e recusado de imediato se cair fora de `resources/views` — inclusive através de um diretório pai symlinkado.
+- O próprio destino é recusado se for um symlink (válido ou quebrado) ou um diretório já existente, independentemente de `--force`; sobrescrever qualquer outro arquivo já existente nesse destino ainda exige `--force`.
+- A partial Blade que o `ghost:export` escreve é totalmente estática: todo número aprendido é limitado (clamped) e impresso como um valor simples em pixels, e o tipo de bone vem de um enum fechado. Nenhum valor aprendido é jamais interpolado como markup, e nada lido de volta do store consegue chegar a `eval` ou `innerHTML`.

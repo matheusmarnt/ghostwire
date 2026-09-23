@@ -1,0 +1,45 @@
+---
+title: Elegir entre directiva y atributo
+description: Cuándo usar cada enfoque — una página de decisión.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+**La directiva decide *dónde*. El atributo decide *cuándo*.**
+
+- Recurre a **`wire:ghost`** cuando estés marcando un elemento específico y quieras que el esqueleto quede acotado exactamente a ese subárbol — el caso común de una sola tabla, una cuadrícula de tarjetas o un panel.
+- Recurre a **`#[Ghost]`** cuando quieras configurar el comportamiento de todo un componente sin tocar su vista en absoluto — ideal para migrar en bloque muchos componentes existentes, o para overrides a nivel de método ligados a acciones específicas en lugar de a marcado específico.
+
+<Tabs>
+<TabItem label="Directiva wire:ghost">
+
+Acota el esqueleto al subárbol de un elemento, directo en la vista:
+
+```blade
+<div wire:ghost.delay.100ms>
+    <h2>{{ $product->name }}</h2>
+    <p>{{ $product->description }}</p>
+</div>
+```
+
+</TabItem>
+<TabItem label="Atributo #[Ghost]">
+
+Configura todo el componente desde la clase — sin cambios en la vista:
+
+```php
+use Ghostwire\Attributes\Ghost;
+
+#[Ghost(mode: 'synthesize', delay: 100)]
+class ProductCard extends Component
+{
+    public Product $product;
+}
+```
+
+</TabItem>
+</Tabs>
+
+Se combinan entre sí: pon `#[Ghost(mode: 'freeze')]` en la clase como valor por defecto, y luego una directiva `wire:ghost.delay.50ms` en un elemento particularmente lento dentro de ella para anular solo el timing de ese host. La cascada de precedencia en [`/docs/ghost-attribute`](/ghostwire/docs/ghost-attribute/) resuelve la combinación.
+
+Si estás migrando 60 componentes legacy sin tocar ninguna vista — pon `#[Ghost]` en la clase base que comparten: bajo el `strategy: 'opt-in'` por defecto, el atributo heredado instrumenta cada subclase, así que no hace falta `strategy: 'global'`; agrega overrides a nivel de directiva solo donde un elemento específico necesite un timing o modo distinto al resto de su componente.

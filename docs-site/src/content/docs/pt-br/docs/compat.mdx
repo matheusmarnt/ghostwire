@@ -1,0 +1,42 @@
+---
+title: Compatibilidade com Livewire 3/4
+description: A matriz de tiers A/B/C, a detecção de bridge, e as degradações documentadas.
+---
+
+O Ghostwire suporta Livewire 3.6+ e 4.x a partir do mesmo pacote. A seleção do bridge acontece em `livewire:init`, por **detecção de recursos em runtime** — nunca por uma string de versão:
+
+1. `typeof Livewire.interceptMessage === 'function'` → bridge do Livewire 4
+2. senão, `Livewire.hook` presente → bridge do Livewire 3
+3. nenhum dos dois → o runtime se desativa; o aviso no console para isso (e todo outro diagnóstico de desenvolvedor) só dispara quando a tag `<script>` do pacote carrega `data-ghostwire-debug="1"`, que o `@ghostwireScripts` adiciona automaticamente fora de produção
+
+As mesmas três verificações, como a lógica de detecção de fato:
+
+```js
+if (typeof Livewire.interceptMessage === 'function') {
+    // Livewire 4 bridge
+} else if (typeof Livewire.hook === 'function') {
+    // Livewire 3 bridge
+} else {
+    // Neither present — Ghostwire disables itself for this page
+}
+```
+
+## Matriz de tiers
+
+| Tier | Capacidades |
+|---|---|
+| **A — idêntico nas duas linhas** | Diretiva e todo modificador, incluindo `.panels`, exceto `.island` · `#[Ghost]` completo (classe, método, herança, precedência) · síntese · modo `freeze` · temporização (delay/hold) · silêncio de mensagens de sync · tema e tokens CSS · acessibilidade (`aria-busy`, preservação de foco, live region) · aprendizado e exportação · coexistência com morph · detecção e promoção de panels |
+| **B — degradado no 3.x** | Remoção pós-pintura — emulada via duas chamadas encadeadas de `requestAnimationFrame` (custa até um frame extra de esqueleto, nunca um flash de conteúdo não pintado) · finalização — composta a partir de `succeed`/`fail`/`request.fail`, idempotente · cancelamento — resolvido como finalização · detecção de poll — heurística sobre a origem do disparo (`wire:poll` no elemento) · interceptação por ação — filtrada em nível de bridge, mesmo comportamento observável |
+| **C — somente 4.x** | Escopo de island (modificador `.island` — no-op, documentado, no 3.x) · tratamento de message-skip |
+
+## O que "degradado" significa na prática
+
+Nada no Tier B produz comportamento incorreto — ele produz o mesmo resultado *observável* através de um mecanismo diferente, compatível com o 3.x. Uma capacidade sem nenhum equivalente no 3.x (Tier C) degrada para um no-op documentado, em vez de um erro ou uma emulação construída sobre as APIs internas do Livewire (o Ghostwire nunca mexe em internals para simular uma capacidade que não existe de verdade).
+
+## Verificação em CI
+
+Tanto a suíte de testes de contrato quanto a suíte completa de testes de navegador rodam contra as duas linhas do Livewire em todo PR (a matriz de `.github/workflows/tests.yml`). Um comportamento que diverge entre as linhas fora dessa matriz documentada é tratado como um bug que bloqueia release.
+
+## Detecção, não sniffing
+
+O sniffing de string de versão é explicitamente proibido pelo próprio design do pacote — um futuro patch release do Livewire que mude internals sem mudar seus hooks públicos nunca deve exigir uma atualização do Ghostwire só porque uma comparação de string quebrou.

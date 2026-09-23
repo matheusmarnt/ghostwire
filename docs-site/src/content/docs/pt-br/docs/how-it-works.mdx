@@ -1,0 +1,29 @@
+---
+title: Como funciona
+description: O algoritmo de síntese — página de referência técnica.
+---
+
+O sintetizador do Ghostwire roda um pipeline de cinco fases contra o DOM ao vivo, toda vez que um host precisa de um esqueleto novo:
+
+```
+walk(host)
+  ├─ 1. Collect     → traverse the subtree, applying .ignore/.keep exclusions
+  ├─ 2. Classify    → assign a BoneType to every eligible node (text, heading, media, control, container, icon, panel)
+  ├─ 3. Measure     → one batched layout/style read pass — never interleaved with writes
+  ├─ 4. Reduce      → detect repeated siblings, fuse adjacent bones, cap node count
+  └─ 5. Emit        → a Bone Tree in coordinates relative to the host
+```
+
+**Panels:** Um container cujo próprio fundo, borda ou sombra o torna visualmente distinto pode ser promovido ao seu próprio bone `panel` — percorrido como um container normal, mas emitido como seu próprio bone, pintado abaixo de seus filhos, antes que eles sejam pintados por cima dele, em vez de ser representado apenas indiretamente através deles. Os filhos continuam sendo emitidos como seus próprios bones separados, não substituídos. Isso cria regiões visuais distintas no esqueleto sem achatar a árvore de componentes. Ative via `.panels` na diretiva ou `panels: true` em `#[Ghost]`; desativado por padrão.
+
+**A separação entre leitura e escrita é estrutural.** Toda leitura de layout (`getBoundingClientRect`, `getComputedStyle`) acontece antes de qualquer escrita no DOM — misturá-las força um reflow síncrono por elemento, em vez de um único reflow em lote para o host inteiro. Esse é o maior invariante de performance de todo o código, e é garantido por um teste que protege contra regressão, não apenas por convenção.
+
+**A amostragem de irmãos repetidos** mede de verdade os três primeiros irmãos estruturalmente uniformes de uma sequência, e depois clona bones para o restante — preservando a contagem e o espaçamento reais sem remedir centenas de linhas quase idênticas. Bones de texto são sempre medidos de verdade, nunca clonados, porque a largura do texto varia genuinamente de linha para linha.
+
+**A memoização baseada em assinatura** faz o hash do conjunto de candidatos já classificados (incluindo a contagem de itens de sequências repetidas), de modo que um host inalterado pula a síntese por completo no próximo ciclo — invalidada por um `ResizeObserver` observando o tamanho da border-box.
+
+**O freeze adaptativo** degrada um host de `synthesize` para o modo `freeze` automaticamente após duas sínteses lentas (>50ms) consecutivas — uma única amostra lenta é tratada como jitter de GC/engine, não como um sinal estrutural.
+
+**Hosts lentos permanecem congelados.** Uma vez que o freeze adaptativo acima é disparado, o host permanece em modo `freeze` até ser destruído — a síntese nunca é tentada de novo, então nada jamais o remede de volta para `synthesize`. Essa é uma histerese intencional, não um bug: retestar um host degradado a cada commit é exatamente como o flicker é produzido, já que o custo que disparou o freeze é uma propriedade da subárvore, não do único commit que por acaso a mediu. Um reload da página o reseta, já que a sequência que o rastreia vive apenas em memória, pela duração de vida da página.
+
+Experimente o algoritmo diretamente, ao vivo, contra seu próprio markup, no [playground](/ghostwire/playground/).

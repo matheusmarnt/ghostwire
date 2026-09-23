@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="art/ghostwire.png" alt="Ghostwire" width="750" />
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset="art/ghostwire-light.png" />
+    <source media="(prefers-color-scheme: dark)" srcset="art/ghostwire.png" />
+    <img src="art/ghostwire.png" alt="Ghostwire" width="750" />
+  </picture>
 </p>
 
 <p align="center">
@@ -44,7 +48,7 @@ Add `wire:ghost` to any element (or `#[Ghost]` to a component class, with zero v
 | Laravel | 12.x, 13.x |
 | Livewire | 3.6+, 4.x |
 
-### Tier matrix (FR-81)
+### Tier matrix
 
 Bridge selection is runtime feature detection, never a version string. Everything below is verified on both lines in CI.
 
@@ -132,7 +136,7 @@ Full docs, live playground, and gallery: **<https://matheusmarnt.github.io/ghost
 
 ## Security
 
-See [`SECURITY.md`](SECURITY.md) and [`/docs/security`](https://matheusmarnt.github.io/ghostwire/docs/security/). No DOM data ever leaves the browser; learning is local-only; zero telemetry (FR-93).
+See [`SECURITY.md`](SECURITY.md) and [`/docs/security`](https://matheusmarnt.github.io/ghostwire/docs/security/). No DOM data ever leaves the browser; learning is local-only; zero telemetry.
 
 ## Other packages by the author
 

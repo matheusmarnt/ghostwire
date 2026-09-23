@@ -1,0 +1,11 @@
+---
+import Gallery from '../../components/Gallery.astro';
+import { locales, defaultLocale, type Locale } from '../../i18n/ui';
+
+export function getStaticPaths() {
+  return locales.filter((l) => l !== defaultLocale).map((locale) => ({ params: { locale } }));
+}
+
+const locale = Astro.params.locale as Locale;
+---
+<Gallery lang={locale} />

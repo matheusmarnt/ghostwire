@@ -1,0 +1,136 @@
+---
+title: 'Atributo #[Ghost]'
+description: Parâmetros, escopos, herança, migração em massa.
+---
+
+Aplique a uma classe de componente — sem necessidade de mudanças na view:
+
+```php
+use Ghostwire\Attributes\Ghost;
+
+#[Ghost(mode: 'synthesize', delay: 200, hold: 400)]
+class ProductTable extends Component
+{
+    // ...
+}
+```
+
+## Parâmetros
+
+| Parâmetro | Tipo | Padrão | Significado |
+|---|---|---|---|
+| `mode` | `'synthesize'｜'freeze'｜'off'` | `'synthesize'` | Estratégia de carregamento para esse componente |
+| `only` | `array<string>｜null` | `null` | Ações que ativam o ghost |
+| `except` | `array<string>｜null` | `null` | Ações que nunca o ativam |
+| `delay` | `int｜null` | `null` (padrão do pacote: 120ms) | Atraso antes do ghost aparecer |
+| `hold` | `int｜null` | `null` (padrão do pacote: 300ms) | Duração mínima visível |
+| `rows` | `int｜null` | `null` | Dica de linhas repetidas para um host vazio |
+| `poll` | `bool` | `false` | Permite que mensagens de polling ativem o ghost |
+| `sync` | `bool` | `false` | Permite que mensagens somente de propriedade (sync) o ativem |
+| `lazy` | `bool` | `false` | Reutiliza a árvore aprendida como placeholder lazy |
+| `panels` | `bool` | `false` | Promove containers visualmente distintos ao seu próprio panel bone |
+
+## Mais exemplos
+
+Filtragem de ações — restrinja ou exclua ações específicas da configuração em nível de classe:
+
+```php
+#[Ghost(only: ['loadMore', 'applyFilters'])]
+class ProductList extends Component
+{
+    // ...
+}
+```
+
+Somente `loadMore` e `applyFilters` ativam o ghost; toda outra ação o deixa em paz.
+
+```php
+#[Ghost(except: ['toggleFavorite'])]
+class ProductList extends Component
+{
+    // ...
+}
+```
+
+Toda ação ativa o ghost, exceto `toggleFavorite`.
+
+```php
+#[Ghost(rows: 5)]
+class OrderTable extends Component
+{
+    // ...
+}
+```
+
+Renderiza 5 linhas de esqueleto quando a tabela ainda não tem dados — o equivalente, em atributo, de `wire:ghost.rows.5`.
+
+```php
+#[Ghost(poll: true)]
+class LiveTicker extends Component
+{
+    // ...
+}
+```
+
+Permite que um refresh disparado por `wire:poll` também ative o ghost; mensagens de polling são silenciosas por padrão.
+
+```php
+#[Ghost(sync: true)]
+class SearchResults extends Component
+{
+    // ...
+}
+```
+
+Permite que uma atualização somente de propriedade (ex.: `wire:model.live`) também ative o ghost; mensagens de sync são silenciosas por padrão.
+
+```php
+#[Ghost(lazy: true)]
+class Dashboard extends Component
+{
+    // ...
+}
+```
+
+Reutiliza uma Bone Tree previamente aprendida como placeholder de carregamento lazy — veja [Aprendizado](/ghostwire/docs/learning/) para a configuração completa.
+
+```php
+#[Ghost(panels: true)]
+class ProductGrid extends Component
+{
+    // ...
+}
+```
+
+Cards com fundo, borda ou sombra visíveis ganham, cada um, seu próprio panel bone preenchido — veja [Como funciona](/ghostwire/docs/how-it-works/).
+
+## Cascata de precedência
+
+Sete níveis, do mais para o menos específico:
+
+1. **Modificador de diretiva no elemento** — ex.: `wire:ghost.freeze`
+2. **Expressão de diretiva / direcionamento por ação** — ex.: `wire:ghost="applyFilters"`
+3. **`#[Ghost]` no método da ação em execução**
+4. **`#[Ghost]` na classe do componente**
+5. **`#[Ghost]` herdado de uma classe base ou trait**
+6. **`config/ghostwire.php`**
+7. **Padrões do pacote**
+
+A diretiva `wire:ghost` no elemento tem prioridade sobre o atributo `#[Ghost]`: uma configuração em nível de diretiva sobrepõe o que os níveis de atributo declararem, campo a campo. Qualquer campo que um determinado nível não declare passa para o próximo. Inspecione exatamente qual nível decidiu a configuração ao vivo de um componente com:
+
+```bash
+php artisan ghost:inspect
+```
+
+## Direcionamento em nível de método
+
+```php
+#[Ghost(mode: 'freeze')]
+class ReportTable extends Component
+{
+    #[Ghost(mode: 'synthesize', delay: 50)]
+    public function refresh() { /* ... */ }
+}
+```
+
+O próprio atributo de `refresh()` sobrepõe o padrão em nível de classe, apenas para essa ação.
