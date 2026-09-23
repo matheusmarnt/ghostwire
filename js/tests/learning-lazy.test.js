@@ -392,121 +392,100 @@ describe('paintLazyPlaceholders (SPEC-LRN-02)', () => {
       }
     });
 
-    // The morphed hook must schedule a rAF-deferred learning-capture loop
-    // when no hosts exist yet (hadNoHosts === true). This test verifies rAF is called.
-    it('morphed hook schedules requestAnimationFrame on first call when no hosts exist', () => {
+    // Fixture: lazy component starts with placeholder (no data-ghost),
+    // then morphs in real content. Matches production: component.init attaches nothing,
+    // 'morphed' sees hadNoHosts === true and runs the new code path.
+    function makeLazyLearningComponent() {
+      const el = document.createElement('div');
+      el.setAttribute('data-ghost-lazy', 'orders-table'); // Livewire's placeholder marker
+      document.body.appendChild(el);
+      return { id: 'c1', el };
+    }
+
+    function morphInRealContent(el, { width = 200, height = 100 } = {}) {
+      el.removeAttribute('data-ghost-lazy');
+      el.setAttribute('data-ghost', JSON.stringify({ m: 'synthesize', g: true, n: 'orders-table' }));
+      el.innerHTML = '<p>Hello world</p>';
+      el.getBoundingClientRect = () => ({ top: 0, left: 0, right: width, bottom: height, width, height });
+      for (const child of el.querySelectorAll('*')) {
+        child.getBoundingClientRect = () => ({ top: 10, left: 10, right: 90, bottom: 30, width: 80, height: 20 });
+      }
+    }
+
+    // Requirement (a): captures learning on first morphed after lazy hydration
+    // with the real post-morph geometry. Uses Idiom A: read back through fresh store.
+    it('captures learning on the first morphed after a lazy hydration, with the real post-morph geometry', () => {
+      const storage = fakeStorage();
+      vi.stubGlobal('localStorage', storage);
+      vi.stubGlobal('requestAnimationFrame', (cb) => { cb(); return 0; }); // sync for this test
+
       const livewire = fakeLivewire();
       window.Livewire = livewire;
-      vi.stubGlobal('localStorage', fakeStorage());
-
-      const rafSpy = vi.spyOn(window, 'requestAnimationFrame');
-
       boot();
 
-      const realEl = document.createElement('div');
-      realEl.setAttribute('data-ghost', 'true');
-      realEl.setAttribute('data-ghost-learning', 'true');
-      realEl.setAttribute('data-ghost-name', 'lazy-panel');
-      realEl.innerHTML = '<p>Content</p>';
-      realEl.getBoundingClientRect = () => ({
-        top: 0, left: 0, right: 300, bottom: 250, width: 300, height: 250,
-      });
-      document.body.appendChild(realEl);
+      const component = makeLazyLearningComponent();
+      livewire.trigger('component.init', { component, cleanup: () => {} }); // no data-ghost -> attaches nothing
 
-      const component = {
-        id: 'lazy-c1',
-        el: realEl,
-        addCleanup: vi.fn(),
-      };
+      morphInRealContent(component.el, { width: 200, height: 100 });
+      livewire.trigger('morphed', { component }); // hadNoHosts was true -> attach retry + synthesis
 
-      // Trigger morphed hook — the hadNoHosts path should schedule a rAF
-      livewire.trigger('morphed', { component });
-
-      // requestAnimationFrame should have been called by the learning-capture path
-      expect(rafSpy).toHaveBeenCalled();
+      const learned = createLearningStore({ storage }).get('orders-table', bandFor(window.innerWidth));
+      expect(learned).not.toBeNull(); // Synthesis ran and persisted
+      expect(learned.width).toBe(200);
+      expect(learned.height).toBe(100);
+      expect(learned.bones.length).toBeGreaterThan(0);
     });
 
-    // The learning-capture loop is gated on hadNoHosts, ensuring it only runs
-    // on first recovery (when no host exists yet). This test verifies rAF scheduling
-    // is triggered when that condition is met.
-    it('learning-capture rAF scheduling is gated on hadNoHosts check', () => {
+    // Requirement (b): does not re-trigger learning-capture on a second morphed
+    // for an already-hosted component. Uses Idiom B: spy on setItem call count.
+    it('does not re-trigger learning-capture on a second morphed for an already-hosted component', () => {
+      const storage = fakeStorage();
+      vi.stubGlobal('localStorage', storage);
+      vi.stubGlobal('requestAnimationFrame', (cb) => { cb(); return 0; });
+      const setItemSpy = vi.spyOn(storage, 'setItem');
+
       const livewire = fakeLivewire();
       window.Livewire = livewire;
-      vi.stubGlobal('localStorage', fakeStorage());
-
       boot();
 
-      const realEl = document.createElement('div');
-      realEl.setAttribute('data-ghost', 'true');
-      realEl.setAttribute('data-ghost-learning', 'true');
-      realEl.setAttribute('data-ghost-name', 'lazy-panel-2');
-      realEl.innerHTML = '<p>Content</p>';
-      realEl.getBoundingClientRect = () => ({
-        top: 0, left: 0, right: 200, bottom: 100, width: 200, height: 100,
-      });
-      document.body.appendChild(realEl);
+      const component = makeLazyLearningComponent();
+      livewire.trigger('component.init', { component, cleanup: () => {} });
+      morphInRealContent(component.el, { width: 200, height: 100 });
+      livewire.trigger('morphed', { component }); // first: learns, hadNoHosts was true
 
-      const component = {
-        id: 'lazy-c2',
-        el: realEl,
-        addCleanup: vi.fn(),
-      };
+      const callsAfterFirst = setItemSpy.mock.calls.length;
+      expect(callsAfterFirst).toBeGreaterThan(0);
 
-      // The morphed hook computes hadNoHosts once at the start and gates both
-      // attachAttributeHost and rAF scheduling on it. This ensures the learning-capture
-      // path only runs when recovering a #[Lazy] component (first morphed, no host yet).
-      const rafSpy = vi.spyOn(window, 'requestAnimationFrame');
-
-      livewire.trigger('morphed', { component });
-
-      // Verify rAF was called (indicating the learning-capture path ran)
-      expect(rafSpy).toHaveBeenCalled();
+      livewire.trigger('morphed', { component }); // second: already hosted, hadNoHosts is false
+      expect(setItemSpy.mock.calls.length).toBe(callsAfterFirst); // no new persist from learning path
     });
 
-    // rAF deferral ensures measurement reflects post-morph layout. The learning-capture
-    // callback must run AFTER layout settles (via rAF), not synchronously in the morphed
-    // hook. This test verifies the timing pattern is in place.
-    it('learning-capture callback defers via requestAnimationFrame until layout settles', () => {
+    // Requirement (c): measures the settled post-morph geometry, not mid-transition size.
+    // Proves rAF deferral is necessary. Uses capturing rAF stub + Idiom A.
+    it('measures the settled post-morph geometry, not a mid-transition size (rAF deferral regression)', () => {
+      const storage = fakeStorage();
+      vi.stubGlobal('localStorage', storage);
+      let pending;
+      vi.stubGlobal('requestAnimationFrame', (cb) => { pending = cb; return 0; }); // capture, don't fire
+
       const livewire = fakeLivewire();
       window.Livewire = livewire;
-      vi.stubGlobal('localStorage', fakeStorage());
-
       boot();
 
-      const realEl = document.createElement('div');
-      realEl.setAttribute('data-ghost', 'true');
-      realEl.setAttribute('data-ghost-learning', 'true');
-      realEl.setAttribute('data-ghost-name', 'lazy-panel-3');
-      realEl.innerHTML = '<p>Content</p>';
+      const component = makeLazyLearningComponent();
+      livewire.trigger('component.init', { component, cleanup: () => {} });
+      morphInRealContent(component.el, { width: 200, height: 100 }); // mid-transition at 'morphed' time
+      livewire.trigger('morphed', { component }); // attach + schedule synthesize, not yet measure
 
-      let elWidth = 100;
-      realEl.getBoundingClientRect = () => ({
-        top: 0, left: 0, right: elWidth, bottom: 100, width: elWidth, height: 100,
-      });
-      document.body.appendChild(realEl);
+      // Layout settles AFTER 'morphed', before rAF fires — this is what the fix defers past:
+      component.el.getBoundingClientRect = () => ({ top: 0, left: 0, right: 1776, bottom: 2589.5, width: 1776, height: 2589.5 });
 
-      const component = {
-        id: 'lazy-c3',
-        el: realEl,
-        addCleanup: vi.fn(),
-      };
+      pending(); // flush — this is what rAF gives: measuring after layout settles
 
-      const rafSpy = vi.spyOn(window, 'requestAnimationFrame');
-
-      // Trigger morphed hook — should schedule learning-capture via rAF
-      livewire.trigger('morphed', { component });
-
-      // Verify that rAF was called (proving deferral via rAF pattern is used)
-      expect(rafSpy).toHaveBeenCalled();
-
-      // Before rAF resolves, a layout mutation would happen (simulating browser finishing morph).
-      // The key point: the learning-capture loop won't measure until rAF fires,
-      // so it will capture the post-mutation state (e.g., elWidth = 300) not the initial state.
-      // This test verifies the rAF pattern exists (the core of the fix).
-      elWidth = 300;
-
-      // The callback deferred via rAF will eventually run after layout settles
-      vi.runAllTimers();
+      const learned = createLearningStore({ storage }).get('orders-table', bandFor(window.innerWidth));
+      expect(learned.width).toBe(1776); // settled size, not the 200 at 'morphed' time
+      expect(learned.height).toBe(2589.5);
+      expect(learned.bones.length).toBeGreaterThan(0);
     });
   });
 });
