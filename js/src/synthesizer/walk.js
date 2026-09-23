@@ -68,10 +68,12 @@ export function collectAndClassifyRange(startNode, endNode, host, registry, maxD
 // A run of >= REPEAT_MIN_RUN uniform-height siblings sharing a
 // tag+class signature is sampled instead of walked in full.
 //
-// A display:none subtree (its own, not an inherited state — computed display
-// already resolves inheritance) is pruned right here, before any of its
-// descendants can spend the shared candidate budget. Without this, a large
-// hidden block that sits earlier in the DOM than the real content (a
+// A display:none subtree is pruned right here, before any of its
+// descendants can spend the shared candidate budget. Checking only each
+// node's own computed display is enough — a display:none ancestor removes
+// its whole subtree from layout, so pruning stops the walk from ever
+// descending into it; no separate ancestor check is needed. Without this,
+// a large hidden block that sits earlier in the DOM than the real content (a
 // mobile-nav duplicate of a responsive header, a closed dropdown, an unopened
 // modal) can exhaust the walk before it ever reaches that later, visible
 // content. Checked via the computed display value rather than a zero-size

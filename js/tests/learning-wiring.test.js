@@ -429,10 +429,9 @@ describe('learning capture decoupled from the visible-skeleton delay (SPEC-LRN-0
     componentInitCallback()({ component, cleanup: () => {} });
 
     // Simulates a sync-only commit (isSync=true, no user actions) that would
-    // normally silence the visible skeleton update, but learning capture should
-    // still run (Task 1 fix: reordered the gates so learning runs before the
-    // sync/poll silence). After this fix, the learningStore should have data
-    // even though scheduler.messageStart is silenced.
+    // normally silence the visible skeleton update, but learning capture runs
+    // ahead of that gate and is unaffected by it. The learningStore should
+    // have data even though scheduler.messageStart is silenced.
     interceptedCallback({
       message: { isSkipped: () => false, component, getActions: () => [] }, // no actions at all -> isSync (v4 bridge)
       onSuccess: () => {},
@@ -589,9 +588,9 @@ describe('learning capture decoupled from the visible-skeleton delay (SPEC-LRN-0
   });
 
   it('still silences visible skeleton (scheduler.messageStart) for sync-only message while capturing learning', () => {
-    // Regression test for Task 1 fix: the sync/poll gates were moved AFTER
-    // learning-capture to decouple learning from the visible-skeleton silence.
-    // This test verifies the visible skeleton remains silenced (messageStart not
+    // Learning capture happens before the sync/poll visibility gate runs, so
+    // it stays decoupled from the visible skeleton's silencing. This test
+    // verifies the visible skeleton remains silenced (messageStart not
     // called) even though learning IS captured.
     const storage = fakeStorage();
     vi.stubGlobal('localStorage', storage);
