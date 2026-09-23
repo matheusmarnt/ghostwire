@@ -48,7 +48,7 @@ final class LearnedTree
     // modifier is required for the same reason NAME_PATTERN carries one (see
     // above): without it, PCRE's $ also matches immediately before a trailing
     // "\n", which JS's $ (no `m` flag) does not.
-    public const BORDER_RADIUS_PATTERN = '/^\d+(\.\d+)?(px|%|em|rem)( \d+(\.\d+)?(px|%|em|rem)){0,3}$/D';
+    public const BORDER_RADIUS_PATTERN = '/^\d+(\.\d+)?(e[+-]?\d+)?(px|%|em|rem)( \d+(\.\d+)?(e[+-]?\d+)?(px|%|em|rem)){0,3}$/D';
 
     /**
      * @return array{width: float, height: float, bones: array<int, array{type: string, x: float, y: float, width: float, height: float, borderRadius?: string}>}|null

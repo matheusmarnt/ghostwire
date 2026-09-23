@@ -166,6 +166,44 @@ describe('learning store', () => {
     ])).toBe(false);
   });
 
+  it('accepts a panel bone with scientific notation borderRadius (positive exponent)', () => {
+    expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
+      { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '3.35544e+07px' },
+    ])).toBe(true);
+  });
+
+  it('accepts a panel bone with scientific notation borderRadius (negative exponent)', () => {
+    expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
+      { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '1.5e-3px' },
+    ])).toBe(true);
+  });
+
+  it('accepts a panel bone with scientific notation borderRadius (unsigned exponent)', () => {
+    expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
+      { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '1.5e3px' },
+    ])).toBe(true);
+  });
+
+  it('rejects injection payloads using exponent-like syntax with prohibited characters', () => {
+    expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
+      { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '1e"onmouseover="alert(1)px' },
+    ])).toBe(false);
+    expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
+      { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '1e<svg>px' },
+    ])).toBe(false);
+    expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
+      { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '1e;javascript:alert(1)px' },
+    ])).toBe(false);
+  });
+
+  it('accepts a boneTree with multiple panel bones carrying scientific notation borderRadius', () => {
+    expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
+      { type: 'panel', x: 0, y: 0, width: 24, height: 24, borderRadius: '3.35544e+07px' },
+      { type: 'panel', x: 30, y: 0, width: 24, height: 24, borderRadius: '9.99999e+06px' },
+      { type: 'text', x: 60, y: 5, width: 100, height: 14 },
+    ])).toBe(true);
+  });
+
   it('rejects a panel bone carrying a 7th key beyond the 5 base keys plus borderRadius (SPEC-SEC-04)', () => {
     expect(store.put('card', 1, 'lg', { width: 200, height: 100 }, [
       { type: 'panel', x: 0, y: 0, width: 200, height: 100, borderRadius: '8px', onclick: 'alert(1)' },

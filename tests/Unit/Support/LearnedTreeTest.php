@@ -184,6 +184,59 @@ it('rejects a panel bone whose borderRadius does not match the strict pattern', 
     expect(LearnedTree::fromJson($json, 'orders-table', 'lg'))->toBeNull();
 });
 
+it('accepts a panel bone with scientific notation borderRadius (positive exponent)', function () {
+    $json = treeEnvelope([
+        ['type' => 'panel', 'x' => 0, 'y' => 0, 'width' => 200, 'height' => 100, 'borderRadius' => '3.35544e+07px'],
+    ]);
+
+    expect(LearnedTree::fromJson($json, 'orders-table', 'lg'))->not->toBeNull();
+});
+
+it('accepts a panel bone with scientific notation borderRadius (negative exponent)', function () {
+    $json = treeEnvelope([
+        ['type' => 'panel', 'x' => 0, 'y' => 0, 'width' => 200, 'height' => 100, 'borderRadius' => '1.5e-3px'],
+    ]);
+
+    expect(LearnedTree::fromJson($json, 'orders-table', 'lg'))->not->toBeNull();
+});
+
+it('accepts a panel bone with scientific notation borderRadius (unsigned exponent)', function () {
+    $json = treeEnvelope([
+        ['type' => 'panel', 'x' => 0, 'y' => 0, 'width' => 200, 'height' => 100, 'borderRadius' => '1.5e3px'],
+    ]);
+
+    expect(LearnedTree::fromJson($json, 'orders-table', 'lg'))->not->toBeNull();
+});
+
+it('rejects injection payloads using exponent-like syntax with prohibited characters', function () {
+    $json1 = treeEnvelope([
+        ['type' => 'panel', 'x' => 0, 'y' => 0, 'width' => 200, 'height' => 100, 'borderRadius' => '1e"onmouseover="alert(1)px'],
+    ]);
+    expect(LearnedTree::fromJson($json1, 'orders-table', 'lg'))->toBeNull();
+
+    $json2 = treeEnvelope([
+        ['type' => 'panel', 'x' => 0, 'y' => 0, 'width' => 200, 'height' => 100, 'borderRadius' => '1e<svg>px'],
+    ]);
+    expect(LearnedTree::fromJson($json2, 'orders-table', 'lg'))->toBeNull();
+
+    $json3 = treeEnvelope([
+        ['type' => 'panel', 'x' => 0, 'y' => 0, 'width' => 200, 'height' => 100, 'borderRadius' => '1e;javascript:alert(1)px'],
+    ]);
+    expect(LearnedTree::fromJson($json3, 'orders-table', 'lg'))->toBeNull();
+});
+
+it('accepts a boneTree with multiple panel bones carrying scientific notation borderRadius', function () {
+    $json = treeEnvelope([
+        ['type' => 'panel', 'x' => 0, 'y' => 0, 'width' => 24, 'height' => 24, 'borderRadius' => '3.35544e+07px'],
+        ['type' => 'panel', 'x' => 30, 'y' => 0, 'width' => 24, 'height' => 24, 'borderRadius' => '9.99999e+06px'],
+        ['type' => 'text', 'x' => 60, 'y' => 5, 'width' => 100, 'height' => 14],
+    ]);
+
+    $result = LearnedTree::fromJson($json, 'orders-table', 'lg');
+    expect($result)->not->toBeNull()
+        ->and($result['bones'])->toHaveCount(3);
+});
+
 it('rejects a panel bone whose borderRadius is not a string', function () {
     $json = treeEnvelope([
         ['type' => 'panel', 'x' => 0, 'y' => 0, 'width' => 200, 'height' => 100, 'borderRadius' => 8],
